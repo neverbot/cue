@@ -3,10 +3,20 @@ import Foundation
 
 @main
 struct CueResolve {
+    static let usage = "usage: cue-resolve <youtube-url-or-id>\n"
+
     static func main() async {
-        guard let input = CommandLine.arguments.dropFirst().first, let videoID = VideoID(url: input) else {
-            FileHandle.standardError.write(Data("usage: cue-resolve <youtube-url-or-id>\n".utf8))
+        let arguments = Array(CommandLine.arguments.dropFirst())
+        if arguments == ["-h"] || arguments == ["--help"] {
+            print(usage, terminator: "")
+            exit(0)
+        }
+        guard arguments.count == 1, let videoID = VideoID(url: arguments[0]) else {
+            FileHandle.standardError.write(Data(usage.utf8))
             exit(2)
+        }
+        if Extractor.bundledSolver == nil {
+            FileHandle.standardError.write(Data("warning: challenge solver scripts not found next to the executable; videos that need them will fail\n".utf8))
         }
 
         let started = Date()
@@ -16,9 +26,9 @@ struct CueResolve {
             let audio = resolution.selection.audio
             print("title:      \(resolution.title)")
             print("author:     \(resolution.author ?? "-")")
-            print("duration:   \(Int(resolution.duration ?? 0)) s")
+            print("duration:   \(resolution.duration.map { "\(Int($0)) s" } ?? "-")")
             print("formats:    \(resolution.formats.count), hls: \(resolution.hlsManifestURL != nil), captions: \(resolution.captionTrackCount)")
-            print("selected:   video itag \(video.itag) \(video.codec) \(video.height ?? 0)p | audio itag \(audio.itag) \(audio.codec)")
+            print("selected:   video itag \(video.itag) \(video.codec) \(video.height.map { "\($0)p" } ?? "-") | audio itag \(audio.itag) \(audio.codec)")
             print("user-agent: \(resolution.userAgent)")
             print("video:      \(video.url.absoluteString)")
             print("audio:      \(audio.url.absoluteString)")

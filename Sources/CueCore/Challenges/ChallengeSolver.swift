@@ -46,11 +46,14 @@ public final class ChallengeSolver: @unchecked Sendable {
     }
 
     /// Loads the scripts shipped with Cue: `Contents/Resources/ejs` inside the app, or the SwiftPM resource bundle
-    /// next to a command-line executable. Avoids `Bundle.module`, which terminates the process when its bundle is missing.
+    /// next to a command-line executable (following symlinks to it). Avoids `Bundle.module`, which terminates the
+    /// process when its bundle is missing.
     public static func bundled() throws -> ChallengeSolver {
         let candidates = [
             Bundle.main.resourceURL?.appendingPathComponent("ejs"),
             Bundle.main.bundleURL.appendingPathComponent("Cue_CueCore.bundle").appendingPathComponent("ejs"),
+            Bundle.main.executableURL?.resolvingSymlinksInPath().deletingLastPathComponent()
+                .appendingPathComponent("Cue_CueCore.bundle").appendingPathComponent("ejs"),
         ]
         for case let directory? in candidates {
             if let solver = try? ChallengeSolver(scriptsDirectory: directory) { return solver }
