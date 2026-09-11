@@ -8,8 +8,8 @@ struct PlayerResponse: Decodable, Sendable {
     }
 
     struct VideoDetails: Decodable, Sendable {
-        let videoId: String
-        let title: String
+        let videoId: String?
+        let title: String?
         let author: String?
         let channelId: String?
         let lengthSeconds: String?
@@ -26,7 +26,7 @@ struct PlayerResponse: Decodable, Sendable {
         let itag: Int
         let url: String?
         let signatureCipher: String?
-        let mimeType: String
+        let mimeType: String?
         let bitrate: Int?
         let width: Int?
         let height: Int?
@@ -44,8 +44,8 @@ struct PlayerResponse: Decodable, Sendable {
     }
 
     struct CaptionTrack: Decodable, Sendable {
-        let baseUrl: String
-        let languageCode: String
+        let baseUrl: String?
+        let languageCode: String?
         let kind: String?
     }
 
@@ -54,7 +54,7 @@ struct PlayerResponse: Decodable, Sendable {
     }
 
     struct Spec: Decodable, Sendable {
-        let spec: String
+        let spec: String?
     }
 
     let playabilityStatus: PlayabilityStatus
