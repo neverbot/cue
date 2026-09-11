@@ -4,7 +4,7 @@ import Testing
 
 @Suite struct ExtractorChallengeTests {
     let videoID = VideoID("dQw4w9WgXcQ")!
-    let selector = FormatSelector(maxHeight: 1080, av1HardwareDecoding: false)
+    let selector = FormatSelector(maxShortSide: 1080, av1HardwareDecoding: false)
 
     static let reversingCore = """
     var jsc = (input) => ({

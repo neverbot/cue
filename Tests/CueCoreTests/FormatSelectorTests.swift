@@ -25,30 +25,30 @@ import Testing
     }
 
     @Test func prefersH264WithoutAV1Hardware() throws {
-        let selection = try #require(FormatSelector(maxHeight: 1080, av1HardwareDecoding: false).select(from: catalogue))
+        let selection = try #require(FormatSelector(maxShortSide: 1080, av1HardwareDecoding: false).select(from: catalogue))
         #expect(selection.video.itag == 137)
         #expect(selection.audio.itag == 140)
     }
 
     @Test func prefersAV1WithHardwareAtSameHeight() throws {
-        let selection = try #require(FormatSelector(maxHeight: 1080, av1HardwareDecoding: true).select(from: catalogue))
+        let selection = try #require(FormatSelector(maxShortSide: 1080, av1HardwareDecoding: true).select(from: catalogue))
         #expect(selection.video.itag == 399)
     }
 
     @Test func respectsMaxHeight() throws {
-        let selection = try #require(FormatSelector(maxHeight: 720, av1HardwareDecoding: false).select(from: catalogue))
+        let selection = try #require(FormatSelector(maxShortSide: 720, av1HardwareDecoding: false).select(from: catalogue))
         #expect(selection.video.itag == 136)
     }
 
     @Test func fallsBackToOpusWhenNoAAC() throws {
         let withoutAAC = catalogue.filter { $0.itag != 140 }
-        let selection = try #require(FormatSelector(maxHeight: 1080, av1HardwareDecoding: false).select(from: withoutAAC))
+        let selection = try #require(FormatSelector(maxShortSide: 1080, av1HardwareDecoding: false).select(from: withoutAAC))
         #expect(selection.audio.itag == 251)
     }
 
     @Test func returnsNilWithoutUsableStreams() {
         let audioOnly = catalogue.filter { $0.kind == .audio }
-        #expect(FormatSelector(maxHeight: 1080, av1HardwareDecoding: false).select(from: audioOnly) == nil)
+        #expect(FormatSelector(maxShortSide: 1080, av1HardwareDecoding: false).select(from: audioOnly) == nil)
     }
 
     @Test func capsPortraitVideosByShortSide() throws {
@@ -58,7 +58,7 @@ import Testing
             stream(135, .video, "avc1", width: 480, height: 854, bitrate: 1_000_000),
             stream(140, .audio, "mp4a", bitrate: 130_000),
         ]
-        let selection = try #require(FormatSelector(maxHeight: 1080, av1HardwareDecoding: false).select(from: portrait))
+        let selection = try #require(FormatSelector(maxShortSide: 1080, av1HardwareDecoding: false).select(from: portrait))
         #expect(selection.video.itag == 137)
     }
 
@@ -67,7 +67,7 @@ import Testing
             stream(137, .video, "avc1", width: 1080, height: 1920, bitrate: 4_000_000),
             stream(140, .audio, "mp4a", bitrate: 130_000),
         ]
-        let selection = try #require(FormatSelector(maxHeight: 1080, av1HardwareDecoding: false).select(from: portrait))
+        let selection = try #require(FormatSelector(maxShortSide: 1080, av1HardwareDecoding: false).select(from: portrait))
         #expect(selection.video.itag == 137)
     }
 
@@ -77,7 +77,7 @@ import Testing
             stream(136, .video, "avc1", width: 1280, height: 720, bitrate: 2_000_000),
             stream(140, .audio, "mp4a", bitrate: 130_000),
         ]
-        let selection = try #require(FormatSelector(maxHeight: 1080, av1HardwareDecoding: false).select(from: formats))
+        let selection = try #require(FormatSelector(maxShortSide: 1080, av1HardwareDecoding: false).select(from: formats))
         #expect(selection.video.itag == 136)
     }
 
@@ -88,7 +88,7 @@ import Testing
             stream(137, .video, "avc1", width: 1920, height: 1080, bitrate: 4_000_000),
             stream(140, .audio, "mp4a", bitrate: 130_000),
         ]
-        let selection = try #require(FormatSelector(maxHeight: 1080, av1HardwareDecoding: true).select(from: formats))
+        let selection = try #require(FormatSelector(maxShortSide: 1080, av1HardwareDecoding: true).select(from: formats))
         #expect(selection.video.itag == 399)
     }
 
@@ -99,12 +99,12 @@ import Testing
             stream(137, .video, "avc1", width: 1920, height: 1080, bitrate: 4_000_000),
             stream(140, .audio, "mp4a", bitrate: 130_000),
         ]
-        let selection = try #require(FormatSelector(maxHeight: 1080, av1HardwareDecoding: true, allowsHighBitDepth: true).select(from: formats))
+        let selection = try #require(FormatSelector(maxShortSide: 1080, av1HardwareDecoding: true, allowsHighBitDepth: true).select(from: formats))
         #expect(selection.video.itag == 699)
     }
 
     @Test func acceptsOnlySelectableFormats() throws {
-        let selector = FormatSelector(maxHeight: 1080, av1HardwareDecoding: false)
+        let selector = FormatSelector(maxShortSide: 1080, av1HardwareDecoding: false)
         #expect(selector.accepts(stream(137, .video, "avc1", width: 1920, height: 1080, bitrate: 4_000_000)))
         #expect(selector.accepts(stream(140, .audio, "mp4a", bitrate: 130_000)))
         #expect(selector.accepts(stream(251, .audio, "opus", bitrate: 160_000)))
@@ -112,7 +112,7 @@ import Testing
         #expect(!selector.accepts(stream(401, .video, "avc1", width: 3840, height: 2160, bitrate: 20_000_000)))
         #expect(!selector.accepts(stream(399, .video, "av01", width: 1920, height: 1080, bitrate: 3_000_000)))
 
-        let av1Selector = FormatSelector(maxHeight: 1080, av1HardwareDecoding: true)
+        let av1Selector = FormatSelector(maxShortSide: 1080, av1HardwareDecoding: true)
         #expect(av1Selector.accepts(stream(399, .video, "av01", width: 1920, height: 1080, bitDepth: 8, bitrate: 3_000_000)))
         #expect(!av1Selector.accepts(stream(699, .video, "av01", width: 1920, height: 1080, bitDepth: 10, bitrate: 5_000_000)))
     }
@@ -123,7 +123,7 @@ import Testing
             stream(137, .video, "avc1", width: 1920, height: 1080, bitrate: 4_000_000),
             stream(140, .audio, "mp4a", bitrate: 130_000),
         ]
-        let selection = try #require(FormatSelector(maxHeight: 1080, av1HardwareDecoding: true).select(from: formats))
+        let selection = try #require(FormatSelector(maxShortSide: 1080, av1HardwareDecoding: true).select(from: formats))
         #expect(selection.video.itag == 137)
     }
 }

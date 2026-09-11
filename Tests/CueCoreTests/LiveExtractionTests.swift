@@ -8,7 +8,7 @@ struct LiveExtractionTests {
     func resolvesRealVideos(_ id: String) async throws {
         let videoID = try #require(VideoID(id))
         let solver = try ChallengeSolver(scriptsDirectory: ChallengeSolverTests.scriptsDirectory)
-        let extractor = Extractor(selector: FormatSelector(maxHeight: 1080, av1HardwareDecoding: false), solver: solver)
+        let extractor = Extractor(selector: FormatSelector(maxShortSide: 1080, av1HardwareDecoding: false), solver: solver)
         let resolution = try await extractor.resolve(videoID)
         #expect(resolution.selection.video.codec == "avc1")
         #expect(resolution.selection.audio.codec == "mp4a")

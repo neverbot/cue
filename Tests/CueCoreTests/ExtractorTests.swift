@@ -16,7 +16,7 @@ import Testing
         let http = try stubWithRealPlayer()
         let extractor = Extractor(
             http: http,
-            selector: FormatSelector(maxHeight: 1080, av1HardwareDecoding: false),
+            selector: FormatSelector(maxShortSide: 1080, av1HardwareDecoding: false),
             solver: nil,
             now: { Date(timeIntervalSince1970: 1_000_000) }
         )
@@ -46,7 +46,7 @@ import Testing
         let http = StubHTTPClient()
         http.on(path: "/watch", body: try Fixture.data("watch-page-snippet.html"))
         http.on(path: "/youtubei/v1/player", body: body)
-        let extractor = Extractor(http: http, selector: FormatSelector(maxHeight: 1080, av1HardwareDecoding: false), solver: nil)
+        let extractor = Extractor(http: http, selector: FormatSelector(maxShortSide: 1080, av1HardwareDecoding: false), solver: nil)
 
         let resolution = try await extractor.resolve(videoID)
 
@@ -55,7 +55,7 @@ import Testing
 
     @Test func sendsConsentCookieAndVisitorData() async throws {
         let http = try stubWithRealPlayer()
-        _ = try await Extractor(http: http, selector: FormatSelector(maxHeight: 1080, av1HardwareDecoding: false), solver: nil).resolve(videoID)
+        _ = try await Extractor(http: http, selector: FormatSelector(maxShortSide: 1080, av1HardwareDecoding: false), solver: nil).resolve(videoID)
 
         let requests = http.recorded
         #expect(requests.count == 2)
@@ -103,7 +103,7 @@ import Testing
 
     @Test func sendsWatchAndPlayerRequests() async throws {
         let http = try stubWithRealPlayer()
-        _ = try await Extractor(http: http, selector: FormatSelector(maxHeight: 1080, av1HardwareDecoding: false), solver: nil).resolve(videoID)
+        _ = try await Extractor(http: http, selector: FormatSelector(maxShortSide: 1080, av1HardwareDecoding: false), solver: nil).resolve(videoID)
 
         let requests = http.recorded
         try #require(requests.count == 2)
