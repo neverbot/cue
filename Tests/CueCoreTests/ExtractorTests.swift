@@ -75,4 +75,42 @@ import Testing
             try await Extractor(http: http, solver: nil).resolve(videoID)
         }
     }
+
+    @Test func sendsWatchAndPlayerRequests() async throws {
+        let http = try stubWithRealPlayer()
+        _ = try await Extractor(http: http, selector: FormatSelector(maxHeight: 1080, av1HardwareDecoding: false), solver: nil).resolve(videoID)
+
+        let requests = http.recorded
+        try #require(requests.count == 2)
+        #expect(requests[0].method == "GET")
+        #expect(requests[0].headers["User-Agent"] == ClientProfile.visionOS.userAgent)
+        #expect(requests[1].method == "POST")
+        #expect(requests[1].url == InnerTube.playerURL)
+    }
+
+    @Test func reportsPlayerHTTPErrors() async throws {
+        let http = StubHTTPClient()
+        http.on(path: "/watch", body: try Fixture.data("watch-page-snippet.html"))
+        http.on(path: "/youtubei/v1/player", status: 403, body: Data())
+
+        await #expect(throws: ExtractionError.httpStatus(403, InnerTube.playerURL)) {
+            try await Extractor(http: http, solver: nil).resolve(videoID)
+        }
+    }
+
+    @Test func reportsMissingFormats() async throws {
+        let http = StubHTTPClient()
+        http.on(path: "/watch", body: try Fixture.data("watch-page-snippet.html"))
+        http.on(path: "/youtubei/v1/player", body: Data(#"{"playabilityStatus":{"status":"OK"}}"#.utf8))
+
+        await #expect(throws: ExtractionError.noPlayableFormats) {
+            try await Extractor(http: http, solver: nil).resolve(videoID)
+        }
+    }
+
+    @Test func describesErrorsReadably() {
+        #expect(ExtractionError.unplayable(status: "ERROR", reason: nil).errorDescription == "This video can't be played: ERROR.")
+        #expect(ExtractionError.unplayable(status: "LOGIN_REQUIRED", reason: "Sign in").errorDescription == "This video can't be played: Sign in.")
+        #expect(ExtractionError.httpStatus(403, InnerTube.playerURL).errorDescription == "YouTube returned HTTP 403 for https://www.youtube.com/youtubei/v1/player?prettyPrint=false.")
+    }
 }

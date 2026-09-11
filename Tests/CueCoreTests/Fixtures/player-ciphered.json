@@ -1,0 +1,23 @@
+{
+  "playabilityStatus": {"status": "OK"},
+  "videoDetails": {"videoId": "dQw4w9WgXcQ", "title": "Ciphered fixture", "author": "Test", "lengthSeconds": "60"},
+  "streamingData": {
+    "adaptiveFormats": [
+      {
+        "itag": 137,
+        "mimeType": "video/mp4; codecs=\"avc1.640028\"",
+        "bitrate": 4000000,
+        "width": 1920,
+        "height": 1080,
+        "fps": 30,
+        "signatureCipher": "s=ABCDEF&sp=sig&url=https%3A%2F%2Frr1.googlevideo.com%2Fvideoplayback%3Fitag%3D137%26n%3Dabc%26expire%3D1"
+      },
+      {
+        "itag": 140,
+        "mimeType": "audio/mp4; codecs=\"mp4a.40.2\"",
+        "bitrate": 130000,
+        "url": "https://rr1.googlevideo.com/videoplayback?itag=140&n=xyz&expire=1"
+      }
+    ]
+  }
+}

@@ -62,7 +62,7 @@ extension StreamFormat {
                 signature = SignatureChallenge(encrypted: encrypted, parameter: parameter.isEmpty ? "signature" : parameter)
             }
         }
-        guard let urlString, let url = URL(string: urlString), url.scheme != nil, url.host() != nil else { return nil }
+        guard let urlString, let url = URL(string: urlString), url.scheme == "https", url.host() != nil else { return nil }
 
         self.init(
             itag: raw.itag,
@@ -85,16 +85,17 @@ extension StreamFormat {
         var items = components.percentEncodedQueryItems ?? []
 
         if let n = nChallenge {
-            guard let solvedN = solved[.n]?[n],
+            guard let solvedN = solved[.n]?[n], !solvedN.isEmpty,
                   let index = items.firstIndex(where: { $0.name == "n" }),
-                  let encodedN = Self.percentEncoded(solvedN)
+                  let encodedN = Self.percentEncoded(solvedN), !encodedN.isEmpty
             else { return nil }
             items[index] = URLQueryItem(name: "n", value: encodedN)
         }
         if let signature = signatureChallenge {
-            guard let solvedSignature = solved[.sig]?[signature.encrypted],
-                  let encodedName = Self.percentEncoded(signature.parameter),
-                  let encodedValue = Self.percentEncoded(solvedSignature)
+            guard let solvedSignature = solved[.sig]?[signature.encrypted], !solvedSignature.isEmpty,
+                  let encodedName = Self.percentEncoded(signature.parameter), !encodedName.isEmpty,
+                  !items.contains(where: { $0.name == encodedName }),
+                  let encodedValue = Self.percentEncoded(solvedSignature), !encodedValue.isEmpty
             else { return nil }
             items.append(URLQueryItem(name: encodedName, value: encodedValue))
         }

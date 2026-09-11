@@ -20,7 +20,24 @@ public enum ExtractionError: Error, Equatable, Sendable {
     case unexpectedResponse
     case unplayable(status: String, reason: String?)
     case noPlayableFormats
-    case challengesUnsupported
+    case challengeSolverUnavailable
+    case playerScriptNotFound
+    case unsolvedChallenges
+}
+
+extension ExtractionError: LocalizedError {
+    public var errorDescription: String? {
+        switch self {
+        case let .httpStatus(status, url): "YouTube returned HTTP \(status) for \(url.absoluteString)."
+        case .visitorDataNotFound: "The YouTube watch page did not include visitor data."
+        case .unexpectedResponse: "YouTube returned a response Cue could not read."
+        case let .unplayable(status, reason): "This video can't be played: \(reason ?? status)."
+        case .noPlayableFormats: "No stream this Mac can decode efficiently was found."
+        case .challengeSolverUnavailable: "This video needs YouTube's player challenges solved, but the solver is unavailable."
+        case .playerScriptNotFound: "YouTube's player script could not be located."
+        case .unsolvedChallenges: "YouTube's player challenges could not be solved."
+        }
+    }
 }
 
 public struct Extractor: Sendable {
@@ -33,7 +50,7 @@ public struct Extractor: Sendable {
         http: any HTTPClient = URLSessionHTTPClient(session: URLSession(configuration: .ephemeral)),
         client: ClientProfile = .visionOS,
         selector: FormatSelector = FormatSelector(),
-        solver: ChallengeSolver? = nil
+        solver: ChallengeSolver? = try? ChallengeSolver.bundled()
     ) {
         self.http = http
         self.client = client
@@ -63,8 +80,10 @@ public struct Extractor: Sendable {
             throw ExtractionError.unplayable(status: player.playabilityStatus.status, reason: player.playabilityStatus.reason)
         }
 
-        let formats = (player.streamingData?.adaptiveFormats ?? []).compactMap(StreamFormat.init(raw:))
-        guard !formats.contains(where: \.needsChallenges) else { throw ExtractionError.challengesUnsupported }
+        var formats = (player.streamingData?.adaptiveFormats ?? []).compactMap(StreamFormat.init(raw:))
+        if formats.contains(where: \.needsChallenges) {
+            formats = try await solveChallenges(in: formats)
+        }
         guard let selection = selector.select(from: formats) else { throw ExtractionError.noPlayableFormats }
 
         return Resolution(
@@ -79,5 +98,28 @@ public struct Extractor: Sendable {
             storyboardSpec: player.storyboards?.playerStoryboardSpecRenderer?.spec,
             userAgent: client.userAgent
         )
+    }
+
+    private func solveChallenges(in formats: [StreamFormat]) async throws -> [StreamFormat] {
+        guard let solver else { throw ExtractionError.challengeSolverUnavailable }
+
+        let iframe = try await http.send(HTTPRequest(url: PlayerScript.iframeAPIURL, headers: ["User-Agent": client.userAgent]))
+        guard iframe.status == 200,
+              let playerID = PlayerScript.playerID(inIframeAPI: String(decoding: iframe.body, as: UTF8.self))
+        else { throw ExtractionError.playerScriptNotFound }
+
+        let baseURL = PlayerScript.baseJSURL(playerID: playerID)
+        let base = try await http.send(HTTPRequest(url: baseURL, headers: ["User-Agent": client.userAgent]))
+        guard base.status == 200 else { throw ExtractionError.httpStatus(base.status, baseURL) }
+
+        let challenges: [ChallengeKind: [String]] = [
+            .n: Array(Set(formats.compactMap(\.nChallenge))).sorted(),
+            .sig: Array(Set(formats.compactMap { $0.signatureChallenge?.encrypted })).sorted(),
+        ]
+        let solved = try solver.solve(playerID: playerID, playerJS: String(decoding: base.body, as: UTF8.self), challenges: challenges)
+
+        let resolved = formats.compactMap { $0.needsChallenges ? $0.resolvingChallenges(solved) : $0 }
+        guard !resolved.isEmpty else { throw ExtractionError.unsolvedChallenges }
+        return resolved
     }
 }

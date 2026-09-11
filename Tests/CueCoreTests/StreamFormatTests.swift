@@ -99,4 +99,24 @@ import Testing
         let format = try #require(StreamFormat(raw: raw(#"{"itag":137,"mimeType":"video/mp4; codecs=\"avc1.640028\"","signatureCipher":"s=ABC&sp=sig&url=https%3A%2F%2Frr1.googlevideo.com%2Fvideoplayback%3Fitag%3D137%26n%3Dabc"}"#)))
         #expect(format.resolvingChallenges([.n: ["abc": "cba"]]) == nil)
     }
+
+    @Test(arguments: [
+        "http://rr1.googlevideo.com/videoplayback?itag=140",
+        "mailto:x",
+    ])
+    func rejectsNonHTTPSURLs(_ url: String) throws {
+        #expect(StreamFormat(raw: try raw(#"{"itag":140,"mimeType":"audio/mp4; codecs=\"mp4a.40.2\"","url":"\#(url)"}"#)) == nil)
+    }
+
+    @Test func refusesSignatureParameterThatCollidesWithQuery() throws {
+        let format = try #require(StreamFormat(raw: raw(#"{"itag":137,"mimeType":"video/mp4; codecs=\"avc1.640028\"","signatureCipher":"s=ABC&sp=n&url=https%3A%2F%2Frr1.googlevideo.com%2Fvideoplayback%3Fitag%3D137%26n%3Dabc"}"#)))
+        #expect(format.resolvingChallenges([.n: ["abc": "cba"], .sig: ["ABC": "CBA"]]) == nil)
+    }
+
+    @Test func refusesEmptySolutions() throws {
+        let nOnly = try #require(StreamFormat(raw: raw(#"{"itag":140,"mimeType":"audio/mp4; codecs=\"mp4a.40.2\"","url":"https://rr1.googlevideo.com/videoplayback?itag=140&n=zzz"}"#)))
+        let sigOnly = try #require(StreamFormat(raw: raw(#"{"itag":137,"mimeType":"video/mp4; codecs=\"avc1.640028\"","signatureCipher":"s=ABC&sp=sig&url=https%3A%2F%2Frr1.googlevideo.com%2Fvideoplayback%3Fitag%3D137"}"#)))
+        #expect(nOnly.resolvingChallenges([.n: ["zzz": ""]]) == nil)
+        #expect(sigOnly.resolvingChallenges([.sig: ["ABC": ""]]) == nil)
+    }
 }
