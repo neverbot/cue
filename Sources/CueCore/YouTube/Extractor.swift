@@ -1,7 +1,7 @@
 import Foundation
 import os
 
-private let logger = Logger(subsystem: "cue", category: "extraction")
+private let logger = Logger(subsystem: "com.neverbot.cue", category: "extraction")
 
 public struct Resolution: Sendable {
     public let videoID: VideoID
