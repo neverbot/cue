@@ -1,0 +1,24 @@
+# Agent / tooling context
+/.claude/
+/CLAUDE.md
+/claude.md
+
+# Superpowers specs and plans
+/docs/superpowers/
+
+# Throwaway artefacts (spikes, screenshots, probe dumps)
+/.scratch/
+
+# Swift / SwiftPM build output
+/.build/
+/.swiftpm/
+/build/
+/dist/
+*.o
+*.dSYM/
+
+# Vendored third-party downloads cached at build time
+/vendor/cache/
+
+# macOS
+.DS_Store
