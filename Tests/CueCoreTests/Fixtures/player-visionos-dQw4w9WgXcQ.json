@@ -1,0 +1,331 @@
+{
+  "playabilityStatus": {
+    "status": "OK"
+  },
+  "videoDetails": {
+    "videoId": "dQw4w9WgXcQ",
+    "title": "Rick Astley - Never Gonna Give You Up (Official Video) (4K Remaster)",
+    "author": "Rick Astley",
+    "channelId": "UCuAXFkgsw1L7xaCfnd5JJOw",
+    "lengthSeconds": "213"
+  },
+  "streamingData": {
+    "expiresInSeconds": "21540",
+    "adaptiveFormats": [
+      {
+        "itag": 313,
+        "mimeType": "video/webm; codecs=\"vp9\"",
+        "bitrate": 18076636,
+        "width": 3840,
+        "height": 2160,
+        "fps": 25,
+        "contentLength": "358608461",
+        "qualityLabel": "2160p",
+        "url": "https://rr1---sn-test.googlevideo.com/videoplayback?itag=313&expire=0"
+      },
+      {
+        "itag": 401,
+        "mimeType": "video/mp4; codecs=\"av01.0.12M.08\"",
+        "bitrate": 17400774,
+        "width": 3840,
+        "height": 2160,
+        "fps": 25,
+        "contentLength": "240334643",
+        "qualityLabel": "2160p",
+        "url": "https://rr1---sn-test.googlevideo.com/videoplayback?itag=401&expire=0"
+      },
+      {
+        "itag": 271,
+        "mimeType": "video/webm; codecs=\"vp9\"",
+        "bitrate": 8978328,
+        "width": 2560,
+        "height": 1440,
+        "fps": 25,
+        "contentLength": "151103346",
+        "qualityLabel": "1440p",
+        "url": "https://rr1---sn-test.googlevideo.com/videoplayback?itag=271&expire=0"
+      },
+      {
+        "itag": 400,
+        "mimeType": "video/mp4; codecs=\"av01.0.12M.08\"",
+        "bitrate": 7755221,
+        "width": 2560,
+        "height": 1440,
+        "fps": 25,
+        "contentLength": "122168277",
+        "qualityLabel": "1440p",
+        "url": "https://rr1---sn-test.googlevideo.com/videoplayback?itag=400&expire=0"
+      },
+      {
+        "itag": 137,
+        "mimeType": "video/mp4; codecs=\"avc1.640028\"",
+        "bitrate": 4334157,
+        "width": 1920,
+        "height": 1080,
+        "fps": 25,
+        "contentLength": "80911999",
+        "qualityLabel": "1080p",
+        "url": "https://rr1---sn-test.googlevideo.com/videoplayback?itag=137&expire=0"
+      },
+      {
+        "itag": 248,
+        "mimeType": "video/webm; codecs=\"vp9\"",
+        "bitrate": 1549172,
+        "width": 1920,
+        "height": 1080,
+        "fps": 25,
+        "contentLength": "30846580",
+        "qualityLabel": "1080p",
+        "url": "https://rr1---sn-test.googlevideo.com/videoplayback?itag=248&expire=0"
+      },
+      {
+        "itag": 399,
+        "mimeType": "video/mp4; codecs=\"av01.0.08M.08\"",
+        "bitrate": 1594543,
+        "width": 1920,
+        "height": 1080,
+        "fps": 25,
+        "contentLength": "30415996",
+        "qualityLabel": "1080p",
+        "url": "https://rr1---sn-test.googlevideo.com/videoplayback?itag=399&expire=0"
+      },
+      {
+        "itag": 136,
+        "mimeType": "video/mp4; codecs=\"avc1.4d401f\"",
+        "bitrate": 1058310,
+        "width": 1280,
+        "height": 720,
+        "fps": 25,
+        "contentLength": "26455880",
+        "qualityLabel": "720p",
+        "url": "https://rr1---sn-test.googlevideo.com/videoplayback?itag=136&expire=0"
+      },
+      {
+        "itag": 247,
+        "mimeType": "video/webm; codecs=\"vp9\"",
+        "bitrate": 867871,
+        "width": 1280,
+        "height": 720,
+        "fps": 25,
+        "contentLength": "17686717",
+        "qualityLabel": "720p",
+        "url": "https://rr1---sn-test.googlevideo.com/videoplayback?itag=247&expire=0"
+      },
+      {
+        "itag": 398,
+        "mimeType": "video/mp4; codecs=\"av01.0.05M.08\"",
+        "bitrate": 1012348,
+        "width": 1280,
+        "height": 720,
+        "fps": 25,
+        "contentLength": "17593076",
+        "qualityLabel": "720p",
+        "url": "https://rr1---sn-test.googlevideo.com/videoplayback?itag=398&expire=0"
+      },
+      {
+        "itag": 135,
+        "mimeType": "video/mp4; codecs=\"avc1.4d401e\"",
+        "bitrate": 690764,
+        "width": 854,
+        "height": 480,
+        "fps": 25,
+        "contentLength": "14103519",
+        "qualityLabel": "480p",
+        "url": "https://rr1---sn-test.googlevideo.com/videoplayback?itag=135&expire=0"
+      },
+      {
+        "itag": 244,
+        "mimeType": "video/webm; codecs=\"vp9\"",
+        "bitrate": 466632,
+        "width": 854,
+        "height": 480,
+        "fps": 25,
+        "contentLength": "9381481",
+        "qualityLabel": "480p",
+        "url": "https://rr1---sn-test.googlevideo.com/videoplayback?itag=244&expire=0"
+      },
+      {
+        "itag": 397,
+        "mimeType": "video/mp4; codecs=\"av01.0.04M.08\"",
+        "bitrate": 525728,
+        "width": 854,
+        "height": 480,
+        "fps": 25,
+        "contentLength": "9874826",
+        "qualityLabel": "480p",
+        "url": "https://rr1---sn-test.googlevideo.com/videoplayback?itag=397&expire=0"
+      },
+      {
+        "itag": 134,
+        "mimeType": "video/mp4; codecs=\"avc1.4d401e\"",
+        "bitrate": 450863,
+        "width": 640,
+        "height": 360,
+        "fps": 25,
+        "contentLength": "8390921",
+        "qualityLabel": "360p",
+        "url": "https://rr1---sn-test.googlevideo.com/videoplayback?itag=134&expire=0"
+      },
+      {
+        "itag": 243,
+        "mimeType": "video/webm; codecs=\"vp9\"",
+        "bitrate": 288453,
+        "width": 640,
+        "height": 360,
+        "fps": 25,
+        "contentLength": "6014765",
+        "qualityLabel": "360p",
+        "url": "https://rr1---sn-test.googlevideo.com/videoplayback?itag=243&expire=0"
+      },
+      {
+        "itag": 396,
+        "mimeType": "video/mp4; codecs=\"av01.0.01M.08\"",
+        "bitrate": 304466,
+        "width": 640,
+        "height": 360,
+        "fps": 25,
+        "contentLength": "5685561",
+        "qualityLabel": "360p",
+        "url": "https://rr1---sn-test.googlevideo.com/videoplayback?itag=396&expire=0"
+      },
+      {
+        "itag": 133,
+        "mimeType": "video/mp4; codecs=\"avc1.4d4015\"",
+        "bitrate": 236224,
+        "width": 426,
+        "height": 240,
+        "fps": 25,
+        "contentLength": "4310122",
+        "qualityLabel": "240p",
+        "url": "https://rr1---sn-test.googlevideo.com/videoplayback?itag=133&expire=0"
+      },
+      {
+        "itag": 242,
+        "mimeType": "video/webm; codecs=\"vp9\"",
+        "bitrate": 131647,
+        "width": 426,
+        "height": 240,
+        "fps": 25,
+        "contentLength": "2706929",
+        "qualityLabel": "240p",
+        "url": "https://rr1---sn-test.googlevideo.com/videoplayback?itag=242&expire=0"
+      },
+      {
+        "itag": 395,
+        "mimeType": "video/mp4; codecs=\"av01.0.00M.08\"",
+        "bitrate": 159709,
+        "width": 426,
+        "height": 240,
+        "fps": 25,
+        "contentLength": "3095447",
+        "qualityLabel": "240p",
+        "url": "https://rr1---sn-test.googlevideo.com/videoplayback?itag=395&expire=0"
+      },
+      {
+        "itag": 160,
+        "mimeType": "video/mp4; codecs=\"avc1.4d400c\"",
+        "bitrate": 109973,
+        "width": 256,
+        "height": 144,
+        "fps": 25,
+        "contentLength": "2058142",
+        "qualityLabel": "144p",
+        "url": "https://rr1---sn-test.googlevideo.com/videoplayback?itag=160&expire=0"
+      },
+      {
+        "itag": 278,
+        "mimeType": "video/webm; codecs=\"vp9\"",
+        "bitrate": 68500,
+        "width": 256,
+        "height": 144,
+        "fps": 25,
+        "contentLength": "1540844",
+        "qualityLabel": "144p",
+        "url": "https://rr1---sn-test.googlevideo.com/videoplayback?itag=278&expire=0"
+      },
+      {
+        "itag": 394,
+        "mimeType": "video/mp4; codecs=\"av01.0.00M.08\"",
+        "bitrate": 83289,
+        "width": 256,
+        "height": 144,
+        "fps": 25,
+        "contentLength": "1505504",
+        "qualityLabel": "144p",
+        "url": "https://rr1---sn-test.googlevideo.com/videoplayback?itag=394&expire=0"
+      },
+      {
+        "itag": 139,
+        "mimeType": "audio/mp4; codecs=\"mp4a.40.5\"",
+        "bitrate": 50152,
+        "contentLength": "1300631",
+        "url": "https://rr1---sn-test.googlevideo.com/videoplayback?itag=139&expire=0"
+      },
+      {
+        "itag": 140,
+        "mimeType": "audio/mp4; codecs=\"mp4a.40.2\"",
+        "bitrate": 130677,
+        "contentLength": "3449447",
+        "url": "https://rr1---sn-test.googlevideo.com/videoplayback?itag=140&expire=0"
+      },
+      {
+        "itag": 249,
+        "mimeType": "audio/webm; codecs=\"opus\"",
+        "bitrate": 49496,
+        "contentLength": "1231355",
+        "url": "https://rr1---sn-test.googlevideo.com/videoplayback?itag=249&expire=0"
+      },
+      {
+        "itag": 250,
+        "mimeType": "audio/webm; codecs=\"opus\"",
+        "bitrate": 65508,
+        "contentLength": "1628559",
+        "url": "https://rr1---sn-test.googlevideo.com/videoplayback?itag=250&expire=0"
+      },
+      {
+        "itag": 251,
+        "mimeType": "audio/webm; codecs=\"opus\"",
+        "bitrate": 136544,
+        "contentLength": "3433755",
+        "url": "https://rr1---sn-test.googlevideo.com/videoplayback?itag=251&expire=0"
+      }
+    ],
+    "hlsManifestUrl": "https://manifest.googlevideo.com/api/manifest/hls_variant/id/test/source/youtube/file/index.m3u8"
+  },
+  "captions": {
+    "playerCaptionsTracklistRenderer": {
+      "captionTracks": [
+        {
+          "baseUrl": "https://www.youtube.com/api/timedtext?v=dQw4w9WgXcQ&lang=en",
+          "languageCode": "en"
+        },
+        {
+          "baseUrl": "https://www.youtube.com/api/timedtext?v=dQw4w9WgXcQ&lang=en",
+          "languageCode": "en",
+          "kind": "asr"
+        },
+        {
+          "baseUrl": "https://www.youtube.com/api/timedtext?v=dQw4w9WgXcQ&lang=de-DE",
+          "languageCode": "de-DE"
+        },
+        {
+          "baseUrl": "https://www.youtube.com/api/timedtext?v=dQw4w9WgXcQ&lang=ja",
+          "languageCode": "ja"
+        },
+        {
+          "baseUrl": "https://www.youtube.com/api/timedtext?v=dQw4w9WgXcQ&lang=pt-BR",
+          "languageCode": "pt-BR"
+        },
+        {
+          "baseUrl": "https://www.youtube.com/api/timedtext?v=dQw4w9WgXcQ&lang=es-419",
+          "languageCode": "es-419"
+        }
+      ]
+    }
+  },
+  "storyboards": {
+    "playerStoryboardSpecRenderer": {
+      "spec": "https://i.ytimg.com/sb/dQw4w9WgXcQ/storyboard3_L$L/$N.jpg|48#27#100#10#10#0#default#rs$test"
+    }
+  }
+}
