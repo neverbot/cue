@@ -89,8 +89,8 @@ public struct Extractor: Sendable {
             formats = try await solveChallenges(in: offered)
         }
         guard let selection = selector.select(from: formats) else {
-            // Formats dropped for unsolved challenges may have been the only playable ones.
-            throw formats.count < offered.count ? ExtractionError.unsolvedChallenges : ExtractionError.noPlayableFormats
+            // Blame unsolved challenges only when the formats they cost could have been selected.
+            throw selector.select(from: offered) != nil ? ExtractionError.unsolvedChallenges : ExtractionError.noPlayableFormats
         }
 
         return Resolution(

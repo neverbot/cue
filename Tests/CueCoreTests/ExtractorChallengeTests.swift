@@ -120,4 +120,18 @@ import Testing
             try await Extractor(http: http, selector: selector, solver: solver).resolve(videoID)
         }
     }
+
+    @Test func reportsNoPlayableFormatsWhenDroppedFormatsWouldNotHelp() async throws {
+        let player = #"{"playabilityStatus":{"status":"OK"},"streamingData":{"adaptiveFormats":[{"itag":248,"mimeType":"video/webm; codecs=\"vp09.00.40.08\"","bitrate":2000000,"height":1080,"url":"https://rr1.googlevideo.com/videoplayback?itag=248"},{"itag":140,"mimeType":"audio/mp4; codecs=\"mp4a.40.2\"","bitrate":130000,"url":"https://rr1.googlevideo.com/videoplayback?itag=140&n=xyz"}]}}"#
+        let http = StubHTTPClient()
+        http.on(path: "/watch", body: try Fixture.data("watch-page-snippet.html"))
+        http.on(path: "/youtubei/v1/player", body: Data(player.utf8))
+        http.on(path: "/iframe_api", body: try Fixture.data("iframe-api-snippet.js"))
+        http.on(pathSuffix: "/base.js", body: Data("var player = 1;".utf8))
+        let solver = ChallengeSolver(libSource: "var lib = {};", coreSource: Self.emptyCore)
+
+        await #expect(throws: ExtractionError.noPlayableFormats) {
+            try await Extractor(http: http, selector: selector, solver: solver).resolve(videoID)
+        }
+    }
 }

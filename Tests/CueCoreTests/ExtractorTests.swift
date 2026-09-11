@@ -109,8 +109,8 @@ import Testing
     }
 
     @Test func describesErrorsReadably() {
-        #expect(ExtractionError.unplayable(status: "ERROR", reason: nil).errorDescription == "This video can't be played: ERROR.")
-        #expect(ExtractionError.unplayable(status: "LOGIN_REQUIRED", reason: "Sign in").errorDescription == "This video can't be played: Sign in.")
-        #expect(ExtractionError.httpStatus(403, InnerTube.playerURL).errorDescription == "YouTube returned HTTP 403 for https://www.youtube.com/youtubei/v1/player?prettyPrint=false.")
+        #expect((ExtractionError.unplayable(status: "ERROR", reason: nil) as any Error).localizedDescription == "This video can't be played: ERROR.")
+        #expect((ExtractionError.unplayable(status: "LOGIN_REQUIRED", reason: "Sign in") as any Error).localizedDescription == "This video can't be played: Sign in.")
+        #expect((ExtractionError.httpStatus(403, InnerTube.playerURL) as any Error).localizedDescription == "YouTube returned HTTP 403 for https://www.youtube.com/youtubei/v1/player?prettyPrint=false.")
     }
 }

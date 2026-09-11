@@ -97,10 +97,10 @@ import Testing
     }
 
     @Test func describesErrorsReadably() {
-        #expect(ChallengeSolverError.scriptsMissing.errorDescription == "Cue's challenge solver scripts are missing.")
-        #expect(ChallengeSolverError.javaScriptException("Error: boom").errorDescription == "YouTube's player challenges could not be solved: Error: boom.")
-        #expect(ChallengeSolverError.malformedOutput.errorDescription == "YouTube's player challenge solver returned output Cue could not read.")
-        #expect(ChallengeSolverError.solverFailed(kind: "n", message: "Failed to extract n function").errorDescription == "YouTube's n challenge could not be solved: Failed to extract n function.")
+        #expect((ChallengeSolverError.scriptsMissing as any Error).localizedDescription == "Cue's challenge solver scripts are missing.")
+        #expect((ChallengeSolverError.javaScriptException("Error: boom") as any Error).localizedDescription == "YouTube's player challenges could not be solved: Error: boom.")
+        #expect((ChallengeSolverError.malformedOutput as any Error).localizedDescription == "YouTube's player challenge solver returned output Cue could not read.")
+        #expect((ChallengeSolverError.solverFailed(kind: "n", message: "Failed to extract n function") as any Error).localizedDescription == "YouTube's n challenge could not be solved: Failed to extract n function.")
     }
 
     @Test func reportsTheFirstJavaScriptException() throws {
