@@ -6,11 +6,16 @@ let package = Package(
     platforms: [.macOS(.v14)],
     products: [
         .library(name: "CueCore", targets: ["CueCore"]),
+        .executable(name: "cue-resolve", targets: ["cue-resolve"]),
     ],
     targets: [
         .target(
             name: "CueCore",
             resources: [.copy("Resources/ejs")]
+        ),
+        .executableTarget(
+            name: "cue-resolve",
+            dependencies: ["CueCore"]
         ),
         .testTarget(
             name: "CueCoreTests",
