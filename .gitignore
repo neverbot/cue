@@ -9,6 +9,9 @@
 # Throwaway artefacts (spikes, screenshots, probe dumps)
 /.scratch/
 
+# Local test data
+*.txt
+
 # Swift / SwiftPM build output
 /.build/
 /.swiftpm/
