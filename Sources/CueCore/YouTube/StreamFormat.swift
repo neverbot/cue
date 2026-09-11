@@ -58,10 +58,11 @@ extension StreamFormat {
             let items = URLComponents(string: "?" + cipher)?.queryItems ?? []
             urlString = items.first { $0.name == "url" }?.value
             if let encrypted = items.first(where: { $0.name == "s" })?.value {
-                signature = SignatureChallenge(encrypted: encrypted, parameter: items.first { $0.name == "sp" }?.value ?? "signature")
+                let parameter = items.first { $0.name == "sp" }?.value ?? ""
+                signature = SignatureChallenge(encrypted: encrypted, parameter: parameter.isEmpty ? "signature" : parameter)
             }
         }
-        guard let urlString, let url = URL(string: urlString) else { return nil }
+        guard let urlString, let url = URL(string: urlString), url.scheme != nil, url.host() != nil else { return nil }
 
         self.init(
             itag: raw.itag,
@@ -84,12 +85,18 @@ extension StreamFormat {
         var items = components.percentEncodedQueryItems ?? []
 
         if let n = nChallenge {
-            guard let solvedN = solved[.n]?[n], let index = items.firstIndex(where: { $0.name == "n" }) else { return nil }
-            items[index] = URLQueryItem(name: "n", value: Self.percentEncoded(solvedN))
+            guard let solvedN = solved[.n]?[n],
+                  let index = items.firstIndex(where: { $0.name == "n" }),
+                  let encodedN = Self.percentEncoded(solvedN)
+            else { return nil }
+            items[index] = URLQueryItem(name: "n", value: encodedN)
         }
         if let signature = signatureChallenge {
-            guard let solvedSignature = solved[.sig]?[signature.encrypted] else { return nil }
-            items.append(URLQueryItem(name: signature.parameter, value: Self.percentEncoded(solvedSignature)))
+            guard let solvedSignature = solved[.sig]?[signature.encrypted],
+                  let encodedName = Self.percentEncoded(signature.parameter),
+                  let encodedValue = Self.percentEncoded(solvedSignature)
+            else { return nil }
+            items.append(URLQueryItem(name: encodedName, value: encodedValue))
         }
         components.percentEncodedQueryItems = items
         guard let rewritten = components.url else { return nil }
@@ -101,9 +108,9 @@ extension StreamFormat {
         )
     }
 
-    private static func percentEncoded(_ value: String) -> String {
+    private static func percentEncoded(_ value: String) -> String? {
         var allowed = CharacterSet.urlQueryAllowed
         allowed.remove(charactersIn: "&=+?/")
-        return value.addingPercentEncoding(withAllowedCharacters: allowed) ?? value
+        return value.addingPercentEncoding(withAllowedCharacters: allowed)
     }
 }
