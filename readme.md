@@ -9,7 +9,7 @@ Cue keeps a personal queue of the YouTube videos you want to watch and plays the
 ## Why Cue
 
 - **No ads, ever.** Cue does not use the embedded YouTube player. It resolves the video streams itself and plays them natively.
-- **Light on your Mac.** Hardware decoding is the default. Cue picks the codec your chip decodes in silicon: AV1 on Macs that support it, H.264 otherwise. It never picks VP9, which would fall back to the CPU.
+- **Light on your Mac.** Hardware decoding is the default. Cue picks a stream your chip decodes in silicon: AV1 on Macs that support it, H.264, or VP9 where VideoToolbox decodes it. Software decoding is only a last resort for videos that offer nothing else.
 - **Native and self-contained.** One app with everything inside. There is nothing to install at first launch, and no bundled Python or JavaScript runtime. The little JavaScript YouTube requires runs in macOS's own JavaScriptCore.
 - **Your queue, your data.** No account and no sign-in. Your list lives on your Mac and can be imported and exported.
 - **Open source.** MIT licensed, and built entirely from the command line.
@@ -19,7 +19,7 @@ Cue keeps a personal queue of the YouTube videos you want to watch and plays the
 | Feature | Status |
 |---|---|
 | Resolve playable streams natively (no embed player, no external tools) | Available in `CueCore` |
-| Hardware-friendly format selection (AV1 with hardware support, otherwise H.264; AAC audio) | Available in `CueCore` |
+| Hardware-first format selection (AV1, H.264 or VP9 in hardware; software VP9/AV1 only as a fallback; AAC audio) | Available in `CueCore` |
 | `cue-resolve` command-line tool | Available |
 | Native player (libmpv), keyboard controls, resume position | Planned |
 | Queue sidebar with counter and total pending time; paste, drag & drop, `cue://` links | Planned |
@@ -93,7 +93,7 @@ YouTube does not offer a public API for playable streams. Cue follows the same p
 1. **Parse the input.** `VideoID` accepts video ids and the common URL forms (`watch`, `youtu.be`, `shorts`, `embed`, `live`).
 2. **Ask YouTube for the player response.** `WatchPage` reads a visitor token from the watch page. `InnerTube` then requests `/youtubei/v1/player` with a client profile that currently returns directly playable formats.
 3. **Solve playback challenges when needed.** Some stream URLs carry obfuscated parameters (`n` and signature) that must be transformed by YouTube's own player JavaScript. `PlayerScript` locates the current player. `ChallengeSolver` runs yt-dlp's EJS solver scripts in macOS's JavaScriptCore and caches the preprocessed player.
-4. **Pick the streams.** `FormatSelector` chooses the best video your Mac decodes in hardware (up to 1080p by default) and the best AAC audio track.
+4. **Pick the streams.** `FormatSelector` chooses the best video your Mac decodes in hardware (up to 1080p by default) and the best AAC audio track. Only when a video offers no hardware-friendly stream does it fall back to software decoding (VP9 up to 1080p, then AV1 up to 720p), and it reports which way it went.
 
 The result is a `Resolution`: title, author, duration, the selected video and audio streams, and the user agent the streams must be requested with.
 
