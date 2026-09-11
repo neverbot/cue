@@ -71,6 +71,19 @@ import Testing
         #expect(try solver.solve(playerID: "p1", playerJS: "p1", challenges: [.sig: ["s"]])[.sig] == ["s": "player"])
     }
 
+    @Test func fallsBackToThePinnedPlayerAfterEviction() throws {
+        let solver = Self.reverseSolver()
+        _ = try solver.solve(playerID: "p1", playerJS: "one", challenges: [.sig: ["s"]])
+        let pinned = try #require(solver.cachedPlayer("p1"))
+        for id in ["p2", "p3"] {
+            _ = try solver.solve(playerID: id, playerJS: id, challenges: [.sig: ["s"]])
+        }
+        #expect(!solver.hasPreprocessedPlayer("p1"))
+
+        let solved = try solver.solve(playerID: "p1", playerJS: "", challenges: [.sig: ["s"]], pinnedPreprocessed: pinned)
+        #expect(solved[.sig] == ["s": "preprocessed"])
+    }
+
     @Test func solvesConcurrently() throws {
         let solver = Self.reverseSolver()
         let results = DispatchQueue.concurrentPerformResults(count: 8) { index in
@@ -164,11 +177,16 @@ import Testing
 
     @Test func stopsWhenCancelled() async throws {
         let solver = Self.reverseSolver()
+        let fetches = Counter()
         let task = Task {
             withUnsafeCurrentTask { $0?.cancel() }
-            return try await solver.solve(playerID: "p1", challenges: [.n: ["abc"]]) { "player-code" }
+            return try await solver.solve(playerID: "p1", challenges: [.n: ["abc"]]) {
+                fetches.increment()
+                return "player-code"
+            }
         }
         await #expect(throws: CancellationError.self) { try await task.value }
+        #expect(fetches.value == 0)
     }
 
     @Test func queuedColdSolvesReuseTheFirstResult() async throws {

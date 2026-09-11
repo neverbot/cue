@@ -6,6 +6,7 @@ public struct Resolution: Sendable {
     public let author: String?
     public let duration: TimeInterval?
     public let selection: FormatSelection
+    /// Playable formats: unciphered formats plus ciphered formats the selector accepts, with their challenges solved.
     public let formats: [StreamFormat]
     public let hlsManifestURL: URL?
     public let captionTrackCount: Int

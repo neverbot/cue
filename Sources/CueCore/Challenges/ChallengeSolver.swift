@@ -64,13 +64,23 @@ public final class ChallengeSolver: @unchecked Sendable {
     }
 
     public func solve(playerID: String, playerJS: String, challenges: [ChallengeKind: [String]]) throws -> [ChallengeKind: [String: String]] {
+        try solve(playerID: playerID, playerJS: playerJS, challenges: challenges, pinnedPreprocessed: nil)
+    }
+
+    /// `pinnedPreprocessed` is used when the cache no longer holds `playerID` (evicted after the caller checked it).
+    func solve(
+        playerID: String,
+        playerJS: String,
+        challenges: [ChallengeKind: [String]],
+        pinnedPreprocessed: String?
+    ) throws -> [ChallengeKind: [String: String]] {
         let kinds = ChallengeKind.allCases.filter { !(challenges[$0] ?? []).isEmpty }
         guard !kinds.isEmpty else { return [:] }
 
         var input: [String: Any] = [
             "requests": kinds.map { ["type": $0.rawValue, "challenges": challenges[$0] ?? []] },
         ]
-        if let preprocessed = cachedPlayer(playerID) {
+        if let preprocessed = cachedPlayer(playerID) ?? pinnedPreprocessed {
             input["type"] = "preprocessed"
             input["preprocessed_player"] = preprocessed
         } else {
@@ -105,20 +115,24 @@ public final class ChallengeSolver: @unchecked Sendable {
         cachedPlayer(playerID) != nil
     }
 
-    /// Solves challenges one run at a time on a private queue, off the Swift concurrency pool.
-    /// `playerSource` is only called when the preprocessed player is not cached. Runs queued behind a cold solve for the
-    /// same player reuse its cached result.
+    /// Solves challenges one run at a time on a private queue, off the Swift concurrency pool: runs for different
+    /// players queue behind each other too, so a cold solve for one player delays others — deliberate, it caps CPU.
+    /// Cancellation is honoured before the player download and before queueing; once queued, a run completes and
+    /// still populates the cache. `playerSource` is only called when the preprocessed player is not cached.
     public func solve(
         playerID: String,
         challenges: [ChallengeKind: [String]],
         playerSource: @Sendable () async throws -> String
     ) async throws -> [ChallengeKind: [String: String]] {
         try Task.checkCancellation()
-        let playerJS = hasPreprocessedPlayer(playerID) ? "" : try await playerSource()
+        let pinned = cachedPlayer(playerID)
+        let playerJS = pinned == nil ? try await playerSource() : ""
         try Task.checkCancellation()
         return try await withCheckedThrowingContinuation { continuation in
             queue.async {
-                continuation.resume(with: Result { try self.solve(playerID: playerID, playerJS: playerJS, challenges: challenges) })
+                continuation.resume(with: Result {
+                    try self.solve(playerID: playerID, playerJS: playerJS, challenges: challenges, pinnedPreprocessed: pinned)
+                })
             }
         }
     }

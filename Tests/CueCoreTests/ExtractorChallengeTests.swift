@@ -195,6 +195,24 @@ import Testing
         #expect(http.recorded.map(\.url.path) == ["/watch", "/youtubei/v1/player"])
     }
 
+    @Test func reportsNoPlayableFormatsWhenOnlyUnselectableFormatsNeedChallenges() async throws {
+        let player = #"""
+        {"playabilityStatus":{"status":"OK"},"streamingData":{"adaptiveFormats":[
+        {"itag":248,"mimeType":"video/webm; codecs=\"vp9\"","bitrate":2500000,"width":1920,"height":1080,"url":"https://rr1.googlevideo.com/videoplayback?itag=248&n=skipme"},
+        {"itag":140,"mimeType":"audio/mp4; codecs=\"mp4a.40.2\"","bitrate":130000,"url":"https://rr1.googlevideo.com/videoplayback?itag=140"}
+        ]}}
+        """#
+        let http = StubHTTPClient()
+        http.on(path: "/watch", body: try Fixture.data("watch-page-snippet.html"))
+        http.on(path: "/youtubei/v1/player", body: Data(player.utf8))
+        let solver = ChallengeSolver(libSource: "var lib = {};", coreSource: Self.reversingCore)
+
+        await #expect(throws: ExtractionError.noPlayableFormats) {
+            try await Extractor(http: http, selector: selector, solver: solver).resolve(videoID)
+        }
+        #expect(http.recorded.map(\.url.path) == ["/watch", "/youtubei/v1/player"])
+    }
+
     @Test func reportsNoPlayableFormatsWhenDroppedFormatsWouldNotHelp() async throws {
         let player = #"{"playabilityStatus":{"status":"OK"},"streamingData":{"adaptiveFormats":[{"itag":248,"mimeType":"video/webm; codecs=\"vp09.00.40.08\"","bitrate":2000000,"height":1080,"url":"https://rr1.googlevideo.com/videoplayback?itag=248"},{"itag":140,"mimeType":"audio/mp4; codecs=\"mp4a.40.2\"","bitrate":130000,"url":"https://rr1.googlevideo.com/videoplayback?itag=140&n=xyz"}]}}"#
         let http = StubHTTPClient()
