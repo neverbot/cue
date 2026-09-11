@@ -37,6 +37,21 @@ import Testing
     });
     """
 
+    /// Like `reversingCore`, but returns a preprocessed player so the solver caches it.
+    static let cachingCore = """
+    var jsc = (input) => {
+      const out = {
+        type: 'result',
+        responses: input.requests.map((r) => ({
+          type: 'result',
+          data: Object.fromEntries(r.challenges.map((c) => [c, c.split('').reverse().join('')])),
+        })),
+      };
+      if (input.type === 'player') { out.preprocessed_player = 'cached'; }
+      return out;
+    };
+    """
+
     func stub(iframeStatus: Int = 200, baseStatus: Int = 200) throws -> StubHTTPClient {
         let http = StubHTTPClient()
         http.on(path: "/watch", body: try Fixture.data("watch-page-snippet.html"))
@@ -120,6 +135,19 @@ import Testing
         await #expect(throws: ExtractionError.httpStatus(404, PlayerScript.baseJSURL(playerID: "8c3fda2d"))) {
             try await Extractor(http: http, selector: selector, solver: solver).resolve(videoID)
         }
+    }
+
+    @Test func downloadsThePlayerScriptOnlyOnce() async throws {
+        let http = try stub()
+        let solver = ChallengeSolver(libSource: "var lib = {};", coreSource: Self.cachingCore)
+        let extractor = Extractor(http: http, selector: selector, solver: solver)
+
+        let first = try await extractor.resolve(videoID)
+        let second = try await extractor.resolve(videoID)
+
+        #expect(first.selection.video.url == second.selection.video.url)
+        #expect(http.recorded.filter { $0.url.path.hasSuffix("/base.js") }.count == 1)
+        #expect(http.recorded.filter { $0.url.path == "/iframe_api" }.count == 2)
     }
 
     @Test func reportsNoPlayableFormatsWhenDroppedFormatsWouldNotHelp() async throws {

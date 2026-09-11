@@ -124,14 +124,15 @@ public struct Extractor: Sendable {
         }
 
         let baseURL = PlayerScript.baseJSURL(playerID: playerID)
-        let base = try await http.send(HTTPRequest(url: baseURL, headers: ["User-Agent": client.userAgent]))
-        guard base.status == 200 else { throw ExtractionError.httpStatus(base.status, baseURL) }
-
         let challenges: [ChallengeKind: [String]] = [
             .n: Array(Set(formats.compactMap(\.nChallenge))).sorted(),
             .sig: Array(Set(formats.compactMap { $0.signatureChallenge?.encrypted })).sorted(),
         ]
-        let solved = try solver.solve(playerID: playerID, playerJS: String(decoding: base.body, as: UTF8.self), challenges: challenges)
+        let solved = try await solver.solve(playerID: playerID, challenges: challenges) { [http, client] in
+            let base = try await http.send(HTTPRequest(url: baseURL, headers: ["User-Agent": client.userAgent]))
+            guard base.status == 200 else { throw ExtractionError.httpStatus(base.status, baseURL) }
+            return String(decoding: base.body, as: UTF8.self)
+        }
 
         return formats.compactMap { $0.needsChallenges ? $0.resolvingChallenges(solved) : $0 }
     }

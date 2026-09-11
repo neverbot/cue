@@ -32,6 +32,7 @@ public final class ChallengeSolver: @unchecked Sendable {
     private let coreSource: String
     private let lock = NSLock()
     private var preprocessedPlayers: [(playerID: String, source: String)] = []
+    private let queue = DispatchQueue(label: "cue.challenge-solver")
 
     public init(libSource: String, coreSource: String) {
         self.libSource = libSource
@@ -97,6 +98,29 @@ public final class ChallengeSolver: @unchecked Sendable {
             result[kind] = data
         }
         return result
+    }
+
+    /// Whether the preprocessed player for `playerID` is cached, so its source need not be downloaded.
+    public func hasPreprocessedPlayer(_ playerID: String) -> Bool {
+        cachedPlayer(playerID) != nil
+    }
+
+    /// Solves challenges one run at a time on a private queue, off the Swift concurrency pool.
+    /// `playerSource` is only called when the preprocessed player is not cached. Runs queued behind a cold solve for the
+    /// same player reuse its cached result.
+    public func solve(
+        playerID: String,
+        challenges: [ChallengeKind: [String]],
+        playerSource: @Sendable () async throws -> String
+    ) async throws -> [ChallengeKind: [String: String]] {
+        try Task.checkCancellation()
+        let playerJS = hasPreprocessedPlayer(playerID) ? "" : try await playerSource()
+        try Task.checkCancellation()
+        return try await withCheckedThrowingContinuation { continuation in
+            queue.async {
+                continuation.resume(with: Result { try self.solve(playerID: playerID, playerJS: playerJS, challenges: challenges) })
+            }
+        }
     }
 
     func cachedPlayer(_ playerID: String) -> String? {

@@ -147,6 +147,45 @@ import Testing
         #expect(message.contains("unexpected structure"))
     }
 
+    @Test func fetchesPlayerSourceOnlyOnCacheMiss() async throws {
+        let solver = Self.reverseSolver()
+        let fetches = Counter()
+        for _ in 0..<2 {
+            let solved = try await solver.solve(playerID: "p1", challenges: [.n: ["abc"]]) {
+                fetches.increment()
+                return "player-code"
+            }
+            #expect(solved[.n] == ["abc": "cba"])
+        }
+        #expect(fetches.value == 1)
+        #expect(solver.hasPreprocessedPlayer("p1"))
+        #expect(!solver.hasPreprocessedPlayer("p2"))
+    }
+
+    @Test func stopsWhenCancelled() async throws {
+        let solver = Self.reverseSolver()
+        let task = Task {
+            withUnsafeCurrentTask { $0?.cancel() }
+            return try await solver.solve(playerID: "p1", challenges: [.n: ["abc"]]) { "player-code" }
+        }
+        await #expect(throws: CancellationError.self) { try await task.value }
+    }
+
+    @Test func queuedColdSolvesReuseTheFirstResult() async throws {
+        let solver = Self.reverseSolver()
+        let results = try await withThrowingTaskGroup(of: [String: String]?.self) { group in
+            for index in 0..<4 {
+                group.addTask {
+                    try await solver.solve(playerID: "p1", challenges: [.sig: ["s\(index)"]]) { "player-code" }[.sig]
+                }
+            }
+            return try await group.reduce(into: []) { $0.append($1) }
+        }
+        let answers = results.compactMap { $0 }.flatMap(\.values)
+        #expect(answers.count == 4)
+        #expect(answers.filter { $0 == "player" }.count == 1, "only one run should preprocess the player")
+    }
+
     @Test(.enabled(if: ProcessInfo.processInfo.environment["CUE_LIVE_TESTS"] == "1"))
     func solvesAgainstTheLiveYouTubePlayer() async throws {
         let http = URLSessionHTTPClient()
@@ -176,4 +215,11 @@ private extension DispatchQueue {
         }
         return results.map { $0! }
     }
+}
+
+private final class Counter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var count = 0
+    var value: Int { lock.withLock { count } }
+    func increment() { lock.withLock { count += 1 } }
 }
