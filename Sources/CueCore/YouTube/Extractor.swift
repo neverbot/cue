@@ -1,4 +1,7 @@
 import Foundation
+import os
+
+private let logger = Logger(subsystem: "cue", category: "extraction")
 
 public struct Resolution: Sendable {
     public let videoID: VideoID
@@ -84,6 +87,7 @@ public struct Extractor: Sendable {
         do {
             player = try JSONDecoder().decode(PlayerResponse.self, from: response.body)
         } catch {
+            logger.error("Undecodable /player response for \(videoID.rawValue, privacy: .public): \(String(describing: error), privacy: .public)")
             throw ExtractionError.unexpectedResponse
         }
         guard player.playabilityStatus.status == "OK" else {
