@@ -1,0 +1,60 @@
+import Foundation
+import Testing
+@testable import CueCore
+
+@Suite struct StreamFormatTests {
+    func raw(_ json: String) throws -> PlayerResponse.RawFormat {
+        try JSONDecoder().decode(PlayerResponse.RawFormat.self, from: Data(json.utf8))
+    }
+
+    @Test func mapsDirectVideoFormat() throws {
+        let format = try #require(StreamFormat(raw: raw(#"{"itag":137,"mimeType":"video/mp4; codecs=\"avc1.640028\"","bitrate":4000000,"width":1920,"height":1080,"fps":30,"url":"https://rr1.googlevideo.com/videoplayback?itag=137&expire=1"}"#)))
+        #expect(format.kind == .video)
+        #expect(format.container == "mp4")
+        #expect(format.codec == "avc1")
+        #expect(format.height == 1080)
+        #expect(format.needsChallenges == false)
+    }
+
+    @Test func normalisesVP9AndAudioCodecs() throws {
+        let vp9 = try #require(StreamFormat(raw: raw(#"{"itag":248,"mimeType":"video/webm; codecs=\"vp09.00.40.08\"","bitrate":2000000,"height":1080,"url":"https://rr1.googlevideo.com/videoplayback?itag=248"}"#)))
+        let opus = try #require(StreamFormat(raw: raw(#"{"itag":251,"mimeType":"audio/webm; codecs=\"opus\"","bitrate":150000,"url":"https://rr1.googlevideo.com/videoplayback?itag=251"}"#)))
+        #expect(vp9.codec == "vp9")
+        #expect(opus.kind == .audio)
+        #expect(opus.codec == "opus")
+        #expect(opus.container == "webm")
+    }
+
+    @Test func detectsSignatureAndNChallenges() throws {
+        let format = try #require(StreamFormat(raw: raw(#"{"itag":137,"mimeType":"video/mp4; codecs=\"avc1.640028\"","bitrate":4000000,"height":1080,"signatureCipher":"s=AB%3DC&sp=sig&url=https%3A%2F%2Frr1.googlevideo.com%2Fvideoplayback%3Fitag%3D137%26n%3Dabc"}"#)))
+        #expect(format.signatureChallenge == StreamFormat.SignatureChallenge(encrypted: "AB=C", parameter: "sig"))
+        #expect(format.nChallenge == "abc")
+        #expect(format.needsChallenges)
+    }
+
+    @Test func rejectsUnknownMimeTypes() throws {
+        #expect(StreamFormat(raw: try raw(#"{"itag":1,"mimeType":"text/plain","url":"https://example.com"}"#)) == nil)
+    }
+
+    @Test(arguments: [
+        #"{"itag":1,"url":"https://rr1.googlevideo.com/videoplayback?itag=1"}"#,
+        #"{"itag":1,"mimeType":"","url":"https://rr1.googlevideo.com/videoplayback?itag=1"}"#,
+        #"{"itag":1,"mimeType":";","url":"https://rr1.googlevideo.com/videoplayback?itag=1"}"#,
+        #"{"itag":1,"mimeType":"video/","url":"https://rr1.googlevideo.com/videoplayback?itag=1"}"#,
+    ])
+    func rejectsMissingOrMalformedMimeTypes(_ json: String) throws {
+        #expect(StreamFormat(raw: try raw(json)) == nil)
+    }
+
+    @Test func rewritesUrlWithSolvedChallenges() throws {
+        let format = try #require(StreamFormat(raw: raw(#"{"itag":137,"mimeType":"video/mp4; codecs=\"avc1.640028\"","bitrate":1,"height":1080,"signatureCipher":"s=ABC&sp=sig&url=https%3A%2F%2Frr1.googlevideo.com%2Fvideoplayback%3Fitag%3D137%26n%3Dabc"}"#)))
+        let solved = try #require(format.resolvingChallenges([.n: ["abc": "x+y="], .sig: ["ABC": "CBA/="]]))
+        #expect(solved.needsChallenges == false)
+        #expect(solved.url.absoluteString == "https://rr1.googlevideo.com/videoplayback?itag=137&n=x%2By%3D&sig=CBA%2F%3D")
+    }
+
+    @Test func refusesToRewriteWhenASolutionIsMissing() throws {
+        let format = try #require(StreamFormat(raw: raw(#"{"itag":140,"mimeType":"audio/mp4; codecs=\"mp4a.40.2\"","bitrate":1,"url":"https://rr1.googlevideo.com/videoplayback?itag=140&n=zzz"}"#)))
+        #expect(format.resolvingChallenges([.n: [:]]) == nil)
+    }
+}
