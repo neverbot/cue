@@ -3,10 +3,10 @@ import Testing
 @testable import CueCore
 
 @Suite struct FormatSelectorTests {
-    func stream(_ itag: Int, _ kind: StreamFormat.Kind, _ codec: String, height: Int? = nil, bitrate: Int) -> StreamFormat {
+    func stream(_ itag: Int, _ kind: StreamFormat.Kind, _ codec: String, width: Int? = nil, height: Int? = nil, bitrate: Int) -> StreamFormat {
         StreamFormat(
             itag: itag, kind: kind, container: codec == "opus" || codec == "vp9" ? "webm" : "mp4", codec: codec,
-            bitrate: bitrate, width: nil, height: height, fps: 30,
+            bitrate: bitrate, width: width, height: height, fps: 30,
             url: URL(string: "https://rr1.googlevideo.com/videoplayback?itag=\(itag)")!,
             nChallenge: nil, signatureChallenge: nil
         )
@@ -49,5 +49,35 @@ import Testing
     @Test func returnsNilWithoutUsableStreams() {
         let audioOnly = catalogue.filter { $0.kind == .audio }
         #expect(FormatSelector(maxHeight: 1080, av1HardwareDecoding: false).select(from: audioOnly) == nil)
+    }
+
+    @Test func capsPortraitVideosByShortSide() throws {
+        let portrait = [
+            stream(137, .video, "avc1", width: 1080, height: 1920, bitrate: 4_000_000),
+            stream(136, .video, "avc1", width: 720, height: 1280, bitrate: 2_000_000),
+            stream(135, .video, "avc1", width: 480, height: 854, bitrate: 1_000_000),
+            stream(140, .audio, "mp4a", bitrate: 130_000),
+        ]
+        let selection = try #require(FormatSelector(maxHeight: 1080, av1HardwareDecoding: false).select(from: portrait))
+        #expect(selection.video.itag == 137)
+    }
+
+    @Test func keepsPortraitVideoWithOnlyTheTopRung() throws {
+        let portrait = [
+            stream(137, .video, "avc1", width: 1080, height: 1920, bitrate: 4_000_000),
+            stream(140, .audio, "mp4a", bitrate: 130_000),
+        ]
+        let selection = try #require(FormatSelector(maxHeight: 1080, av1HardwareDecoding: false).select(from: portrait))
+        #expect(selection.video.itag == 137)
+    }
+
+    @Test func neverSelectsCodecsWithoutReliableHardwareDecoding() throws {
+        let formats = [
+            stream(248, .video, "vp9", width: 1920, height: 1080, bitrate: 9_000_000),
+            stream(136, .video, "avc1", width: 1280, height: 720, bitrate: 2_000_000),
+            stream(140, .audio, "mp4a", bitrate: 130_000),
+        ]
+        let selection = try #require(FormatSelector(maxHeight: 1080, av1HardwareDecoding: false).select(from: formats))
+        #expect(selection.video.itag == 136)
     }
 }

@@ -8,7 +8,8 @@ public struct FormatSelection: Sendable, Equatable {
 }
 
 /// Picks a hardware-decodable video stream and an audio stream.
-/// H.264 is decoded in hardware on every Mac; AV1 only on chips that support it; VP9 is avoided (software decode).
+/// H.264 is decoded in hardware on every Mac and AV1 only on chips that support it; VP9 is avoided because it is not
+/// reliably hardware-decoded. The height cap applies to the short side, so portrait videos keep their quality.
 public struct FormatSelector: Sendable {
     public var maxHeight: Int
     public var av1HardwareDecoding: Bool
@@ -27,7 +28,7 @@ public struct FormatSelector: Sendable {
         let audioCodecs = ["mp4a", "opus"]
 
         let video = formats
-            .filter { $0.kind == .video && videoCodecs.contains($0.codec) && ($0.height ?? 0) <= maxHeight }
+            .filter { $0.kind == .video && videoCodecs.contains($0.codec) && shortSide($0) <= maxHeight }
             .max { rank($0, videoCodecs) < rank($1, videoCodecs) }
         let audio = formats
             .filter { $0.kind == .audio && audioCodecs.contains($0.codec) }
@@ -38,7 +39,13 @@ public struct FormatSelector: Sendable {
     }
 
     private func rank(_ format: StreamFormat, _ codecs: [String]) -> (Int, Int, Int) {
-        (format.height ?? 0, preference(format.codec, codecs), format.bitrate)
+        (shortSide(format), preference(format.codec, codecs), format.bitrate)
+    }
+
+    /// The quality label dimension: `min(width, height)`, or `height` when the width is unknown.
+    private func shortSide(_ format: StreamFormat) -> Int {
+        if let width = format.width, let height = format.height { return min(width, height) }
+        return format.height ?? 0
     }
 
     private func preference(_ codec: String, _ ordered: [String]) -> Int {
