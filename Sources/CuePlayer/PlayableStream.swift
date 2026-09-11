@@ -1,0 +1,78 @@
+import CueCore
+import Foundation
+
+/// Everything the player needs to start one video, independent of how it was found.
+public struct PlayableStream: Equatable, Sendable {
+    public enum Decoding: Equatable, Sendable {
+        case hardware
+        case software
+    }
+
+    /// Nil for local files, which have no resume position.
+    public var videoID: VideoID?
+    public var title: String
+    public var videoURL: URL
+    /// A separate audio stream (YouTube serves DASH video and audio apart).
+    public var audioURL: URL?
+    /// Display size announced by the source, used to size the window before playback starts.
+    public var videoSize: VideoSize?
+    public var duration: Double?
+    public var userAgent: String?
+    public var expiresAt: Date?
+    public var decoding: Decoding
+
+    public init(
+        videoID: VideoID?,
+        title: String,
+        videoURL: URL,
+        audioURL: URL? = nil,
+        videoSize: VideoSize? = nil,
+        duration: Double? = nil,
+        userAgent: String? = nil,
+        expiresAt: Date? = nil,
+        decoding: Decoding = .hardware
+    ) {
+        self.videoID = videoID
+        self.title = title
+        self.videoURL = videoURL
+        self.audioURL = audioURL
+        self.videoSize = videoSize
+        self.duration = duration
+        self.userAgent = userAgent
+        self.expiresAt = expiresAt
+        self.decoding = decoding
+    }
+}
+
+extension PlayableStream {
+    public init(resolution: Resolution) {
+        let video = resolution.selection.video
+        self.init(
+            videoID: resolution.videoID,
+            title: resolution.title,
+            videoURL: video.url,
+            audioURL: resolution.selection.audio.url,
+            videoSize: VideoSize(reportedWidth: video.width, reportedHeight: video.height),
+            duration: resolution.duration,
+            userAgent: resolution.userAgent,
+            expiresAt: resolution.expiresAt,
+            decoding: resolution.selection.decoding == .software ? .software : .hardware
+        )
+    }
+
+    /// A local media file, for manual checks without network access.
+    public init(fileURL: URL) {
+        self.init(videoID: nil, title: fileURL.lastPathComponent, videoURL: fileURL)
+    }
+}
+
+/// Resolves a video id into a stream at play time. `Extractor` is the production implementation.
+public protocol StreamResolving: Sendable {
+    func stream(for videoID: VideoID) async throws -> PlayableStream
+}
+
+extension Extractor: StreamResolving {
+    public func stream(for videoID: VideoID) async throws -> PlayableStream {
+        PlayableStream(resolution: try await resolve(videoID))
+    }
+}
