@@ -26,12 +26,23 @@ import Testing
     });
     """
 
-    func stub() throws -> StubHTTPClient {
+    /// Solves n challenges but returns an empty signature, so only the ciphered video format is dropped.
+    static let unsolvedSignatureCore = """
+    var jsc = (input) => ({
+      type: 'result',
+      responses: input.requests.map((r) => ({
+        type: 'result',
+        data: Object.fromEntries(r.challenges.map((c) => [c, r.type === 'n' ? c.split('').reverse().join('') : ''])),
+      })),
+    });
+    """
+
+    func stub(iframeStatus: Int = 200, baseStatus: Int = 200) throws -> StubHTTPClient {
         let http = StubHTTPClient()
         http.on(path: "/watch", body: try Fixture.data("watch-page-snippet.html"))
         http.on(path: "/youtubei/v1/player", body: try Fixture.data("player-ciphered.json"))
-        http.on(path: "/iframe_api", body: try Fixture.data("iframe-api-snippet.js"))
-        http.on(pathSuffix: "/base.js", body: Data("var player = 1; signatureTimestamp:20312".utf8))
+        http.on(path: "/iframe_api", status: iframeStatus, body: try Fixture.data("iframe-api-snippet.js"))
+        http.on(pathSuffix: "/base.js", status: baseStatus, body: Data("var player = 1; signatureTimestamp:20312".utf8))
         return http
     }
 
@@ -79,6 +90,33 @@ import Testing
         let solver = ChallengeSolver(libSource: "var lib = {};", coreSource: "var jsc = () => { throw new Error('boom'); };")
 
         await #expect(throws: ChallengeSolverError.javaScriptException("Error: boom")) {
+            try await Extractor(http: http, selector: selector, solver: solver).resolve(videoID)
+        }
+    }
+
+    @Test func reportsUnsolvedChallengesWhenOneKindIsDropped() async throws {
+        let http = try stub()
+        let solver = ChallengeSolver(libSource: "var lib = {};", coreSource: Self.unsolvedSignatureCore)
+
+        await #expect(throws: ExtractionError.unsolvedChallenges) {
+            try await Extractor(http: http, selector: selector, solver: solver).resolve(videoID)
+        }
+    }
+
+    @Test func reportsIframeAPIHTTPErrors() async throws {
+        let http = try stub(iframeStatus: 503)
+        let solver = ChallengeSolver(libSource: "var lib = {};", coreSource: Self.reversingCore)
+
+        await #expect(throws: ExtractionError.httpStatus(503, PlayerScript.iframeAPIURL)) {
+            try await Extractor(http: http, selector: selector, solver: solver).resolve(videoID)
+        }
+    }
+
+    @Test func reportsPlayerScriptHTTPErrors() async throws {
+        let http = try stub(baseStatus: 404)
+        let solver = ChallengeSolver(libSource: "var lib = {};", coreSource: Self.reversingCore)
+
+        await #expect(throws: ExtractionError.httpStatus(404, PlayerScript.baseJSURL(playerID: "8c3fda2d"))) {
             try await Extractor(http: http, selector: selector, solver: solver).resolve(videoID)
         }
     }

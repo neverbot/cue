@@ -96,6 +96,13 @@ import Testing
         }
     }
 
+    @Test func describesErrorsReadably() {
+        #expect(ChallengeSolverError.scriptsMissing.errorDescription == "Cue's challenge solver scripts are missing.")
+        #expect(ChallengeSolverError.javaScriptException("Error: boom").errorDescription == "YouTube's player challenges could not be solved: Error: boom.")
+        #expect(ChallengeSolverError.malformedOutput.errorDescription == "YouTube's player challenge solver returned output Cue could not read.")
+        #expect(ChallengeSolverError.solverFailed(kind: "n", message: "Failed to extract n function").errorDescription == "YouTube's n challenge could not be solved: Failed to extract n function.")
+    }
+
     @Test func reportsTheFirstJavaScriptException() throws {
         let solver = ChallengeSolver(libSource: "var lib = {", coreSource: Self.reverseCore)
         let error = #expect(throws: ChallengeSolverError.self) {

@@ -41,6 +41,9 @@ extension ExtractionError: LocalizedError {
 }
 
 public struct Extractor: Sendable {
+    /// Loaded once so every extractor shares the scripts and the solver's preprocessed-player cache.
+    public static let bundledSolver: ChallengeSolver? = try? ChallengeSolver.bundled()
+
     let http: any HTTPClient
     let client: ClientProfile
     let selector: FormatSelector
@@ -50,7 +53,7 @@ public struct Extractor: Sendable {
         http: any HTTPClient = URLSessionHTTPClient(session: URLSession(configuration: .ephemeral)),
         client: ClientProfile = .visionOS,
         selector: FormatSelector = FormatSelector(),
-        solver: ChallengeSolver? = try? ChallengeSolver.bundled()
+        solver: ChallengeSolver? = Extractor.bundledSolver
     ) {
         self.http = http
         self.client = client
@@ -80,11 +83,15 @@ public struct Extractor: Sendable {
             throw ExtractionError.unplayable(status: player.playabilityStatus.status, reason: player.playabilityStatus.reason)
         }
 
-        var formats = (player.streamingData?.adaptiveFormats ?? []).compactMap(StreamFormat.init(raw:))
-        if formats.contains(where: \.needsChallenges) {
-            formats = try await solveChallenges(in: formats)
+        let offered = (player.streamingData?.adaptiveFormats ?? []).compactMap(StreamFormat.init(raw:))
+        var formats = offered
+        if offered.contains(where: \.needsChallenges) {
+            formats = try await solveChallenges(in: offered)
         }
-        guard let selection = selector.select(from: formats) else { throw ExtractionError.noPlayableFormats }
+        guard let selection = selector.select(from: formats) else {
+            // Formats dropped for unsolved challenges may have been the only playable ones.
+            throw formats.count < offered.count ? ExtractionError.unsolvedChallenges : ExtractionError.noPlayableFormats
+        }
 
         return Resolution(
             videoID: videoID,
@@ -104,9 +111,10 @@ public struct Extractor: Sendable {
         guard let solver else { throw ExtractionError.challengeSolverUnavailable }
 
         let iframe = try await http.send(HTTPRequest(url: PlayerScript.iframeAPIURL, headers: ["User-Agent": client.userAgent]))
-        guard iframe.status == 200,
-              let playerID = PlayerScript.playerID(inIframeAPI: String(decoding: iframe.body, as: UTF8.self))
-        else { throw ExtractionError.playerScriptNotFound }
+        guard iframe.status == 200 else { throw ExtractionError.httpStatus(iframe.status, PlayerScript.iframeAPIURL) }
+        guard let playerID = PlayerScript.playerID(inIframeAPI: String(decoding: iframe.body, as: UTF8.self)) else {
+            throw ExtractionError.playerScriptNotFound
+        }
 
         let baseURL = PlayerScript.baseJSURL(playerID: playerID)
         let base = try await http.send(HTTPRequest(url: baseURL, headers: ["User-Agent": client.userAgent]))
@@ -118,8 +126,6 @@ public struct Extractor: Sendable {
         ]
         let solved = try solver.solve(playerID: playerID, playerJS: String(decoding: base.body, as: UTF8.self), challenges: challenges)
 
-        let resolved = formats.compactMap { $0.needsChallenges ? $0.resolvingChallenges(solved) : $0 }
-        guard !resolved.isEmpty else { throw ExtractionError.unsolvedChallenges }
-        return resolved
+        return formats.compactMap { $0.needsChallenges ? $0.resolvingChallenges(solved) : $0 }
     }
 }

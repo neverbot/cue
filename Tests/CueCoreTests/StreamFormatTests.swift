@@ -119,4 +119,9 @@ import Testing
         #expect(nOnly.resolvingChallenges([.n: ["zzz": ""]]) == nil)
         #expect(sigOnly.resolvingChallenges([.sig: ["ABC": ""]]) == nil)
     }
+
+    @Test func refusesDuplicateNParameters() throws {
+        let format = try #require(StreamFormat(raw: raw(#"{"itag":140,"mimeType":"audio/mp4; codecs=\"mp4a.40.2\"","url":"https://rr1.googlevideo.com/videoplayback?itag=140&n=abc&n=def"}"#)))
+        #expect(format.resolvingChallenges([.n: ["abc": "cba", "def": "fed"]]) == nil)
+    }
 }

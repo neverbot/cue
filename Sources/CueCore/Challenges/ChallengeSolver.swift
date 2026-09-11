@@ -8,6 +8,17 @@ public enum ChallengeSolverError: Error, Equatable, Sendable {
     case solverFailed(kind: String, message: String)
 }
 
+extension ChallengeSolverError: LocalizedError {
+    public var errorDescription: String? {
+        switch self {
+        case .scriptsMissing: "Cue's challenge solver scripts are missing."
+        case let .javaScriptException(message): "YouTube's player challenges could not be solved: \(message)."
+        case .malformedOutput: "YouTube's player challenge solver returned output Cue could not read."
+        case let .solverFailed(kind, message): "YouTube's \(kind) challenge could not be solved: \(message)."
+        }
+    }
+}
+
 /// Runs yt-dlp's EJS challenge solver (lib + core scripts) inside JavaScriptCore.
 /// Caches the preprocessed player per player id, as yt-dlp does, because preprocessing dominates the cost.
 public final class ChallengeSolver: @unchecked Sendable {

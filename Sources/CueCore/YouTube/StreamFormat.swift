@@ -86,6 +86,7 @@ extension StreamFormat {
 
         if let n = nChallenge {
             guard let solvedN = solved[.n]?[n], !solvedN.isEmpty,
+                  items.filter({ $0.name == "n" }).count == 1,
                   let index = items.firstIndex(where: { $0.name == "n" }),
                   let encodedN = Self.percentEncoded(solvedN), !encodedN.isEmpty
             else { return nil }
