@@ -3,56 +3,121 @@ import Foundation
 import VideoToolbox
 
 public struct FormatSelection: Sendable, Equatable {
+    public enum Decoding: Sendable, Equatable {
+        case hardware
+        case software
+    }
+
     public let video: StreamFormat
     public let audio: StreamFormat
+    /// Whether the selected video is expected to decode in hardware.
+    public let decoding: Decoding
 }
 
-/// Picks a hardware-decodable video stream and an audio stream.
-/// H.264 is decoded in hardware on every Mac and AV1 only on chips that support it; VP9 is avoided because it is not
-/// reliably hardware-decoded. The cap applies to the short side, so portrait videos keep their quality.
+/// Picks a video stream and an audio stream, preferring hardware decoding and falling back to software decoding
+/// only when nothing hardware-friendly is on offer.
+/// Hardware tier, in preference order: AV1 (only where hardware-decodable), H.264 (every Mac), VP9 (only where
+/// hardware-decodable); H.264 is preferred over VP9 at an equal short side, since VP9 hardware decoding is less
+/// broadly available. Software tier (used only when no offered video qualifies for the hardware tier, and only when
+/// allowed): VP9 capped at 1080p, then AV1 capped at 720p — H.264 never appears here, since it is always hardware.
+/// The cap applies to the short side, so portrait videos keep their quality.
 /// 10-bit (HDR) streams are skipped unless allowed, because tone mapping them for SDR displays costs extra GPU work.
 public struct FormatSelector: Sendable {
     public var maxShortSide: Int
     public var av1HardwareDecoding: Bool
     public var allowsHighBitDepth: Bool
+    public var vp9HardwareDecoding: Bool
+    public var allowsSoftwareDecoding: Bool
 
     public init(
         maxShortSide: Int = 1080,
         av1HardwareDecoding: Bool = FormatSelector.systemSupportsAV1HardwareDecoding,
-        allowsHighBitDepth: Bool = false
+        allowsHighBitDepth: Bool = false,
+        vp9HardwareDecoding: Bool = FormatSelector.systemSupportsVP9HardwareDecoding,
+        allowsSoftwareDecoding: Bool = true
     ) {
         self.maxShortSide = maxShortSide
         self.av1HardwareDecoding = av1HardwareDecoding
         self.allowsHighBitDepth = allowsHighBitDepth
+        self.vp9HardwareDecoding = vp9HardwareDecoding
+        self.allowsSoftwareDecoding = allowsSoftwareDecoding
     }
 
     public static var systemSupportsAV1HardwareDecoding: Bool {
         VTIsHardwareDecodeSupported(kCMVideoCodecType_AV1)
     }
 
-    private var videoCodecs: [String] { av1HardwareDecoding ? ["av01", "avc1"] : ["avc1"] }
+    /// Registers VideoToolbox's supplemental VP9 decoder (Apple Silicon) and reports whether VP9 decodes in hardware.
+    public static var systemSupportsVP9HardwareDecoding: Bool {
+        VTRegisterSupplementalVideoDecoderIfAvailable(kCMVideoCodecType_VP9)
+        return VTIsHardwareDecodeSupported(kCMVideoCodecType_VP9)
+    }
+
+    private enum Tier {
+        case hardware
+        case software
+    }
+
     private static let audioCodecs = ["mp4a", "opus"]
 
-    /// Whether `format` could ever be selected under this configuration (codec, bit depth and size), ignoring URLs.
-    public func accepts(_ format: StreamFormat) -> Bool {
-        switch format.kind {
-        case .video:
-            videoCodecs.contains(format.codec) && shortSide(format) <= maxShortSide && (allowsHighBitDepth || (format.bitDepth ?? 8) <= 8)
-        case .audio:
-            Self.audioCodecs.contains(format.codec)
-        }
+    /// The formats `select(from:)` would choose among: audio it accepts, plus video from the hardware tier when any
+    /// offered video qualifies there, otherwise from the software tier (if allowed). URLs are ignored.
+    public func acceptableFormats(from formats: [StreamFormat]) -> [StreamFormat] {
+        let audio = formats.filter { $0.kind == .audio && Self.audioCodecs.contains($0.codec) }
+        guard let tier = tier(for: formats) else { return audio }
+        let video = formats.filter { isAcceptableVideo($0, tier: tier) }
+        return video + audio
     }
 
     public func select(from formats: [StreamFormat]) -> FormatSelection? {
+        guard let tier = tier(for: formats) else { return nil }
+        let codecs = videoCodecs(for: tier)
+
         let video = formats
-            .filter { $0.kind == .video && accepts($0) }
-            .max { rank($0, videoCodecs) < rank($1, videoCodecs) }
+            .filter { isAcceptableVideo($0, tier: tier) }
+            .max { rank($0, codecs) < rank($1, codecs) }
         let audio = formats
-            .filter { $0.kind == .audio && accepts($0) }
+            .filter { $0.kind == .audio && Self.audioCodecs.contains($0.codec) }
             .max { (preference($0.codec, Self.audioCodecs), $0.bitrate) < (preference($1.codec, Self.audioCodecs), $1.bitrate) }
 
         guard let video, let audio else { return nil }
-        return FormatSelection(video: video, audio: audio)
+        return FormatSelection(video: video, audio: audio, decoding: tier == .hardware ? .hardware : .software)
+    }
+
+    /// The tier `select(from:)` and `acceptableFormats(from:)` use: hardware when any offered video qualifies there,
+    /// otherwise software (if allowed), otherwise nil.
+    private func tier(for formats: [StreamFormat]) -> Tier? {
+        if formats.contains(where: { isAcceptableVideo($0, tier: .hardware) }) { return .hardware }
+        return allowsSoftwareDecoding ? .software : nil
+    }
+
+    private func isAcceptableVideo(_ format: StreamFormat, tier: Tier) -> Bool {
+        guard format.kind == .video else { return false }
+        guard videoCodecs(for: tier).contains(format.codec) else { return false }
+        guard allowsHighBitDepth || (format.bitDepth ?? 8) <= 8 else { return false }
+        return shortSide(format) <= maxShortSide(for: format.codec, tier: tier)
+    }
+
+    private func videoCodecs(for tier: Tier) -> [String] {
+        switch tier {
+        case .hardware:
+            var codecs: [String] = []
+            if av1HardwareDecoding { codecs.append("av01") }
+            codecs.append("avc1")
+            if vp9HardwareDecoding { codecs.append("vp9") }
+            return codecs
+        case .software:
+            return ["vp9", "av01"]
+        }
+    }
+
+    private func maxShortSide(for codec: String, tier: Tier) -> Int {
+        switch tier {
+        case .hardware:
+            return maxShortSide
+        case .software:
+            return codec == "vp9" ? min(maxShortSide, 1080) : min(maxShortSide, 720)
+        }
     }
 
     private func rank(_ format: StreamFormat, _ codecs: [String]) -> (Int, Int, Int) {

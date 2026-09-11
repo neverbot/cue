@@ -9,7 +9,7 @@ public struct Resolution: Sendable {
     public let author: String?
     public let duration: TimeInterval?
     public let selection: FormatSelection
-    /// Playable formats: unciphered formats plus ciphered formats the selector accepts, with their challenges solved.
+    /// Playable formats: unciphered formats plus ciphered formats in the selector's acceptable set, with their challenges solved.
     public let formats: [StreamFormat]
     public let hlsManifestURL: URL?
     public let captionTrackCount: Int
@@ -120,7 +120,8 @@ public struct Extractor: Sendable {
     }
 
     private func solveChallenges(in formats: [StreamFormat]) async throws -> [StreamFormat] {
-        let candidates = formats.filter { $0.needsChallenges && selector.accepts($0) }
+        let acceptable = selector.acceptableFormats(from: formats)
+        let candidates = acceptable.filter(\.needsChallenges)
         guard !candidates.isEmpty else { return formats.filter { !$0.needsChallenges } }
 
         guard let solver else { throw ExtractionError.challengeSolverUnavailable }
@@ -142,6 +143,6 @@ public struct Extractor: Sendable {
             return String(decoding: base.body, as: UTF8.self)
         }
 
-        return formats.compactMap { !$0.needsChallenges ? $0 : (selector.accepts($0) ? $0.resolvingChallenges(solved) : nil) }
+        return formats.compactMap { !$0.needsChallenges ? $0 : (acceptable.contains($0) ? $0.resolvingChallenges(solved) : nil) }
     }
 }

@@ -16,7 +16,7 @@ import Testing
         let http = try stubWithRealPlayer()
         let extractor = Extractor(
             http: http,
-            selector: FormatSelector(maxShortSide: 1080, av1HardwareDecoding: false),
+            selector: FormatSelector(maxShortSide: 1080, av1HardwareDecoding: false, vp9HardwareDecoding: false),
             solver: nil,
             now: { Date(timeIntervalSince1970: 1_000_000) }
         )
@@ -46,7 +46,7 @@ import Testing
         let http = StubHTTPClient()
         http.on(path: "/watch", body: try Fixture.data("watch-page-snippet.html"))
         http.on(path: "/youtubei/v1/player", body: body)
-        let extractor = Extractor(http: http, selector: FormatSelector(maxShortSide: 1080, av1HardwareDecoding: false), solver: nil)
+        let extractor = Extractor(http: http, selector: FormatSelector(maxShortSide: 1080, av1HardwareDecoding: false, vp9HardwareDecoding: false), solver: nil)
 
         let resolution = try await extractor.resolve(videoID)
 
@@ -55,7 +55,7 @@ import Testing
 
     @Test func sendsConsentCookieAndVisitorData() async throws {
         let http = try stubWithRealPlayer()
-        _ = try await Extractor(http: http, selector: FormatSelector(maxShortSide: 1080, av1HardwareDecoding: false), solver: nil).resolve(videoID)
+        _ = try await Extractor(http: http, selector: FormatSelector(maxShortSide: 1080, av1HardwareDecoding: false, vp9HardwareDecoding: false), solver: nil).resolve(videoID)
 
         let requests = http.recorded
         #expect(requests.count == 2)
@@ -103,7 +103,7 @@ import Testing
 
     @Test func sendsWatchAndPlayerRequests() async throws {
         let http = try stubWithRealPlayer()
-        _ = try await Extractor(http: http, selector: FormatSelector(maxShortSide: 1080, av1HardwareDecoding: false), solver: nil).resolve(videoID)
+        _ = try await Extractor(http: http, selector: FormatSelector(maxShortSide: 1080, av1HardwareDecoding: false, vp9HardwareDecoding: false), solver: nil).resolve(videoID)
 
         let requests = http.recorded
         try #require(requests.count == 2)
@@ -131,6 +131,24 @@ import Testing
         await #expect(throws: ExtractionError.noPlayableFormats) {
             try await Extractor(http: http, solver: nil).resolve(videoID)
         }
+    }
+
+    @Test func resolvesVP9OnlyVideosWithSoftwareDecoding() async throws {
+        let player = #"""
+        {"playabilityStatus":{"status":"OK"},"streamingData":{"adaptiveFormats":[
+        {"itag":248,"mimeType":"video/webm; codecs=\"vp9\"","bitrate":2500000,"width":1920,"height":1080,"url":"https://rr1.googlevideo.com/videoplayback?itag=248"},
+        {"itag":140,"mimeType":"audio/mp4; codecs=\"mp4a.40.2\"","bitrate":130000,"url":"https://rr1.googlevideo.com/videoplayback?itag=140"}
+        ]}}
+        """#
+        let http = StubHTTPClient()
+        http.on(path: "/watch", body: try Fixture.data("watch-page-snippet.html"))
+        http.on(path: "/youtubei/v1/player", body: Data(player.utf8))
+        let selector = FormatSelector(maxShortSide: 1080, av1HardwareDecoding: false, vp9HardwareDecoding: false)
+
+        let resolution = try await Extractor(http: http, selector: selector, solver: nil).resolve(videoID)
+
+        #expect(resolution.selection.video.itag == 248)
+        #expect(resolution.selection.decoding == .software)
     }
 
     @Test func describesErrorsReadably() {

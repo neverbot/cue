@@ -4,7 +4,7 @@ import Testing
 
 @Suite struct ExtractorChallengeTests {
     let videoID = VideoID("dQw4w9WgXcQ")!
-    let selector = FormatSelector(maxShortSide: 1080, av1HardwareDecoding: false)
+    let selector = FormatSelector(maxShortSide: 1080, av1HardwareDecoding: false, vp9HardwareDecoding: false)
 
     static let reversingCore = """
     var jsc = (input) => ({
@@ -206,9 +206,10 @@ import Testing
         http.on(path: "/watch", body: try Fixture.data("watch-page-snippet.html"))
         http.on(path: "/youtubei/v1/player", body: Data(player.utf8))
         let solver = ChallengeSolver(libSource: "var lib = {};", coreSource: Self.reversingCore)
+        let unselectableSelector = FormatSelector(maxShortSide: 1080, av1HardwareDecoding: false, vp9HardwareDecoding: false, allowsSoftwareDecoding: false)
 
         await #expect(throws: ExtractionError.noPlayableFormats) {
-            try await Extractor(http: http, selector: selector, solver: solver).resolve(videoID)
+            try await Extractor(http: http, selector: unselectableSelector, solver: solver).resolve(videoID)
         }
         #expect(http.recorded.map(\.url.path) == ["/watch", "/youtubei/v1/player"])
     }
@@ -221,9 +222,10 @@ import Testing
         http.on(path: "/iframe_api", body: try Fixture.data("iframe-api-snippet.js"))
         http.on(pathSuffix: "/base.js", body: Data("var player = 1;".utf8))
         let solver = ChallengeSolver(libSource: "var lib = {};", coreSource: Self.emptyCore)
+        let unselectableSelector = FormatSelector(maxShortSide: 1080, av1HardwareDecoding: false, vp9HardwareDecoding: false, allowsSoftwareDecoding: false)
 
         await #expect(throws: ExtractionError.noPlayableFormats) {
-            try await Extractor(http: http, selector: selector, solver: solver).resolve(videoID)
+            try await Extractor(http: http, selector: unselectableSelector, solver: solver).resolve(videoID)
         }
     }
 }

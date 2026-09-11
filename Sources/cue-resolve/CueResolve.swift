@@ -30,7 +30,8 @@ struct CueResolve {
             print("formats:    \(resolution.formats.count), hls: \(resolution.hlsManifestURL != nil), captions: \(resolution.captionTrackCount)")
             print("expires:    \(resolution.expiresAt.map { "in \(Int($0.timeIntervalSince(Date()) / 60)) min" } ?? "-")")
             let shortSide = [video.width, video.height].compactMap { $0 }.min()
-            print("selected:   video itag \(video.itag) \(video.codec) \(shortSide.map { "\($0)p" } ?? "-") | audio itag \(audio.itag) \(audio.codec)")
+            let softwareSuffix = resolution.selection.decoding == .software ? " | software decoding" : ""
+            print("selected:   video itag \(video.itag) \(video.codec) \(shortSide.map { "\($0)p" } ?? "-") | audio itag \(audio.itag) \(audio.codec)\(softwareSuffix)")
             print("user-agent: \(resolution.userAgent)")
             print("video:      \(video.url.absoluteString)")
             print("audio:      \(audio.url.absoluteString)")
