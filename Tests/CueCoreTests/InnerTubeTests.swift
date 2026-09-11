@@ -14,6 +14,7 @@ import Testing
         #expect(request.headers["X-Goog-Visitor-Id"] == "VD123")
         #expect(request.headers["User-Agent"] == ClientProfile.visionOS.userAgent)
         #expect(request.headers["Content-Type"] == "application/json")
+        #expect(request.headers["Origin"] == "https://www.youtube.com")
     }
 
     @Test func buildsPlayerRequestBody() throws {
@@ -37,5 +38,12 @@ import Testing
         let body = try #require(try JSONSerialization.jsonObject(with: bodyData) as? [String: Any])
         let playback = try #require((body["playbackContext"] as? [String: Any])?["contentPlaybackContext"] as? [String: Any])
         #expect(playback["signatureTimestamp"] == nil)
+    }
+
+    @Test func encodesExactWireBody() throws {
+        let request = try InnerTube.playerRequest(videoID: videoID, client: .visionOS, visitorData: "VD123", signatureTimestamp: 20312)
+        let bodyData = try #require(request.body)
+        let expected = #"{"contentCheckOk":true,"context":{"client":{"clientName":"VISIONOS","clientVersion":"1.02","deviceMake":"Apple","deviceModel":"RealityDevice17,1","hl":"en","osName":"visionOS","osVersion":"26.5.23O471","userAgent":"Mozilla\/5.0 (Macintosh; Intel Mac OS X 15_7_3) AppleWebKit\/605.1.15 (KHTML, like Gecko) Version\/26.0 Safari\/605.1.15","visitorData":"VD123"}},"playbackContext":{"contentPlaybackContext":{"html5Preference":"HTML5_PREF_WANTS","signatureTimestamp":20312}},"racyCheckOk":true,"videoId":"dQw4w9WgXcQ"}"#
+        #expect(String(decoding: bodyData, as: UTF8.self) == expected)
     }
 }

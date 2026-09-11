@@ -4,6 +4,7 @@ enum InnerTube {
     static let playerURL = URL(string: "https://www.youtube.com/youtubei/v1/player?prettyPrint=false")!
     static let origin = "https://www.youtube.com"
 
+    /// Builds the `/player` request. Fixed client fields and `visitorData` override same-named keys in `client.extraContext`.
     static func playerRequest(videoID: VideoID, client: ClientProfile, visitorData: String, signatureTimestamp: Int?) throws -> HTTPRequest {
         var clientContext: [String: Any] = client.extraContext
         clientContext["clientName"] = client.clientName
