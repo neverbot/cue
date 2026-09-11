@@ -30,19 +30,26 @@ public struct FormatSelector: Sendable {
         VTIsHardwareDecodeSupported(kCMVideoCodecType_AV1)
     }
 
-    public func select(from formats: [StreamFormat]) -> FormatSelection? {
-        let videoCodecs = av1HardwareDecoding ? ["av01", "avc1"] : ["avc1"]
-        let audioCodecs = ["mp4a", "opus"]
+    private var videoCodecs: [String] { av1HardwareDecoding ? ["av01", "avc1"] : ["avc1"] }
+    private static let audioCodecs = ["mp4a", "opus"]
 
+    /// Whether `format` could ever be selected under this configuration (codec, bit depth and size), ignoring URLs.
+    public func accepts(_ format: StreamFormat) -> Bool {
+        switch format.kind {
+        case .video:
+            videoCodecs.contains(format.codec) && shortSide(format) <= maxHeight && (allowsHighBitDepth || (format.bitDepth ?? 8) <= 8)
+        case .audio:
+            Self.audioCodecs.contains(format.codec)
+        }
+    }
+
+    public func select(from formats: [StreamFormat]) -> FormatSelection? {
         let video = formats
-            .filter {
-                $0.kind == .video && videoCodecs.contains($0.codec) && shortSide($0) <= maxHeight
-                    && (allowsHighBitDepth || ($0.bitDepth ?? 8) <= 8)
-            }
+            .filter { $0.kind == .video && accepts($0) }
             .max { rank($0, videoCodecs) < rank($1, videoCodecs) }
         let audio = formats
-            .filter { $0.kind == .audio && audioCodecs.contains($0.codec) }
-            .max { (preference($0.codec, audioCodecs), $0.bitrate) < (preference($1.codec, audioCodecs), $1.bitrate) }
+            .filter { $0.kind == .audio && accepts($0) }
+            .max { (preference($0.codec, Self.audioCodecs), $0.bitrate) < (preference($1.codec, Self.audioCodecs), $1.bitrate) }
 
         guard let video, let audio else { return nil }
         return FormatSelection(video: video, audio: audio)

@@ -103,6 +103,20 @@ import Testing
         #expect(selection.video.itag == 699)
     }
 
+    @Test func acceptsOnlySelectableFormats() throws {
+        let selector = FormatSelector(maxHeight: 1080, av1HardwareDecoding: false)
+        #expect(selector.accepts(stream(137, .video, "avc1", width: 1920, height: 1080, bitrate: 4_000_000)))
+        #expect(selector.accepts(stream(140, .audio, "mp4a", bitrate: 130_000)))
+        #expect(selector.accepts(stream(251, .audio, "opus", bitrate: 160_000)))
+        #expect(!selector.accepts(stream(248, .video, "vp9", width: 1920, height: 1080, bitrate: 2_500_000)))
+        #expect(!selector.accepts(stream(401, .video, "avc1", width: 3840, height: 2160, bitrate: 20_000_000)))
+        #expect(!selector.accepts(stream(399, .video, "av01", width: 1920, height: 1080, bitrate: 3_000_000)))
+
+        let av1Selector = FormatSelector(maxHeight: 1080, av1HardwareDecoding: true)
+        #expect(av1Selector.accepts(stream(399, .video, "av01", width: 1920, height: 1080, bitDepth: 8, bitrate: 3_000_000)))
+        #expect(!av1Selector.accepts(stream(699, .video, "av01", width: 1920, height: 1080, bitDepth: 10, bitrate: 5_000_000)))
+    }
+
     @Test func fallsBackToH264WhenAV1IsOnlyHDR() throws {
         let formats = [
             stream(699, .video, "av01", width: 1920, height: 1080, bitDepth: 10, bitrate: 5_000_000),

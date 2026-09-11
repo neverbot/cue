@@ -115,6 +115,9 @@ public struct Extractor: Sendable {
     }
 
     private func solveChallenges(in formats: [StreamFormat]) async throws -> [StreamFormat] {
+        let candidates = formats.filter { $0.needsChallenges && selector.accepts($0) }
+        guard !candidates.isEmpty else { return formats.filter { !$0.needsChallenges } }
+
         guard let solver else { throw ExtractionError.challengeSolverUnavailable }
 
         let iframe = try await http.send(HTTPRequest(url: PlayerScript.iframeAPIURL, headers: ["User-Agent": client.userAgent]))
@@ -125,8 +128,8 @@ public struct Extractor: Sendable {
 
         let baseURL = PlayerScript.baseJSURL(playerID: playerID)
         let challenges: [ChallengeKind: [String]] = [
-            .n: Array(Set(formats.compactMap(\.nChallenge))).sorted(),
-            .sig: Array(Set(formats.compactMap { $0.signatureChallenge?.encrypted })).sorted(),
+            .n: Array(Set(candidates.compactMap(\.nChallenge))).sorted(),
+            .sig: Array(Set(candidates.compactMap { $0.signatureChallenge?.encrypted })).sorted(),
         ]
         let solved = try await solver.solve(playerID: playerID, challenges: challenges) { [http, client] in
             let base = try await http.send(HTTPRequest(url: baseURL, headers: ["User-Agent": client.userAgent]))
@@ -134,6 +137,6 @@ public struct Extractor: Sendable {
             return String(decoding: base.body, as: UTF8.self)
         }
 
-        return formats.compactMap { $0.needsChallenges ? $0.resolvingChallenges(solved) : $0 }
+        return formats.compactMap { !$0.needsChallenges ? $0 : (selector.accepts($0) ? $0.resolvingChallenges(solved) : nil) }
     }
 }
