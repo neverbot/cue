@@ -28,7 +28,7 @@ import Testing
         "https://www.youtube.com/@YouTube",
         "https://www.youtube.com/results?search_query=x",
         "https://vimeo.com/123456",
-        "dQw4w9WgXc",
+        "123456789_",
         "not a url",
         "https://notyoutube.com/watch?v=dQw4w9WgXcQ",
         "https://youtube.com.evil.example/watch?v=dQw4w9WgXcQ",
@@ -41,9 +41,9 @@ import Testing
 
     @Test func validatesRawIdentifiers() {
         #expect(VideoID("jNQXAC9IVRw") != nil)
-        #expect(VideoID("jNQXAC9IVR!") == nil)
-        #expect(VideoID("jNQXAC9IVRwX") == nil)
-        #expect(VideoID("jNQXAC9-_Rw") != nil)
-        #expect(VideoID("jNQXAC9IVRé") == nil)
+        #expect(VideoID("123456789_!") == nil)
+        #expect(VideoID("123456789_ab") == nil)
+        #expect(VideoID("12345678-_a") != nil)
+        #expect(VideoID("123456789_é") == nil)
     }
 }
