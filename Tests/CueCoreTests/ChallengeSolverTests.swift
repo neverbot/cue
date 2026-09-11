@@ -84,7 +84,7 @@ import Testing
     @Test func surfacesSolverErrors() throws {
         let core = "var jsc = (input) => ({ type: 'result', responses: input.requests.map(() => ({ type: 'error', error: 'Failed to extract n function' })) });"
         let solver = ChallengeSolver(libSource: Self.reverseLib, coreSource: core)
-        #expect(throws: ChallengeSolverError.solverFailed(kind: "n", message: "Failed to extract n function")) {
+        #expect(throws: ChallengeSolverError.solverFailed(kind: .n, message: "Failed to extract n function")) {
             try solver.solve(playerID: "p1", playerJS: "x", challenges: [.n: ["abc"]])
         }
     }
@@ -100,7 +100,8 @@ import Testing
         #expect((ChallengeSolverError.scriptsMissing as any Error).localizedDescription == "Cue's challenge solver scripts are missing.")
         #expect((ChallengeSolverError.javaScriptException("Error: boom") as any Error).localizedDescription == "YouTube's player challenges could not be solved: Error: boom.")
         #expect((ChallengeSolverError.malformedOutput as any Error).localizedDescription == "YouTube's player challenge solver returned output Cue could not read.")
-        #expect((ChallengeSolverError.solverFailed(kind: "n", message: "Failed to extract n function") as any Error).localizedDescription == "YouTube's n challenge could not be solved: Failed to extract n function.")
+        #expect((ChallengeSolverError.solverFailed(kind: .n, message: "Failed to extract n function") as any Error).localizedDescription == "YouTube's n challenge could not be solved: Failed to extract n function.")
+        #expect((ChallengeSolverError.solverFailed(kind: .sig, message: "Failed to extract sig function\nError: x\n    at f (core.js:1:1)") as any Error).localizedDescription == "YouTube's sig challenge could not be solved: Failed to extract sig function.")
     }
 
     @Test func reportsTheFirstJavaScriptException() throws {

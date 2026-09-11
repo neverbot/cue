@@ -5,7 +5,7 @@ public enum ChallengeSolverError: Error, Equatable, Sendable {
     case scriptsMissing
     case javaScriptException(String)
     case malformedOutput
-    case solverFailed(kind: String, message: String)
+    case solverFailed(kind: ChallengeKind, message: String)
 }
 
 extension ChallengeSolverError: LocalizedError {
@@ -14,7 +14,8 @@ extension ChallengeSolverError: LocalizedError {
         case .scriptsMissing: "Cue's challenge solver scripts are missing."
         case let .javaScriptException(message): "YouTube's player challenges could not be solved: \(message)."
         case .malformedOutput: "YouTube's player challenge solver returned output Cue could not read."
-        case let .solverFailed(kind, message): "YouTube's \(kind) challenge could not be solved: \(message)."
+        case let .solverFailed(kind, message):
+            "YouTube's \(kind.rawValue) challenge could not be solved: \(message.split(separator: "\n", maxSplits: 1).first.map(String.init) ?? message)."
         }
     }
 }
@@ -90,7 +91,7 @@ public final class ChallengeSolver: @unchecked Sendable {
         var result: [ChallengeKind: [String: String]] = [:]
         for (kind, response) in zip(kinds, responses) {
             guard response["type"] as? String == "result" else {
-                throw ChallengeSolverError.solverFailed(kind: kind.rawValue, message: response["error"] as? String ?? "unknown error")
+                throw ChallengeSolverError.solverFailed(kind: kind, message: response["error"] as? String ?? "unknown error")
             }
             guard let data = response["data"] as? [String: String] else { throw ChallengeSolverError.malformedOutput }
             result[kind] = data
