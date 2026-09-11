@@ -10,13 +10,20 @@ public struct FormatSelection: Sendable, Equatable {
 /// Picks a hardware-decodable video stream and an audio stream.
 /// H.264 is decoded in hardware on every Mac and AV1 only on chips that support it; VP9 is avoided because it is not
 /// reliably hardware-decoded. The height cap applies to the short side, so portrait videos keep their quality.
+/// 10-bit (HDR) streams are skipped unless allowed, because tone mapping them for SDR displays costs extra GPU work.
 public struct FormatSelector: Sendable {
     public var maxHeight: Int
     public var av1HardwareDecoding: Bool
+    public var allowsHighBitDepth: Bool
 
-    public init(maxHeight: Int = 1080, av1HardwareDecoding: Bool = FormatSelector.systemSupportsAV1HardwareDecoding) {
+    public init(
+        maxHeight: Int = 1080,
+        av1HardwareDecoding: Bool = FormatSelector.systemSupportsAV1HardwareDecoding,
+        allowsHighBitDepth: Bool = false
+    ) {
         self.maxHeight = maxHeight
         self.av1HardwareDecoding = av1HardwareDecoding
+        self.allowsHighBitDepth = allowsHighBitDepth
     }
 
     public static var systemSupportsAV1HardwareDecoding: Bool {
@@ -28,7 +35,10 @@ public struct FormatSelector: Sendable {
         let audioCodecs = ["mp4a", "opus"]
 
         let video = formats
-            .filter { $0.kind == .video && videoCodecs.contains($0.codec) && shortSide($0) <= maxHeight }
+            .filter {
+                $0.kind == .video && videoCodecs.contains($0.codec) && shortSide($0) <= maxHeight
+                    && (allowsHighBitDepth || ($0.bitDepth ?? 8) <= 8)
+            }
             .max { rank($0, videoCodecs) < rank($1, videoCodecs) }
         let audio = formats
             .filter { $0.kind == .audio && audioCodecs.contains($0.codec) }

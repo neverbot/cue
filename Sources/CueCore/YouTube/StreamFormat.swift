@@ -22,6 +22,8 @@ public struct StreamFormat: Sendable, Equatable {
     public let kind: Kind
     public let container: String
     public let codec: String
+    /// Bit depth from the codecs string for AV1/VP9 (10 means HDR on YouTube); nil when not stated.
+    public let bitDepth: Int?
     public let bitrate: Int
     public let width: Int?
     public let height: Int?
@@ -69,6 +71,7 @@ extension StreamFormat {
             kind: kind,
             container: typeParts[1],
             codec: codec,
+            bitDepth: Self.bitDepth(fromCodecs: codecs),
             bitrate: raw.bitrate ?? 0,
             width: raw.width,
             height: raw.height,
@@ -104,10 +107,17 @@ extension StreamFormat {
         guard let rewritten = components.url else { return nil }
 
         return StreamFormat(
-            itag: itag, kind: kind, container: container, codec: codec, bitrate: bitrate,
+            itag: itag, kind: kind, container: container, codec: codec, bitDepth: bitDepth, bitrate: bitrate,
             width: width, height: height, fps: fps, url: rewritten,
             nChallenge: nil, signatureChallenge: nil
         )
+    }
+
+    /// `av01.P.LLT.DD` and `vp09.PP.LL.DD…` carry the bit depth in the fourth field.
+    static func bitDepth(fromCodecs codecs: String) -> Int? {
+        let parts = codecs.split(separator: ".")
+        guard parts.count >= 4, parts[0] == "av01" || parts[0] == "vp09" else { return nil }
+        return Int(parts[3])
     }
 
     private static func percentEncoded(_ value: String) -> String? {

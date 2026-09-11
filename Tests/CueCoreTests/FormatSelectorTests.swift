@@ -3,9 +3,9 @@ import Testing
 @testable import CueCore
 
 @Suite struct FormatSelectorTests {
-    func stream(_ itag: Int, _ kind: StreamFormat.Kind, _ codec: String, width: Int? = nil, height: Int? = nil, bitrate: Int) -> StreamFormat {
+    func stream(_ itag: Int, _ kind: StreamFormat.Kind, _ codec: String, width: Int? = nil, height: Int? = nil, bitDepth: Int? = nil, bitrate: Int) -> StreamFormat {
         StreamFormat(
-            itag: itag, kind: kind, container: codec == "opus" || codec == "vp9" ? "webm" : "mp4", codec: codec,
+            itag: itag, kind: kind, container: codec == "opus" || codec == "vp9" ? "webm" : "mp4", codec: codec, bitDepth: bitDepth,
             bitrate: bitrate, width: width, height: height, fps: 30,
             url: URL(string: "https://rr1.googlevideo.com/videoplayback?itag=\(itag)")!,
             nChallenge: nil, signatureChallenge: nil
@@ -79,5 +79,37 @@ import Testing
         ]
         let selection = try #require(FormatSelector(maxHeight: 1080, av1HardwareDecoding: false).select(from: formats))
         #expect(selection.video.itag == 136)
+    }
+
+    @Test func prefersSDRAV1OverHDR() throws {
+        let formats = [
+            stream(399, .video, "av01", width: 1920, height: 1080, bitDepth: 8, bitrate: 1_600_000),
+            stream(699, .video, "av01", width: 1920, height: 1080, bitDepth: 10, bitrate: 5_000_000),
+            stream(137, .video, "avc1", width: 1920, height: 1080, bitrate: 4_000_000),
+            stream(140, .audio, "mp4a", bitrate: 130_000),
+        ]
+        let selection = try #require(FormatSelector(maxHeight: 1080, av1HardwareDecoding: true).select(from: formats))
+        #expect(selection.video.itag == 399)
+    }
+
+    @Test func selectsHDRWhenAllowed() throws {
+        let formats = [
+            stream(399, .video, "av01", width: 1920, height: 1080, bitDepth: 8, bitrate: 1_600_000),
+            stream(699, .video, "av01", width: 1920, height: 1080, bitDepth: 10, bitrate: 5_000_000),
+            stream(137, .video, "avc1", width: 1920, height: 1080, bitrate: 4_000_000),
+            stream(140, .audio, "mp4a", bitrate: 130_000),
+        ]
+        let selection = try #require(FormatSelector(maxHeight: 1080, av1HardwareDecoding: true, allowsHighBitDepth: true).select(from: formats))
+        #expect(selection.video.itag == 699)
+    }
+
+    @Test func fallsBackToH264WhenAV1IsOnlyHDR() throws {
+        let formats = [
+            stream(699, .video, "av01", width: 1920, height: 1080, bitDepth: 10, bitrate: 5_000_000),
+            stream(137, .video, "avc1", width: 1920, height: 1080, bitrate: 4_000_000),
+            stream(140, .audio, "mp4a", bitrate: 130_000),
+        ]
+        let selection = try #require(FormatSelector(maxHeight: 1080, av1HardwareDecoding: true).select(from: formats))
+        #expect(selection.video.itag == 137)
     }
 }

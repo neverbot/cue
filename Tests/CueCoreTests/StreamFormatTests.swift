@@ -14,6 +14,7 @@ import Testing
         #expect(format.codec == "avc1")
         #expect(format.height == 1080)
         #expect(format.needsChallenges == false)
+        #expect(format.bitDepth == nil)
     }
 
     @Test func normalisesVP9AndAudioCodecs() throws {
@@ -123,5 +124,21 @@ import Testing
     @Test func refusesDuplicateNParameters() throws {
         let format = try #require(StreamFormat(raw: raw(#"{"itag":140,"mimeType":"audio/mp4; codecs=\"mp4a.40.2\"","url":"https://rr1.googlevideo.com/videoplayback?itag=140&n=abc&n=def"}"#)))
         #expect(format.resolvingChallenges([.n: ["abc": "cba", "def": "fed"]]) == nil)
+    }
+
+    @Test(arguments: [
+        ("av01.0.08M.08", 8),
+        ("av01.0.09M.10", 10),
+        ("vp09.02.51.10.01.09.16.09.00", 10),
+        ("avc1.640028", nil),
+        ("av01", nil),
+    ] as [(String, Int?)])
+    func readsBitDepthFromCodecs(_ arguments: (codecs: String, expected: Int?)) throws {
+        #expect(StreamFormat.bitDepth(fromCodecs: arguments.codecs) == arguments.expected)
+    }
+
+    @Test func mapsBitDepthOfHDRFormats() throws {
+        let format = try #require(StreamFormat(raw: raw(#"{"itag":699,"mimeType":"video/mp4; codecs=\"av01.0.09M.10\"","bitrate":5000000,"width":1920,"height":1080,"url":"https://rr1.googlevideo.com/videoplayback?itag=699"}"#)))
+        #expect(format.bitDepth == 10)
     }
 }
