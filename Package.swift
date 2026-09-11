@@ -27,6 +27,10 @@ let package = Package(
             dependencies: ["CMpv"],
             linkerSettings: [.unsafeFlags(["-L", libmpvDirectory, "-Xlinker", "-rpath", "-Xlinker", libmpvDirectory])]
         ),
+        .target(
+            name: "CuePlayer",
+            dependencies: ["CueCore", "CueMPV"]
+        ),
         .testTarget(
             name: "CueCoreTests",
             dependencies: ["CueCore"],
@@ -35,6 +39,10 @@ let package = Package(
         .testTarget(
             name: "CueMPVTests",
             dependencies: ["CueMPV", "CMpv"]
+        ),
+        .testTarget(
+            name: "CuePlayerTests",
+            dependencies: ["CueCore", "CueMPV", "CuePlayer"]
         ),
     ]
 )
