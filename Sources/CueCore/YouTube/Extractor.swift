@@ -10,6 +10,8 @@ public struct Resolution: Sendable {
     public let hlsManifestURL: URL?
     public let captionTrackCount: Int
     public let storyboardSpec: String?
+    /// When the stream URLs stop working; re-resolve before then.
+    public let expiresAt: Date?
     /// Stream requests must use this User-Agent.
     public let userAgent: String
 }
@@ -48,20 +50,24 @@ public struct Extractor: Sendable {
     let client: ClientProfile
     let selector: FormatSelector
     let solver: ChallengeSolver?
+    let now: @Sendable () -> Date
 
     public init(
         http: any HTTPClient = URLSessionHTTPClient(session: URLSession(configuration: .ephemeral)),
         client: ClientProfile = .visionOS,
         selector: FormatSelector = FormatSelector(),
-        solver: ChallengeSolver? = Extractor.bundledSolver
+        solver: ChallengeSolver? = Extractor.bundledSolver,
+        now: @Sendable @escaping () -> Date = { Date() }
     ) {
         self.http = http
         self.client = client
         self.selector = selector
         self.solver = solver
+        self.now = now
     }
 
     public func resolve(_ videoID: VideoID) async throws -> Resolution {
+        let requestedAt = now()
         let watchURL = WatchPage.url(for: videoID)
         let page = try await http.send(HTTPRequest(url: watchURL, headers: ["User-Agent": client.userAgent, "Cookie": WatchPage.consentCookie]))
         guard page.status == 200 else { throw ExtractionError.httpStatus(page.status, watchURL) }
@@ -103,6 +109,7 @@ public struct Extractor: Sendable {
             hlsManifestURL: player.streamingData?.hlsManifestUrl.flatMap(URL.init(string:)),
             captionTrackCount: player.captions?.playerCaptionsTracklistRenderer?.captionTracks?.count ?? 0,
             storyboardSpec: player.storyboards?.playerStoryboardSpecRenderer?.spec,
+            expiresAt: player.streamingData?.expiresInSeconds.flatMap(TimeInterval.init).map { requestedAt.addingTimeInterval($0) },
             userAgent: client.userAgent
         )
     }

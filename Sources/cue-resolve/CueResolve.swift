@@ -28,6 +28,7 @@ struct CueResolve {
             print("author:     \(resolution.author ?? "-")")
             print("duration:   \(resolution.duration.map { "\(Int($0)) s" } ?? "-")")
             print("formats:    \(resolution.formats.count), hls: \(resolution.hlsManifestURL != nil), captions: \(resolution.captionTrackCount)")
+            print("expires:    \(resolution.expiresAt.map { "in \(Int($0.timeIntervalSince(Date()) / 60)) min" } ?? "-")")
             let shortSide = [video.width, video.height].compactMap { $0 }.min()
             print("selected:   video itag \(video.itag) \(video.codec) \(shortSide.map { "\($0)p" } ?? "-") | audio itag \(audio.itag) \(audio.codec)")
             print("user-agent: \(resolution.userAgent)")

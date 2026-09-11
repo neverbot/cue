@@ -14,7 +14,12 @@ import Testing
 
     @Test func resolvesPlayableStreams() async throws {
         let http = try stubWithRealPlayer()
-        let extractor = Extractor(http: http, selector: FormatSelector(maxHeight: 1080, av1HardwareDecoding: false), solver: nil)
+        let extractor = Extractor(
+            http: http,
+            selector: FormatSelector(maxHeight: 1080, av1HardwareDecoding: false),
+            solver: nil,
+            now: { Date(timeIntervalSince1970: 1_000_000) }
+        )
 
         let resolution = try await extractor.resolve(videoID)
 
@@ -25,7 +30,27 @@ import Testing
         #expect(resolution.selection.audio.itag == 140)
         #expect(resolution.hlsManifestURL != nil)
         #expect(resolution.captionTrackCount == 6)
+        #expect(resolution.expiresAt == Date(timeIntervalSince1970: 1_021_540))
         #expect(resolution.userAgent == ClientProfile.visionOS.userAgent)
+    }
+
+    @Test func ignoresUnreadableExpiry() async throws {
+        let fixture = try Fixture.data("player-visionos-dQw4w9WgXcQ.json")
+        let original = Data(#""expiresInSeconds": "21540""#.utf8)
+        let replacement = Data(#""expiresInSeconds": "soon""#.utf8)
+        try #require(fixture.range(of: original) != nil)
+        var body = fixture
+        let range = try #require(body.range(of: original))
+        body.replaceSubrange(range, with: replacement)
+
+        let http = StubHTTPClient()
+        http.on(path: "/watch", body: try Fixture.data("watch-page-snippet.html"))
+        http.on(path: "/youtubei/v1/player", body: body)
+        let extractor = Extractor(http: http, selector: FormatSelector(maxHeight: 1080, av1HardwareDecoding: false), solver: nil)
+
+        let resolution = try await extractor.resolve(videoID)
+
+        #expect(resolution.expiresAt == nil)
     }
 
     @Test func sendsConsentCookieAndVisitorData() async throws {

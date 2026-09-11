@@ -54,6 +54,7 @@ import Testing
 
         #expect(resolution.selection.video.url.absoluteString == "https://rr1.googlevideo.com/videoplayback?itag=137&n=cba&expire=1&sig=FEDCBA")
         #expect(resolution.selection.audio.url.absoluteString == "https://rr1.googlevideo.com/videoplayback?itag=140&n=zyx&expire=1")
+        #expect(resolution.expiresAt == nil)
         #expect(http.recorded.map(\.url.path) == ["/watch", "/youtubei/v1/player", "/iframe_api", "/s/player/8c3fda2d/player_ias.vflset/en_US/base.js"])
     }
 

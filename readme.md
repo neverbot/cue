@@ -45,6 +45,7 @@ title:      Rick Astley - Never Gonna Give You Up (Official Video) (4K Remaster)
 author:     Rick Astley
 duration:   213 s
 formats:    27, hls: true, captions: 6
+expires:    in 358 min
 selected:   video itag 137 avc1 1080p | audio itag 140 mp4a
 user-agent: Mozilla/5.0 (…)
 video:      https://…googlevideo.com/videoplayback?…
