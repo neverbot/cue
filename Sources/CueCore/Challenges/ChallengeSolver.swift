@@ -98,7 +98,7 @@ public final class ChallengeSolver: @unchecked Sendable {
         return result
     }
 
-    private func cachedPlayer(_ playerID: String) -> String? {
+    func cachedPlayer(_ playerID: String) -> String? {
         lock.withLock { preprocessedPlayers.first { $0.playerID == playerID }?.source }
     }
 

@@ -157,6 +157,11 @@ import Testing
         let output = try #require(solved[.n]?["0aBcDeFgHiJkLmNoP"])
         #expect(!output.isEmpty)
         #expect(output != "0aBcDeFgHiJkLmNoP")
+
+        // The second solve must reuse the preprocessed player: an empty player source would fail otherwise.
+        #expect(solver.cachedPlayer(playerID) != nil)
+        let cached = try solver.solve(playerID: playerID, playerJS: "", challenges: [.n: ["0aBcDeFgHiJkLmNoP"]])
+        #expect(cached[.n]?["0aBcDeFgHiJkLmNoP"] == output)
     }
 }
 
