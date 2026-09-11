@@ -42,7 +42,8 @@ let package = Package(
         ),
         .testTarget(
             name: "CuePlayerTests",
-            dependencies: ["CueCore", "CueMPV", "CuePlayer"]
+            dependencies: ["CueCore", "CueMPV", "CuePlayer"],
+            resources: [.copy("Fixtures")]
         ),
     ]
 )
