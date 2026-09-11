@@ -11,6 +11,6 @@ License: The Unlicense (public domain dedication)
 The lib script bundles:
 
 - **meriyah 6.1.4** — ISC License, Copyright (c) 2019 and later, KFlash and others. https://github.com/meriyah/meriyah
-- **astring** — MIT License, Copyright (c) David Bonnet. https://github.com/davidbonnet/astring
+- **astring 1.9.0** — MIT License, Copyright (c) 2015, David Bonnet. https://github.com/davidbonnet/astring
 
 The full ISC and MIT license texts are reproduced in the header of `yt.solver.lib.js`.

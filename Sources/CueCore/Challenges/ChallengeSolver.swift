@@ -11,79 +11,114 @@ public enum ChallengeSolverError: Error, Equatable, Sendable {
 /// Runs yt-dlp's EJS challenge solver (lib + core scripts) inside JavaScriptCore.
 /// Caches the preprocessed player per player id, as yt-dlp does, because preprocessing dominates the cost.
 public final class ChallengeSolver: @unchecked Sendable {
+    static let libFileName = "yt.solver.lib.js"
+    static let coreFileName = "yt.solver.core.js"
+    /// Player ids rotate over time; older preprocessed players are dropped.
+    static let cachedPlayerLimit = 2
+
     private let libSource: String
     private let coreSource: String
     private let lock = NSLock()
-    private var preprocessedPlayers: [String: String] = [:]
+    private var preprocessedPlayers: [(playerID: String, source: String)] = []
 
     public init(libSource: String, coreSource: String) {
         self.libSource = libSource
         self.coreSource = coreSource
     }
 
-    public static func bundled() throws -> ChallengeSolver {
-        guard let lib = Bundle.module.url(forResource: "yt.solver.lib", withExtension: "js", subdirectory: "ejs"),
-              let core = Bundle.module.url(forResource: "yt.solver.core", withExtension: "js", subdirectory: "ejs")
+    /// Loads `yt.solver.lib.js` and `yt.solver.core.js` from a directory.
+    public convenience init(scriptsDirectory: URL) throws {
+        guard let libSource = try? String(contentsOf: scriptsDirectory.appendingPathComponent(Self.libFileName), encoding: .utf8),
+              let coreSource = try? String(contentsOf: scriptsDirectory.appendingPathComponent(Self.coreFileName), encoding: .utf8)
         else { throw ChallengeSolverError.scriptsMissing }
-        return ChallengeSolver(
-            libSource: try String(contentsOf: lib, encoding: .utf8),
-            coreSource: try String(contentsOf: core, encoding: .utf8)
-        )
+        self.init(libSource: libSource, coreSource: coreSource)
+    }
+
+    /// Loads the scripts shipped with Cue: `Contents/Resources/ejs` inside the app, or the SwiftPM resource bundle
+    /// next to a command-line executable. Avoids `Bundle.module`, which terminates the process when its bundle is missing.
+    public static func bundled() throws -> ChallengeSolver {
+        let candidates = [
+            Bundle.main.resourceURL?.appendingPathComponent("ejs"),
+            Bundle.main.bundleURL.appendingPathComponent("Cue_CueCore.bundle").appendingPathComponent("ejs"),
+        ]
+        for case let directory? in candidates {
+            if let solver = try? ChallengeSolver(scriptsDirectory: directory) { return solver }
+        }
+        throw ChallengeSolverError.scriptsMissing
     }
 
     public func solve(playerID: String, playerJS: String, challenges: [ChallengeKind: [String]]) throws -> [ChallengeKind: [String: String]] {
-        try lock.withLock {
-            let kinds = ChallengeKind.allCases.filter { !(challenges[$0] ?? []).isEmpty }
-            guard !kinds.isEmpty else { return [:] }
+        let kinds = ChallengeKind.allCases.filter { !(challenges[$0] ?? []).isEmpty }
+        guard !kinds.isEmpty else { return [:] }
 
-            var input: [String: Any] = [
-                "requests": kinds.map { ["type": $0.rawValue, "challenges": challenges[$0] ?? []] },
-            ]
-            if let preprocessed = preprocessedPlayers[playerID] {
-                input["type"] = "preprocessed"
-                input["preprocessed_player"] = preprocessed
-            } else {
-                input["type"] = "player"
-                input["player"] = playerJS
-                input["output_preprocessed"] = true
-            }
+        var input: [String: Any] = [
+            "requests": kinds.map { ["type": $0.rawValue, "challenges": challenges[$0] ?? []] },
+        ]
+        if let preprocessed = cachedPlayer(playerID) {
+            input["type"] = "preprocessed"
+            input["preprocessed_player"] = preprocessed
+        } else {
+            input["type"] = "player"
+            input["player"] = playerJS
+            input["output_preprocessed"] = true
+        }
 
-            let output = try run(input)
-            if let preprocessed = output["preprocessed_player"] as? String {
-                preprocessedPlayers[playerID] = preprocessed
-            }
-            guard output["type"] as? String == "result",
-                  let responses = output["responses"] as? [[String: Any]],
-                  responses.count == kinds.count
-            else { throw ChallengeSolverError.malformedOutput }
+        // Runs outside the lock: every run has its own JSContext, and a slow player must not hold up other solves.
+        let output = try run(input)
+        if let preprocessed = output["preprocessed_player"] as? String {
+            cache(preprocessed, for: playerID)
+        }
+        guard output["type"] as? String == "result",
+              let responses = output["responses"] as? [[String: Any]],
+              responses.count == kinds.count
+        else { throw ChallengeSolverError.malformedOutput }
 
-            var result: [ChallengeKind: [String: String]] = [:]
-            for (kind, response) in zip(kinds, responses) {
-                guard response["type"] as? String == "result", let data = response["data"] as? [String: String] else {
-                    throw ChallengeSolverError.solverFailed(kind: kind.rawValue, message: response["error"] as? String ?? "unknown error")
-                }
-                result[kind] = data
+        var result: [ChallengeKind: [String: String]] = [:]
+        for (kind, response) in zip(kinds, responses) {
+            guard response["type"] as? String == "result" else {
+                throw ChallengeSolverError.solverFailed(kind: kind.rawValue, message: response["error"] as? String ?? "unknown error")
             }
-            return result
+            guard let data = response["data"] as? [String: String] else { throw ChallengeSolverError.malformedOutput }
+            result[kind] = data
+        }
+        return result
+    }
+
+    private func cachedPlayer(_ playerID: String) -> String? {
+        lock.withLock { preprocessedPlayers.first { $0.playerID == playerID }?.source }
+    }
+
+    private func cache(_ source: String, for playerID: String) {
+        lock.withLock {
+            preprocessedPlayers.removeAll { $0.playerID == playerID }
+            preprocessedPlayers.insert((playerID, source), at: 0)
+            if preprocessedPlayers.count > Self.cachedPlayerLimit {
+                preprocessedPlayers.removeLast(preprocessedPlayers.count - Self.cachedPlayerLimit)
+            }
         }
     }
 
     private func run(_ input: [String: Any]) throws -> [String: Any] {
-        guard let context = JSContext() else { throw ChallengeSolverError.javaScriptException("JSContext unavailable") }
-        var exception: String?
-        context.exceptionHandler = { _, value in exception = value?.toString() }
+        try autoreleasepool {
+            guard let context = JSContext() else { throw ChallengeSolverError.javaScriptException("JSContext unavailable") }
+            var exception: String?
+            context.exceptionHandler = { _, value in
+                if exception == nil { exception = value?.toString() }
+            }
+            context.setObject(input, forKeyedSubscript: "__cueInput" as NSString)
 
-        context.evaluateScript(libSource)
-        context.evaluateScript("Object.assign(globalThis, lib);")
-        context.evaluateScript(coreSource)
-        context.setObject(input, forKeyedSubscript: "__cueInput" as NSString)
-        let json = context.evaluateScript("JSON.stringify(jsc(__cueInput))")?.toString()
+            var json: String?
+            for script in [libSource, "Object.assign(globalThis, lib);", coreSource, "JSON.stringify(jsc(__cueInput))"] {
+                let value = context.evaluateScript(script)
+                if let exception { throw ChallengeSolverError.javaScriptException(exception) }
+                json = value?.toString()
+            }
 
-        if let exception { throw ChallengeSolverError.javaScriptException(exception) }
-        guard let json,
-              let data = json.data(using: .utf8),
-              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
-        else { throw ChallengeSolverError.malformedOutput }
-        return object
+            guard let json,
+                  let data = json.data(using: .utf8),
+                  let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+            else { throw ChallengeSolverError.malformedOutput }
+            return object
+        }
     }
 }
