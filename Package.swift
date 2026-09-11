@@ -8,7 +8,10 @@ let package = Package(
         .library(name: "CueCore", targets: ["CueCore"]),
     ],
     targets: [
-        .target(name: "CueCore"),
+        .target(
+            name: "CueCore",
+            resources: [.copy("Resources/ejs")]
+        ),
         .testTarget(
             name: "CueCoreTests",
             dependencies: ["CueCore"],
