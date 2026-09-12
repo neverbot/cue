@@ -84,6 +84,11 @@ final class VideoLayer: CAOpenGLLayer, @unchecked Sendable {
             }
         } catch {
             logger.error("Could not create the mpv render context: \(String(describing: error), privacy: .public)")
+            // Keep the CGL context even though the render context failed: leaving `glContext` nil would make the
+            // next display change fall through to `super.copyCGLContext` again, creating (and leaking, since
+            // nothing here ever calls `CGLReleaseContext` on it) a fresh context on every retry instead of reusing
+            // this one. `renderContext` stays nil, so `canDraw`/`draw` keep declining to render.
+            renderLock.withLock { glContext = context }
         }
         CGLSetCurrentContext(nil)
         CGLUnlockContext(context)
