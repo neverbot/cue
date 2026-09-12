@@ -32,6 +32,7 @@ public final class ChallengeSolver: @unchecked Sendable {
     private let coreSource: String
     private let lock = NSLock()
     private var preprocessedPlayers: [(playerID: String, source: String)] = []
+    private var inFlightFetches: [String: Task<String, Error>] = [:]
     private let queue = DispatchQueue(label: "cue.challenge-solver")
 
     public init(libSource: String, coreSource: String) {
@@ -118,16 +119,31 @@ public final class ChallengeSolver: @unchecked Sendable {
     /// Solves challenges one run at a time on a private queue, off the Swift concurrency pool: runs for different
     /// players queue behind each other too, so a cold solve for one player delays others — deliberate, it caps CPU.
     /// Cancellation is honoured before the player download and before queueing; once queued, a run completes and
-    /// still populates the cache. `playerSource` is only called when the preprocessed player is not cached.
+    /// still populates the cache. `playerSource` is only called when the preprocessed player is not cached, and
+    /// concurrent cold callers for the same player id share one in-flight download (see `fetchTask`).
     public func solve(
         playerID: String,
         challenges: [ChallengeKind: [String]],
-        playerSource: @Sendable () async throws -> String
+        playerSource: @escaping @Sendable () async throws -> String
     ) async throws -> [ChallengeKind: [String: String]] {
         try Task.checkCancellation()
         let pinned = cachedPlayer(playerID)
-        let playerJS = pinned == nil ? try await playerSource() : ""
-        try Task.checkCancellation()
+        let playerJS: String
+        if pinned == nil {
+            playerJS = try await fetchTask(for: playerID, using: playerSource).value
+        } else {
+            playerJS = ""
+        }
+        if Task.isCancelled {
+            // The download already paid for itself: queue it anyway so the cache still benefits, but do not make
+            // this cancelled caller wait for it, and still report the cancellation.
+            if pinned == nil, !playerJS.isEmpty {
+                queue.async {
+                    _ = try? self.solve(playerID: playerID, playerJS: playerJS, challenges: challenges, pinnedPreprocessed: pinned)
+                }
+            }
+            throw CancellationError()
+        }
         return try await withCheckedThrowingContinuation { continuation in
             queue.async {
                 continuation.resume(with: Result {
@@ -135,6 +151,32 @@ public final class ChallengeSolver: @unchecked Sendable {
                 })
             }
         }
+    }
+
+    /// Returns the in-flight fetch for `playerID`, joining it if one is already running, or starts one otherwise.
+    /// The task is unstructured, so a caller cancelling its own `solve` does not cancel the shared download for
+    /// others still waiting on it. Removed from `inFlightFetches` once it finishes, success or failure, so a
+    /// failed fetch does not poison later retries.
+    private func fetchTask(for playerID: String, using playerSource: @escaping @Sendable () async throws -> String) -> Task<String, Error> {
+        lock.withLock {
+            if let existing = inFlightFetches[playerID] { return existing }
+            let task = Task<String, Error> { [weak self] in
+                defer { self?.clearFetch(for: playerID) }
+                return try await playerSource()
+            }
+            inFlightFetches[playerID] = task
+            return task
+        }
+    }
+
+    private func clearFetch(for playerID: String) {
+        lock.withLock { _ = inFlightFetches.removeValue(forKey: playerID) }
+    }
+
+    /// Blocks until every run enqueued so far on the private solve queue has completed. Test-only synchronisation
+    /// point, so assertions after a fire-and-forget caching run do not need to poll or sleep.
+    func flushQueueForTesting() {
+        queue.sync {}
     }
 
     func cachedPlayer(_ playerID: String) -> String? {
