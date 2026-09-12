@@ -76,6 +76,23 @@ import Testing
         #expect(controller.state.phase == .ended)
     }
 
+    @Test func keepsThePositionWhenPlaybackEndsWithAnUnknownDuration() async throws {
+        let resolver = FakeResolver([
+            TestStreams.stream(duration: nil, expiresAt: clock.now.addingTimeInterval(3600)),
+            TestStreams.stream(duration: nil, expiresAt: clock.now.addingTimeInterval(7200)),
+        ].map(Result.success))
+        let controller = makeController(resolver)
+        await controller.open(.video(TestStreams.videoID))
+        play(controller, at: 100)
+        clock.advance(by: 3600)
+
+        engine.emit(.ended(.finished))
+        try await waitUntil { engine.loaded.count == 2 }
+
+        #expect(store.entries[TestStreams.videoID]?.position == 100)
+        #expect(engine.loaded.last?.start == 100)
+    }
+
     @Test func keepsThePositionWhenPlaybackEndsEarly() async {
         let controller = makeController(FakeResolver([.success(TestStreams.stream(expiresAt: clock.now.addingTimeInterval(3600)))]))
         await controller.open(.video(TestStreams.videoID))
@@ -211,6 +228,33 @@ import Testing
 
         #expect(engine.loaded.map(\.stream.videoID) == [TestStreams.otherVideoID])
         #expect(controller.state.stream?.videoID == TestStreams.otherVideoID)
+    }
+
+    @Test func seeksReachTheEngineWhenTheStreamIsFresh() async {
+        let controller = makeController(FakeResolver([.success(TestStreams.stream(expiresAt: clock.now.addingTimeInterval(3600)))]))
+        await controller.open(.video(TestStreams.videoID))
+        play(controller, at: 20)
+
+        controller.perform(.seekAbsolute(seconds: 30))
+
+        #expect(engine.commands == [.seekAbsolute(seconds: 30)])
+        #expect(engine.loaded.count == 1)
+    }
+
+    @Test func clampsARelativeSeekBelowZeroWhenReResolving() async throws {
+        let resolver = FakeResolver([
+            TestStreams.stream(expiresAt: clock.now.addingTimeInterval(3600)),
+            TestStreams.stream(expiresAt: clock.now.addingTimeInterval(7200)),
+        ].map(Result.success))
+        let controller = makeController(resolver)
+        await controller.open(.video(TestStreams.videoID))
+        play(controller, at: 10)
+        clock.advance(by: 3600)
+
+        controller.perform(.seekRelative(seconds: -1000))
+        try await waitUntil { engine.loaded.count == 2 }
+
+        #expect(engine.loaded.last?.start == 0)
     }
 
     @Test func opensLocalFilesWithoutResolving() async {

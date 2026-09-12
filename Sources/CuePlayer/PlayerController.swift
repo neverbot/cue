@@ -168,10 +168,17 @@ public final class PlayerController {
 
     /// With `keep-open=yes` mpv reports the end of the file whenever playback stops, including when a stream dies
     /// early (an expired URL, a dropped connection). Only an end close to the duration means the video was watched.
+    /// An unknown duration cannot be close to anything, so it is treated the same as an early end: the position is
+    /// kept and a refresh is attempted, instead of losing the resume point for a duration that never arrived.
     private func handlePlaybackEnd() {
         guard let videoID = state.stream?.videoID else { return }
         let position = state.position
-        guard let duration = state.duration, position < duration - policy.endMargin else {
+        guard let duration = state.duration else {
+            persist(position: position, duration: nil, for: videoID)
+            refreshAfterFailure(resumeAt: position)
+            return
+        }
+        guard position < duration - policy.endMargin else {
             resumeStore.remove(videoID)
             return
         }
