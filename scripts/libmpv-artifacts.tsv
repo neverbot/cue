@@ -9,8 +9,6 @@ Libavfilter	3e71af8633d99d365f14b88064bceafd57acb23fc64db90e55b715a9c0dca328	htt
 Libavutil	5dc251c8807c501982edfb0bc9bddfee4148733142d6ebb947738c60fb3bf8d8	https://github.com/mpvkit/MPVKit/releases/download/1.0.0/Libavutil.xcframework.zip
 Libswresample	d5c36acf2ff944e15706f4b7bfbf18bb1993ffc5b446c9f67f1aa79de5441f15	https://github.com/mpvkit/MPVKit/releases/download/1.0.0/Libswresample.xcframework.zip
 Libswscale	4fc00de6a7a8cddcdfe0eeb73b4f919cfaf9a0fd5a442f42a43e0f56e157d7c5	https://github.com/mpvkit/MPVKit/releases/download/1.0.0/Libswscale.xcframework.zip
-Libcrypto	593283be2a90f7fd66f6e6ed331b2f099cf403e0926fe3b4ac09a7062b793965	https://github.com/mpvkit/openssl-build/releases/download/3.3.5/Libcrypto.xcframework.zip
-Libssl	ff5ffd43d015d7285fd37e4a3145b25cbd8d2842740bd629a711c299a20e226a	https://github.com/mpvkit/openssl-build/releases/download/3.3.5/Libssl.xcframework.zip
 gmp	ad33c7a08f4cdcb9924c8f0e6d9a054dad33d7794b97667bf8b6fb2b236ae585	https://github.com/mpvkit/gnutls-build/releases/download/3.8.11/gmp.xcframework.zip
 nettle	0fdf3ebf8bd7b8bc8eee837cf27261cb4c52ae520b6576a2f468656aa1691e02	https://github.com/mpvkit/gnutls-build/releases/download/3.8.11/nettle.xcframework.zip
 hogweed	25727c9fa67287fa0a4f4722f88bb8be669b23cd7e837e2d00870eb8a25d3f27	https://github.com/mpvkit/gnutls-build/releases/download/3.8.11/hogweed.xcframework.zip

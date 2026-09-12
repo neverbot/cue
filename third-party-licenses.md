@@ -41,7 +41,6 @@ Libraries linked into `libmpv.2.dylib`, with the licenses of their upstream proj
 | GnuTLS 3.8.11 | LGPL-2.1-or-later |
 | Nettle and Hogweed | LGPL-3.0-or-later |
 | GMP | LGPL-3.0-or-later |
-| OpenSSL 3.3.5 | Apache-2.0 |
 | dav1d 1.5.3 | BSD-2-Clause |
 | uavs3d | BSD-3-Clause |
 | libdovi 3.3.2 | MIT |
@@ -74,6 +73,13 @@ codesign --force --options runtime --timestamp=none --entitlements packaging/cue
 ```
 
 To build Cue itself against your library, put it at `vendor/cache/libmpv/lib/libmpv.2.dylib`, put its headers in `vendor/cache/libmpv/include/mpv/`, and run `scripts/make-app.sh`.
+
+### Rebuilding `libmpv.2.dylib`
+
+mpv and FFmpeg are only the two outer layers: libplacebo, FriBidi, GnuTLS, Nettle, GMP, libbluray and uchardet (and the other components in the table above) are all statically linked *inside* `libmpv.2.dylib`, not shipped as separate dylibs. Producing your own build from source, rather than replacing the whole library with a compatible one you already have, means rebuilding every one of those static libraries yourself:
+
+- MPVKit does not publish source releases of the combined dylib; it publishes one prebuilt static `xcframework.zip` per component (see `scripts/libmpv-artifacts.tsv` for the exact tags). Each component has its own build script and patch set in a separate `mpvkit/<component>-build` repository (for example `mpvkit/libplacebo-build`, `mpvkit/gnutls-build`); start from those to reproduce a component from source.
+- Once you have static libraries for every component, `scripts/fetch-libmpv.sh` is the reference for how they are linked together: it force-loads `Libmpv` (so every mpv symbol survives dead-stripping), links the rest normally, restricts the dylib's exports to `mpv_*` with `-Wl,-exported_symbol,'_mpv_*'`, and dead-strips everything else. Reuse its `clang -dynamiclib` invocation (same frameworks, same `-install_name @rpath/libmpv.2.dylib`) with your own static libraries in place of the downloaded archives.
 
 ## Test media
 
