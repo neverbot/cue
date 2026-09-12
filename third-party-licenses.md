@@ -24,7 +24,7 @@ The full ISC and MIT license texts are reproduced in the header of `yt.solver.li
 
 `Cue.app` includes `Contents/Frameworks/libmpv.2.dylib`, a shared library that `scripts/fetch-libmpv.sh` links from the prebuilt LGPL archives of the MPVKit project, release 1.0.0 (https://github.com/mpvkit/MPVKit). Cue uses it only through libmpv's public client API. The archives and their SHA-256 checksums are pinned in `scripts/libmpv-artifacts.tsv`.
 
-- **mpv v0.41.0**, built with `-Dgpl=false`: GNU Lesser General Public License, version 2.1 or later. https://github.com/mpv-player/mpv
+- **mpv v0.41.0-dirty**, built with `-Dgpl=false`: GNU Lesser General Public License, version 2.1 or later. https://github.com/mpv-player/mpv. The `-dirty` suffix (reported by the linked library itself) means MPVKit built it from the tagged source plus its own patches, not a clean checkout; see "Corresponding source" below for the patched sources.
 - **FFmpeg n8.1.2**, built without `--enable-gpl` and with `--enable-version3`: GNU Lesser General Public License, version 3 or later. https://ffmpeg.org
 - **libmpv client API headers** (`client.h`, `render.h`, `render_gl.h`; fetched at build time, not committed): ISC License.
 
@@ -34,15 +34,15 @@ Libraries linked into `libmpv.2.dylib`, with the licenses of their upstream proj
 |---|---|
 | libplacebo 7.360.1 | LGPL-2.1-or-later |
 | libass 0.17.5 | ISC |
-| FreeType | FreeType License (FTL) |
-| FriBidi | LGPL-2.1-or-later |
-| HarfBuzz | MIT |
-| libunibreak | zlib |
+| FreeType 2.14.3 | FreeType License (FTL) |
+| FriBidi 1.0.16 | LGPL-2.1-or-later |
+| HarfBuzz 14.2.0 | MIT |
+| libunibreak 6.1 | zlib |
 | GnuTLS 3.8.11 | LGPL-2.1-or-later |
 | Nettle and Hogweed | LGPL-3.0-or-later |
 | GMP | LGPL-3.0-or-later |
 | dav1d 1.5.3 | BSD-2-Clause |
-| uavs3d | BSD-3-Clause |
+| uavs3d 1.2.1 | BSD-3-Clause |
 | libdovi 3.3.2 | MIT |
 | Little CMS 2.17 | MIT |
 | shaderc 2025.5.0 | Apache-2.0 |
@@ -51,12 +51,33 @@ Libraries linked into `libmpv.2.dylib`, with the licenses of their upstream proj
 | uchardet 0.0.8 | LGPL-2.1-or-later (chosen from MPL-1.1 / GPL-2.0-or-later / LGPL-2.1-or-later) |
 | LuaJIT 2.1 | MIT |
 
+FreeType, FriBidi, HarfBuzz and libunibreak are bundled by the `libass-build` archives (tag `0.17.5`, alongside libass itself) and are not independently versioned in `scripts/libmpv-artifacts.tsv`; their versions above were read from the vendored build, not the manifest:
+
+- **FreeType 2.14.3** — `FREETYPE_MAJOR`/`FREETYPE_MINOR`/`FREETYPE_PATCH` in the vendored `Libfreetype.xcframework` headers (`freetype/freetype.h`).
+- **FriBidi 1.0.16** — the `Shaper: FriBidi 1.0.16 (SIMPLE) …` string embedded in `libmpv.2.dylib` itself (`strings vendor/cache/libmpv/lib/libmpv.2.dylib`).
+- **HarfBuzz 14.2.0** — `HB_VERSION_STRING` in the vendored `Libharfbuzz.xcframework` header (`hb-version.h`).
+- **libunibreak 6.1** — `UNIBREAK_VERSION` (`0x0601`) in the vendored `Libunibreak.xcframework` header (`unibreakbase.h`); the two bytes are the major and minor version.
+- **uavs3d 1.2.1** — `scripts/libmpv-artifacts.tsv`'s `libuavs3d-build` release tag, `1.2.1-fix` (the `-fix` suffix is the build repository's own decoration, not part of uavs3d's version).
+
 The license texts ship in `Cue.app/Contents/Resources/licenses/`: `lgpl-2.1.txt`, `lgpl-3.0.txt`, `gpl-3.0.txt` (incorporated by reference in LGPL version 3) and `apache-2.0.txt`. The individual copyright notices of the permissively licensed components will be added here before the first binary release.
 
 ### Corresponding source
 
-- The upstream releases listed above.
-- MPVKit's build scripts and patches at tag 1.0.0: https://github.com/mpvkit/MPVKit/tree/1.0.0
+- The upstream releases named above.
+- MPVKit's own build scripts and patches, one repository and tag per component, all pinned in `scripts/libmpv-artifacts.tsv`:
+  - `Libmpv`, `Libavcodec`, `Libavdevice`, `Libavformat`, `Libavfilter`, `Libavutil`, `Libswresample`, `Libswscale`: https://github.com/mpvkit/MPVKit/tree/1.0.0
+  - `gmp`, `nettle`, `hogweed`, `gnutls`: https://github.com/mpvkit/gnutls-build/tree/3.8.11
+  - `Libunibreak`, `Libfreetype`, `Libfribidi`, `Libharfbuzz`, `Libass`: https://github.com/mpvkit/libass-build/tree/0.17.5
+  - `Libbluray`: https://github.com/mpvkit/libbluray-build/tree/1.4.0
+  - `Libuavs3d`: https://github.com/mpvkit/libuavs3d-build/tree/1.2.1-fix
+  - `Libdovi`: https://github.com/mpvkit/libdovi-build/tree/3.3.2
+  - `MoltenVK`: https://github.com/mpvkit/moltenvk-build/tree/1.4.2
+  - `Libshaderc_combined`: https://github.com/mpvkit/libshaderc-build/tree/2025.5.0
+  - `lcms2`: https://github.com/mpvkit/lcms2-build/tree/2.17.0
+  - `Libplacebo`: https://github.com/mpvkit/libplacebo-build/tree/7.360.1
+  - `Libdav1d`: https://github.com/mpvkit/libdav1d-build/tree/1.5.3
+  - `Libuchardet`: https://github.com/mpvkit/libuchardet-build/tree/0.0.8
+  - `Libluajit`: https://github.com/mpvkit/libluajit-build/tree/2.1.0-fix
 - Cue's link script, `scripts/fetch-libmpv.sh`.
 
 ### Using a modified libmpv
