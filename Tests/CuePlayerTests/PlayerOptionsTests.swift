@@ -3,13 +3,40 @@ import Foundation
 import Testing
 
 @Suite struct PlayerOptionsTests {
+    /// Pins the full, ordered option list: `baseline()` is security-relevant (`config=no` keeps mpv from reading the
+    /// user's `~/.config/mpv/mpv.conf`, which could re-enable Lua scripts and get the hardened app killed) and
+    /// `PlayerController` depends on `keep-open=yes` for its early-end logic. A spot check would stay green after
+    /// any of those were dropped by accident, so this asserts the exact list instead.
+    @Test func matchesTheExactHardenedOptionList() {
+        #expect(PlayerOptions.baseline() == [
+            MPVOption("vo", "libmpv"),
+            MPVOption("hwdec", "videotoolbox"),
+            MPVOption("config", "no"),
+            MPVOption("load-scripts", "no"),
+            MPVOption("osc", "no"),
+            MPVOption("load-stats-overlay", "no"),
+            MPVOption("load-console", "no"),
+            MPVOption("load-auto-profiles", "no"),
+            MPVOption("load-select", "no"),
+            MPVOption("load-positioning", "no"),
+            MPVOption("load-commands", "no"),
+            MPVOption("load-context-menu", "no"),
+            MPVOption("ytdl", "no"),
+            MPVOption("input-default-bindings", "no"),
+            MPVOption("input-vo-keyboard", "no"),
+            MPVOption("terminal", "no"),
+            MPVOption("osd-level", "0"),
+            MPVOption("idle", "yes"),
+            MPVOption("keep-open", "yes"),
+            MPVOption("volume-max", "100"),
+        ])
+    }
+
     @Test func keepsEveryScriptOff() {
         let options = PlayerOptions.baseline()
-        #expect(options.contains(MPVOption("vo", "libmpv")))
-        #expect(options.contains(MPVOption("load-scripts", "no")))
-        #expect(options.contains(MPVOption("osc", "no")))
         let scriptSwitches = options.filter { $0.name.hasPrefix("load-") }
-        #expect(scriptSwitches.count == 8)
+        // Not `== 8`: that would fail every time a hardening switch is added, penalizing the safer direction.
+        #expect(scriptSwitches.count >= 8)
         #expect(scriptSwitches.allSatisfy { $0.value == "no" })
         #expect(!options.contains { $0.name == "script" || $0.name == "scripts" })
     }
