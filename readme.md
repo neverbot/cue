@@ -4,7 +4,7 @@
 
 Cue keeps a personal queue of the YouTube videos you want to watch and plays them in a fast, native player built for the Mac. It aims for the polish of the best Mac media players: a clean window that stays out of the way, a sidebar with everything still pending, and playback that uses the hardware decoder in your Mac instead of a browser tab.
 
-> **Status: early development.** The native extraction core and a command-line tool work today. The player, the queue and the app itself are next. See [Roadmap](#roadmap).
+> **Status: early development.** The native extraction core, a command-line tool and a first player app work today. The queue is next. See [Roadmap](#roadmap).
 
 ## Why Cue
 
@@ -21,7 +21,7 @@ Cue keeps a personal queue of the YouTube videos you want to watch and plays the
 | Resolve playable streams natively (no embed player, no external tools) | Available in `CueCore` |
 | Hardware-first format selection (AV1, H.264 or VP9 in hardware; software VP9/AV1 only as a fallback; AAC audio) | Available in `CueCore` |
 | `cue-resolve` command-line tool | Available |
-| Native player (libmpv), keyboard controls, resume position | Planned |
+| Native player (libmpv), keyboard controls, resume position | Available in `Cue.app` (build from source) |
 | Queue sidebar with counter and total pending time; paste, drag & drop, `cue://` links | Planned |
 | Import and export of the queue | Planned |
 | Chapters, subtitles, seek-bar previews, mini player | Planned |
@@ -71,8 +71,29 @@ Everything builds with the Swift toolchain from Apple's Command Line Tools. Ther
 ```sh
 git clone https://github.com/neverbot/cue.git
 cd cue
+scripts/fetch-libmpv.sh   # downloads MPVKit's LGPL libmpv archives (about 330 MB, cached in vendor/cache) and links libmpv
 swift build
 ```
+
+### Building and running the app
+
+```sh
+scripts/make-app.sh                                                     # builds and signs dist/Cue.app (ad-hoc)
+open dist/Cue.app --args "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+```
+
+You can also start Cue without arguments and paste a YouTube link with ⌘V.
+
+| Key | Action |
+|---|---|
+| Space | Play or pause |
+| ← / → | Seek 5 seconds |
+| ↑ / ↓ | Volume |
+| F | Full screen |
+| M | Mute |
+| ⌘W | Close |
+
+Cue remembers where you stopped each video and resumes there next time.
 
 ### Running the tests
 
@@ -80,6 +101,7 @@ swift build
 scripts/test.sh                            # offline test suite
 scripts/test.sh --filter ExtractorTests    # a subset
 CUE_LIVE_TESTS=1 scripts/test.sh           # also run tests that contact YouTube
+CUE_MPV_TESTS=1 scripts/test.sh            # also play a synthetic clip through libmpv
 ```
 
 Use `scripts/test.sh` rather than `swift test`. On a machine with only the Command Line Tools installed, SwiftPM does not find the Swift Testing framework on its own. The script adds the missing framework search paths and forwards any arguments to `swift test`.
@@ -109,14 +131,19 @@ Sources/
     Networking/            HTTPClient abstraction over URLSession
     Resources/ejs/         vendored yt-dlp EJS solver scripts
   cue-resolve/             command-line tool
-Tests/CueCoreTests/        Swift Testing suites and sanitized fixtures
-scripts/test.sh            test runner for Command Line Tools-only machines
+  CMpv/                    system module for libmpv's C API
+  CueMPV/                  Swift wrapper around libmpv (core and render API)
+  CuePlayer/               player logic: state, commands, resume positions, window sizing
+  Cue/                     the macOS app (AppKit, OpenGL video layer)
+Tests/                     Swift Testing suites, sanitized fixtures and synthetic media
+packaging/                 Info.plist, entitlements and license texts for the app bundle
+scripts/                   test runner, libmpv fetch, app bundle and fixture scripts
 ```
 
 ## Roadmap
 
 1. **Foundation and native extraction.** Done: `CueCore` and `cue-resolve`.
-2. **Player core.** The `.app` bundle, libmpv playback with hardware decoding, on-screen controls, keyboard shortcuts, resume position.
+2. **Player core.** Available: `Cue.app` plays with libmpv and hardware decoding, with on-screen controls, keyboard shortcuts and resume positions (manual checks pending).
 3. **Queue.** Persistent queue with list and thumbnail views, counter and pending time, adding by paste or drag & drop or `cue://` links, import and export.
 4. **Polish.** On-screen controller styles, seek-bar previews, chapters, subtitles, mini player.
 5. **Browser integration.** Bookmarklet and extensions for Firefox and Chrome.
@@ -139,7 +166,7 @@ When YouTube changes something and extraction breaks, the usual places to look a
 
 Cue is released under the [MIT License](license.md).
 
-It bundles third-party code under its own licenses, notably the yt-dlp EJS solver scripts (The Unlicense), which include meriyah (ISC) and astring (MIT). See [third-party-licenses.md](third-party-licenses.md).
+It bundles third-party code under its own licenses, notably the yt-dlp EJS solver scripts (The Unlicense), which include meriyah (ISC) and astring (MIT), and libmpv with FFmpeg as a replaceable LGPL shared library. See [third-party-licenses.md](third-party-licenses.md).
 
 ## Disclaimer
 
