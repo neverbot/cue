@@ -17,7 +17,7 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
 
     init(engine: MPVPlaybackEngine) {
         self.engine = engine
-        controller = PlayerController(engine: engine, resolver: Extractor(), resumeStore: JSONResumeStore())
+        controller = PlayerController(engine: engine, resolver: Extractor(), resumeStore: JSONResumeStore.default())
         playerView = PlayerView(handle: engine.handle)
 
         let window = NSWindow(

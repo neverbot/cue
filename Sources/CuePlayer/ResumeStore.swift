@@ -69,8 +69,9 @@ public final class JSONResumeStore: ResumeStore {
             .appending(path: "resume-positions.json", directoryHint: .notDirectory)
     }
 
-    /// A missing, unreadable or newer-format file starts empty; it is replaced on the next change.
-    public init(fileURL: URL = JSONResumeStore.defaultFileURL, limit: Int = 1000) {
+    /// Only the app target should point this at the real profile; use `JSONResumeStore.default()` for that, so a
+    /// future zero-argument call from a test cannot silently write into the user's real Application Support.
+    public init(fileURL: URL, limit: Int = 1000) {
         self.fileURL = fileURL
         self.limit = limit
         let decoder = JSONDecoder()
@@ -100,6 +101,12 @@ public final class JSONResumeStore: ResumeStore {
     public func remove(_ videoID: VideoID) {
         guard entries.removeValue(forKey: videoID.rawValue) != nil else { return }
         write()
+    }
+
+    /// The store backed by the real `~/Library/Application Support/Cue/resume-positions.json`. Only the app target
+    /// should call this; tests must pass an explicit `fileURL` instead.
+    public static func `default`() -> JSONResumeStore {
+        JSONResumeStore(fileURL: defaultFileURL)
     }
 
     private func write() {
