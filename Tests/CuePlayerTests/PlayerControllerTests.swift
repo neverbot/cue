@@ -163,6 +163,29 @@ import Testing
         #expect(controller.state.phase == .idle)
     }
 
+    @Test func savesThePositionOnClose() async {
+        let controller = makeController(FakeResolver([.success(TestStreams.stream())]))
+        await controller.open(.video(TestStreams.videoID))
+        play(controller, at: 55)
+
+        controller.close()
+
+        #expect(store.entries[TestStreams.videoID]?.position == 55)
+        #expect(engine.stopCount == 1)
+    }
+
+    @Test func savesThePreviousVideosPositionWhenOpeningTheNextOne() async {
+        let controller = makeController(FakeResolver(
+            [.success(TestStreams.stream()), .success(TestStreams.stream(for: TestStreams.otherVideoID))]
+        ))
+        await controller.open(.video(TestStreams.videoID))
+        play(controller, at: 77)
+
+        await controller.open(.video(TestStreams.otherVideoID))
+
+        #expect(store.entries[TestStreams.videoID]?.position == 77)
+    }
+
     @Test func togglesPauseDirectlyWhileStreamsAreFresh() async {
         let controller = makeController(FakeResolver([.success(TestStreams.stream(expiresAt: clock.now.addingTimeInterval(3600)))]))
         await controller.open(.video(TestStreams.videoID))
@@ -255,6 +278,34 @@ import Testing
         try await waitUntil { engine.loaded.count == 2 }
 
         #expect(engine.loaded.last?.start == 0)
+    }
+
+    @Test func preservesThePauseAcrossASeekOnAnExpiredStream() async throws {
+        let resolver = FakeResolver([
+            .success(TestStreams.stream(expiresAt: clock.now.addingTimeInterval(3600))),
+            .success(TestStreams.stream(expiresAt: clock.now.addingTimeInterval(7200))),
+        ])
+        let controller = makeController(resolver)
+        await controller.open(.video(TestStreams.videoID))
+        play(controller, at: 100)
+        engine.emit(.paused(true))
+        clock.advance(by: 3600)
+
+        controller.perform(.seekAbsolute(seconds: 150))
+        try await waitUntil { engine.loaded.count == 2 }
+
+        #expect(engine.loaded.last?.start == 150)
+        #expect(engine.pausedCalls == [false, true])
+    }
+
+    @Test func allowsVolumeAndMuteWithNoStream() async {
+        let controller = makeController(FakeResolver([]))
+
+        controller.perform(.setVolume(40))
+        controller.perform(.toggleMute)
+        controller.perform(.seekAbsolute(seconds: 5))
+
+        #expect(engine.commands == [.setVolume(40), .toggleMute])
     }
 
     @Test func opensLocalFilesWithoutResolving() async {

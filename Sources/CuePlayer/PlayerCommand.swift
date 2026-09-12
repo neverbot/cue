@@ -23,6 +23,14 @@ public enum PlayerCommand: Equatable, Sendable {
         case .toggleFullScreen, .close: nil
         }
     }
+
+    /// Volume and mute act on mpv itself, not on a loaded file, so they are safe to allow with an empty window.
+    public var adjustsVolumeOrMute: Bool {
+        switch self {
+        case .adjustVolume, .setVolume, .toggleMute: true
+        default: false
+        }
+    }
 }
 
 /// A key press reduced to what bindings need, so the mapping is testable without AppKit.

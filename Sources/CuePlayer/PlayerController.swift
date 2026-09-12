@@ -70,10 +70,16 @@ public final class PlayerController {
     }
 
     /// Commands are ignored while a resolution is in flight, so repeated key presses cannot start several of them.
+    /// Volume and mute are the exception to needing a loaded stream: mpv holds them even with nothing open, and
+    /// the value carries into whatever opens next (see `open(_:)`), so there is no reason to swallow them.
     public func perform(_ command: PlayerCommand) {
-        guard state.stream != nil, command.mpvArguments != nil, state.phase != .resolving else { return }
+        guard command.mpvArguments != nil, state.phase != .resolving else { return }
+        guard state.stream != nil || command.adjustsVolumeOrMute else { return }
         if let position = refreshTarget(for: command) {
-            Task { await refreshStream(resumeAt: position) }
+            // Toggling pause while paused means "resume playing": the refreshed stream should start unpaused.
+            // Any other refresh (a seek) is not a request to change playback state, so the current pause is kept.
+            let paused = command == .togglePause ? false : nil
+            Task { await refreshStream(resumeAt: position, paused: paused) }
             return
         }
         if command == .togglePause, !state.isPaused {
@@ -120,18 +126,21 @@ public final class PlayerController {
         }
     }
 
-    private func start(_ stream: PlayableStream, at position: Double?) {
+    /// `paused` is the state to leave the engine in; nil preserves whatever `state.isPaused` already is (the
+    /// default for a fresh open, where it was just reset, and for a refresh that is not itself a play/pause
+    /// request).
+    private func start(_ stream: PlayableStream, at position: Double?, paused: Bool? = nil) {
         state.stream = stream
         state.phase = .loading
         state.position = position ?? 0
         state.duration = stream.duration
         state.videoSize = stream.videoSize
         lastSavedAt = now()
-        engine.setPaused(false)
+        engine.setPaused(paused ?? state.isPaused)
         engine.load(LoadRequest(stream: stream, start: position))
     }
 
-    private func refreshStream(resumeAt position: Double) async {
+    private func refreshStream(resumeAt position: Double, paused: Bool? = nil) async {
         guard let videoID = state.stream?.videoID, state.phase != .resolving else { return }
         generation += 1
         let current = generation
@@ -139,7 +148,7 @@ public final class PlayerController {
         do {
             let stream = try await resolver.stream(for: videoID)
             guard current == generation else { return }
-            start(stream, at: position)
+            start(stream, at: position, paused: paused)
         } catch {
             guard current == generation else { return }
             state.phase = .failed(Self.message(for: error))
