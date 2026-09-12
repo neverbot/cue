@@ -38,6 +38,18 @@ import Testing
         #expect(state.windowSubtitle == "Software decoding")
     }
 
+    @Test func showsLoadingWhenAReadyOrEndedStreamReloads() {
+        var ready = PlayerState()
+        ready.phase = .ready
+        ready.apply(.fileLoaded)
+        #expect(ready.phase == .loading)
+
+        var ended = PlayerState()
+        ended.phase = .ended
+        ended.apply(.fileLoaded)
+        #expect(ended.phase == .loading)
+    }
+
     @Test func endsOrFailsButIgnoresStops() {
         var state = PlayerState()
         state.phase = .ready
@@ -113,5 +125,36 @@ import Testing
         #expect(mapper.map([.endFile(.endOfFile)]) == [.ended(.finished)])
         #expect(mapper.map([.endFile(.stopped)]) == [.ended(.stopped)])
         #expect(mapper.map([.endFile(.error(code: -13))]) == [.ended(.failed(MPVError.message(for: -13)))])
+    }
+
+    /// Pins that every property `PlayerOptions.observedProperties` asks mpv to observe is actually recognized by
+    /// `mapProperty`, driven off the real list so a renamed or removed observed property fails this test instead of
+    /// silently going unhandled. This only asserts observed ⊆ handled: the reverse (every case `mapProperty`
+    /// switches on is also observed) can't be driven from the property list — it would need to enumerate the
+    /// switch's cases, which aren't exposed for reflection — so a dead, never-observed case in `mapProperty` would
+    /// not be caught here.
+    @Test func everyObservedPropertyIsHandled() {
+        for property in PlayerOptions.observedProperties where !property.name.hasPrefix("video-params/") {
+            var mapper = EngineEventMapper()
+            let value: MPVValue = switch property.format {
+            case .flag: .flag(true)
+            case .double: .double(42)
+            case .int64: .int64(42)
+            case .string: .string("x")
+            }
+            let events = mapper.map([.propertyChange(id: 0, name: property.name, value: value)])
+            #expect(!events.isEmpty, "\(property.name) produced no event: mapProperty may not handle it")
+        }
+
+        // The video-params/* trio never emits directly (they accumulate into `currentSize()`), so they're pinned
+        // via their side effect instead of a direct event.
+        var mapper = EngineEventMapper()
+        let sized = mapper.map([
+            .propertyChange(id: 0, name: "video-params/dw", value: .int64(100)),
+            .propertyChange(id: 0, name: "video-params/dh", value: .int64(50)),
+        ])
+        #expect(sized == [.videoSize(VideoSize(width: 100, height: 50))])
+        let rotated = mapper.map([.propertyChange(id: 0, name: "video-params/rotate", value: .int64(90))])
+        #expect(rotated == [.videoSize(VideoSize(width: 50, height: 100))])
     }
 }

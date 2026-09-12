@@ -64,6 +64,18 @@ import Testing
         #expect(JSONResumeStore(fileURL: fileURL).entry(for: TestStreams.videoID) == nil)
     }
 
+    @Test func ignoresAFileWithAnUnexpectedFormatVersion() throws {
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try FileManager.default.createDirectory(at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let futureFormat = """
+        {"version": 999, "entries": {"\(TestStreams.videoID.rawValue)": \
+        {"position": 42, "duration": 213, "updatedAt": "2027-01-15T08:00:00Z"}}}
+        """
+        try Data(futureFormat.utf8).write(to: fileURL)
+
+        #expect(JSONResumeStore(fileURL: fileURL).entry(for: TestStreams.videoID) == nil)
+    }
+
     @Test func writesAVersionedHumanReadableFile() throws {
         defer { try? FileManager.default.removeItem(at: directory) }
         JSONResumeStore(fileURL: fileURL).save(ResumeEntry(position: 42, duration: nil, updatedAt: date), for: TestStreams.videoID)

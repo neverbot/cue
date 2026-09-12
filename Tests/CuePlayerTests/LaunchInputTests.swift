@@ -18,7 +18,9 @@ import Testing
     }
 
     @Test func skipsCueFlags() {
-        let arguments = ["--smoke-hide", "--smoke-test", "3", "jNQXAC9IVRw"]
+        // "00000000000" would itself parse as a video id, so if `--smoke-test` stopped
+        // consuming its value this test would resolve to that id instead of the real one.
+        let arguments = ["--smoke-hide", "--smoke-test", "00000000000", "jNQXAC9IVRw"]
         #expect(LaunchInput.parse(arguments: arguments) == .video(VideoID("jNQXAC9IVRw")!))
     }
 
