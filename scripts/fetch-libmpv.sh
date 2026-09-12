@@ -4,7 +4,9 @@
 #   vendor/cache/libmpv/lib/libmpv.2.dylib   install name @rpath/libmpv.2.dylib, arm64, exports only mpv_*
 #   vendor/cache/libmpv/include/mpv/*.h      libmpv client API headers (ISC license)
 # Linking dynamically keeps libmpv replaceable, as the LGPL requires. See third-party-licenses.md for relinking.
-# usage: scripts/fetch-libmpv.sh [--force]
+# Once linked, vendor/cache/extracted/ (unpacked intermediates) is pruned automatically; only
+# vendor/cache/downloads/ (the fetched archives) is kept, so a relink needs no network.
+# usage: scripts/fetch-libmpv.sh [--force] [--keep-intermediates]
 set -euo pipefail
 
 repo=$(cd "$(dirname "$0")/.." && pwd)
@@ -17,11 +19,14 @@ dylib="$out/lib/libmpv.2.dylib"
 stamp="$out/stamp"
 
 force=0
-case "${1:-}" in
-  "") ;;
-  --force) force=1 ;;
-  *) echo "usage: scripts/fetch-libmpv.sh [--force]" >&2; exit 2 ;;
-esac
+keep_intermediates=0
+for arg in "$@"; do
+  case "$arg" in
+    --force) force=1 ;;
+    --keep-intermediates) keep_intermediates=1 ;;
+    *) echo "usage: scripts/fetch-libmpv.sh [--force] [--keep-intermediates]" >&2; exit 2 ;;
+  esac
+done
 
 [ "$(uname -m)" = arm64 ] || { echo "Cue builds for Apple silicon (arm64) only" >&2; exit 1; }
 
@@ -129,3 +134,8 @@ clang -arch arm64 -mmacosx-version-min=14.0 -I"$out/include" -L"$out/lib" -lmpv.
 
 echo "$fingerprint" > "$stamp"
 du -h "$dylib"
+
+if [ "$keep_intermediates" = 0 ]; then
+  echo "pruning $extracted"
+  rm -rf "${extracted:?}"
+fi

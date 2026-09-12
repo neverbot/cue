@@ -72,6 +72,7 @@ Everything builds with the Swift toolchain from Apple's Command Line Tools. Ther
 git clone https://github.com/neverbot/cue.git
 cd cue
 scripts/fetch-libmpv.sh   # downloads MPVKit's LGPL libmpv archives (about 330 MB, cached in vendor/cache) and links libmpv
+                          # unpacked intermediates are pruned automatically after linking; pass --keep-intermediates to keep them
 swift build
 ```
 
