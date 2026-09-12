@@ -11,6 +11,7 @@
 
 # Local test data
 *.txt
+!/packaging/licenses/*.txt
 
 # Swift / SwiftPM build output
 /.build/
