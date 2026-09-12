@@ -37,7 +37,9 @@ archives=()
 libmpv_archive=""
 while IFS=$'\t' read -r name sha256 url; do
   case "$name" in ''|'#'*) continue ;; esac
+  shopt -s nocasematch
   case "$name$url" in *GPL*|*smbclient*) echo "refusing non-LGPL artifact $name" >&2; exit 1 ;; esac
+  shopt -u nocasematch
 
   zip="$downloads/$name.xcframework.zip"
   if [ ! -f "$zip" ] || [ "$(shasum -a 256 "$zip" | awk '{print $1}')" != "$sha256" ]; then
