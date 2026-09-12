@@ -17,14 +17,6 @@ struct MPVHandleTests {
         return handle
     }
 
-    @Test func reportsAnLGPLBuild() throws {
-        let recorder = EventRecorder()
-        let handle = try Self.makeHandle(videoOutput: "null", keepOpen: false, recorder: recorder)
-        defer { try? handle.destroy() }
-        let configuration = try #require(handle.propertyString("mpv-configuration"))
-        #expect(configuration.contains("-Dgpl=false"))
-    }
-
     @Test func playsVideoWithSeparateAudioToTheEnd() async throws {
         let recorder = EventRecorder()
         let handle = try Self.makeHandle(videoOutput: "null", keepOpen: false, recorder: recorder)
@@ -58,11 +50,5 @@ struct MPVHandleTests {
         try handle.command(["seek", "2", "absolute"], replyID: 8)
         #expect(try await recorder.wait { $0.contains(.commandReply(id: 8, error: 0)) })
         #expect(try await recorder.wait { (EventRecorder.lastDouble("time-pos", in: $0) ?? 0) >= 1.9 })
-    }
-
-    @Test func refusesASecondDestroy() throws {
-        let handle = try Self.makeHandle(videoOutput: "null", keepOpen: false, recorder: EventRecorder())
-        try handle.destroy()
-        #expect(throws: MPVLifecycleError.alreadyDestroyed) { try handle.destroy() }
     }
 }

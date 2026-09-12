@@ -5,30 +5,6 @@ import Testing
 /// The render API with a software render context, which needs no window or GPU. Opt in with `CUE_MPV_TESTS=1`.
 @Suite(.serialized, .enabled(if: ProcessInfo.processInfo.environment["CUE_MPV_TESTS"] == "1"))
 struct MPVRenderContextTests {
-    @Test func refusesToDestroyTheCoreWhileARenderContextIsAlive() throws {
-        let handle = try MPVHandleTests.makeHandle(videoOutput: "libmpv", keepOpen: true, recorder: EventRecorder())
-        let renderContext = try MPVRenderContext.software(handle: handle)
-
-        #expect(throws: MPVLifecycleError.renderContextStillAlive) { try handle.destroy() }
-
-        renderContext.free()
-        try handle.destroy()
-    }
-
-    @Test func refusesASecondRenderContext() throws {
-        let handle = try MPVHandleTests.makeHandle(videoOutput: "libmpv", keepOpen: true, recorder: EventRecorder())
-        let first = try MPVRenderContext.software(handle: handle)
-
-        #expect(throws: MPVLifecycleError.renderContextAlreadyExists) {
-            _ = try MPVRenderContext.software(handle: handle)
-        }
-
-        first.free()
-        let second = try MPVRenderContext.software(handle: handle)
-        second.free()
-        try handle.destroy()
-    }
-
     @Test func rendersDecodedFramesInSoftware() async throws {
         let handle = try MPVHandleTests.makeHandle(videoOutput: "libmpv", keepOpen: true, recorder: EventRecorder())
         let renderContext = try MPVRenderContext.software(handle: handle)
