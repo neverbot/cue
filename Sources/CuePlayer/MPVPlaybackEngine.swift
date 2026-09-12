@@ -42,7 +42,7 @@ public final class MPVPlaybackEngine: PlaybackEngine {
         do {
             try handle.setProperty("pause", paused ? "yes" : "no")
         } catch {
-            logger.error("\(String(describing: error), privacy: .public)")
+            logger.error("\(LogRedactor.redact(String(describing: error)), privacy: .public)")
         }
     }
 
