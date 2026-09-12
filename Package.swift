@@ -11,6 +11,7 @@ let package = Package(
     products: [
         .library(name: "CueCore", targets: ["CueCore"]),
         .executable(name: "cue-resolve", targets: ["cue-resolve"]),
+        .executable(name: "Cue", targets: ["Cue"]),
     ],
     targets: [
         .target(
@@ -30,6 +31,10 @@ let package = Package(
         .target(
             name: "CuePlayer",
             dependencies: ["CueCore", "CueMPV"]
+        ),
+        .executableTarget(
+            name: "Cue",
+            dependencies: ["CueCore", "CueMPV", "CuePlayer"]
         ),
         .testTarget(
             name: "CueCoreTests",
