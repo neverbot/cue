@@ -33,6 +33,10 @@ public final class ChallengeSolver: @unchecked Sendable {
     private let lock = NSLock()
     private var preprocessedPlayers: [(playerID: String, source: String)] = []
     private var inFlightFetches: [String: Task<String, Error>] = [:]
+    /// Test-only bookkeeping: how many callers have joined the current in-flight fetch for a player id, counted
+    /// inside the same lock that registers a join. Lets tests wait for a true "every intended caller has joined"
+    /// state instead of inferring it from timing, which is unreliable under scheduler contention.
+    private var inFlightJoinCounts: [String: Int] = [:]
     private let queue = DispatchQueue(label: "cue.challenge-solver")
 
     public init(libSource: String, coreSource: String) {
@@ -159,6 +163,7 @@ public final class ChallengeSolver: @unchecked Sendable {
     /// failed fetch does not poison later retries.
     private func fetchTask(for playerID: String, using playerSource: @escaping @Sendable () async throws -> String) -> Task<String, Error> {
         lock.withLock {
+            inFlightJoinCounts[playerID, default: 0] += 1
             if let existing = inFlightFetches[playerID] { return existing }
             let task = Task<String, Error> { [weak self] in
                 defer { self?.clearFetch(for: playerID) }
@@ -170,7 +175,17 @@ public final class ChallengeSolver: @unchecked Sendable {
     }
 
     private func clearFetch(for playerID: String) {
-        lock.withLock { _ = inFlightFetches.removeValue(forKey: playerID) }
+        lock.withLock {
+            _ = inFlightFetches.removeValue(forKey: playerID)
+            inFlightJoinCounts.removeValue(forKey: playerID)
+        }
+    }
+
+    /// Test-only: how many callers have joined the fetch currently in flight for `playerID` (0 if none is in
+    /// flight). Backed by the same lock `fetchTask` uses to register a join, so a caller polling this can wait
+    /// for a provably true "every intended caller has joined" state rather than inferring it from timing.
+    func inFlightJoinCountForTesting(_ playerID: String) -> Int {
+        lock.withLock { inFlightJoinCounts[playerID] ?? 0 }
     }
 
     /// Blocks until every run enqueued so far on the private solve queue has completed. Test-only synchronisation

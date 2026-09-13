@@ -208,8 +208,6 @@ import Testing
         let solver = Self.reverseSolver()
         let total = 6
         let fetches = Counter()
-        let arrived = Counter()
-        let allArrived = AsyncSemaphore()
         let proceed = AsyncSemaphore()
 
         // Task group results arrive in completion order, not submission order, so pair each result with the
@@ -217,12 +215,6 @@ import Testing
         let results = try await withThrowingTaskGroup(of: (Int, [String: String]?).self) { group in
             for index in 0..<total {
                 group.addTask {
-                    // `arrived.incrementAndGet()` and the call into `solver.solve` below have no `await` between
-                    // them, so once every task has incremented (observed via `allArrived`), every task has also
-                    // already made its join-or-create decision inside `solve` — Swift never preempts a task
-                    // mid-synchronous-run, only at a suspension point. That makes `allArrived` sufficient proof,
-                    // not a probabilistic nicety, that all `total` callers raced into the same in-flight fetch.
-                    if arrived.incrementAndGet() == total { allArrived.signal() }
                     let solved = try await solver.solve(playerID: "p1", challenges: [.sig: ["s\(index)"]]) {
                         fetches.increment()
                         await proceed.wait()
@@ -231,7 +223,17 @@ import Testing
                     return (index, solved[.sig])
                 }
             }
-            await allArrived.wait()
+            // Poll the solver's own join-count bookkeeping rather than a "caller has started running" proxy:
+            // an earlier version inferred "every caller has joined" from an in-test counter incremented with no
+            // `await` before the call into `solve`, reasoning that Swift never preempts a task mid-synchronous
+            // run. That is true for Swift's cooperative scheduling, but says nothing about the OS thread
+            // executing that task being descheduled between those two statements — which happens often enough
+            // under real CPU contention (many test targets running concurrently) that a straggler could still
+            // be short of `fetchTask`'s registration when `allArrived` fired, letting the held-open fetch finish
+            // and clear itself before the straggler joined, so it started a second one. `inFlightJoinCountForTesting`
+            // is incremented inside the very same lock `fetchTask` uses to register a join, so once it reports
+            // `total` here, every caller has provably joined the one in-flight fetch — no timing assumption.
+            while solver.inFlightJoinCountForTesting("p1") < total { await Task.yield() }
             proceed.signal()
             var collected: [Int: [String: String]?] = [:]
             for try await (index, result) in group { collected[index] = result }
@@ -270,18 +272,12 @@ import Testing
         let solver = Self.reverseSolver()
         let total = 4
         let attempts = Counter()
-        let arrived = Counter()
-        let allArrived = AsyncSemaphore()
         let proceed = AsyncSemaphore()
 
         let outcomes = try await withThrowingTaskGroup(of: Result<[String: String]?, Error>.self) { group in
             for index in 0..<total {
                 group.addTask {
                     do {
-                        // See `dedupesConcurrentColdFetchesForTheSamePlayer` for why counting arrivals here,
-                        // with no `await` before the call into `solve`, deterministically proves every caller
-                        // has already raced into the same in-flight fetch by the time `allArrived` fires.
-                        if arrived.incrementAndGet() == total { allArrived.signal() }
                         let value = try await solver.solve(playerID: "p1", challenges: [.sig: ["s\(index)"]]) {
                             attempts.increment()
                             await proceed.wait()
@@ -293,7 +289,10 @@ import Testing
                     }
                 }
             }
-            await allArrived.wait()
+            // See `dedupesConcurrentColdFetchesForTheSamePlayer` for why polling the solver's own
+            // `inFlightJoinCountForTesting` — rather than an in-test "arrived first" counter — is the only
+            // provably race-free way to know every caller has joined the one in-flight fetch.
+            while solver.inFlightJoinCountForTesting("p1") < total { await Task.yield() }
             proceed.signal()
             var collected: [Result<[String: String]?, Error>] = []
             for try await outcome in group { collected.append(outcome) }
@@ -461,9 +460,6 @@ private final class Counter: @unchecked Sendable {
     private var count = 0
     var value: Int { lock.withLock { count } }
     func increment() { lock.withLock { count += 1 } }
-    /// Increments and returns the new value, so the caller that observes the target count knows every
-    /// increment that contributed to it has already happened-before this return (no allocation-order games).
-    func incrementAndGet() -> Int { lock.withLock { count += 1; return count } }
 }
 
 private final class LockedSet: @unchecked Sendable {
