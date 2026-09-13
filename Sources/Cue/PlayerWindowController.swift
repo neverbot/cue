@@ -315,9 +315,27 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
 
 extension PlayerWindowController: NSMenuItemValidation {
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
-        if menuItem.action == #selector(togglePlaysNextAutomatically(_:)) {
+        switch menuItem.action {
+        case #selector(paste(_:)):
+            // Nothing to queue when the pasteboard holds no recognizable video, same test `paste(_:)` itself uses.
+            return !AddRequest.videoIDs(in: NSPasteboard.general.string(forType: .string) ?? "").isEmpty
+        case #selector(playNextInQueue(_:)):
+            // Mirrors what `playNext()` would do, without consuming anything: nothing pending means nothing to do.
+            return coordinator.canPlayNext
+        case #selector(markCurrentWatched(_:)):
+            // Nothing is playing when the coordinator has no current video, so there is nothing to mark.
+            return coordinator.currentVideoID != nil
+        case #selector(togglePlaysNextAutomatically(_:)):
             menuItem.state = coordinator.playsNextAutomatically ? .on : .off
+            return true
+        case #selector(toggleSidebar(_:)), #selector(cycleSidebarMode(_:)), #selector(toggleSidebarLayout(_:)),
+             #selector(importQueue(_:)), #selector(exportQueue(_:)):
+            // Always available: they only open a panel or flip a display mode, regardless of queue or player state.
+            return true
+        default:
+            // No superclass implements this protocol here (NSWindowController does not conform on its own), so an
+            // unrecognized selector — one this object was never meant to validate — is allowed rather than guessed at.
+            return true
         }
-        return true
     }
 }

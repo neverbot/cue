@@ -58,6 +58,12 @@ public final class QueueCoordinator {
         return true
     }
 
+    /// Whether `playNext()` would find something to play, without side effects. Used to validate the menu item that
+    /// invokes it: a database error is treated as "no" rather than leaving a stale-looking checkmark or crash.
+    public var canPlayNext: Bool {
+        ((attempt { try store.nextPending(excluding: currentVideoID) }) ?? nil)?.video != nil
+    }
+
     /// Adds a video and plays it straight away, for a paste or a `cue://add` link while nothing is playing.
     public func addAndPlay(_ videoID: VideoID, at position: QueuePosition = .front) {
         attempt { try store.add(videoID, at: position, addedAt: now()) }
