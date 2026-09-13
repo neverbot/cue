@@ -222,6 +222,8 @@ the stream is not re-resolved, playback does not pause, and closing the small wi
 |---|---|
 | `c` | Chapters panel |
 | `s` | Subtitles panel |
+| `⌃⌘C` | Chapters panel (menu) |
+| `⌃⌘U` | Subtitles panel (menu) |
 | `⌥→` / `⌥←` | Next / previous chapter |
 | `z` / `x` | Subtitle delay −0.1 s / +0.1 s |
 | `⌘⇧M` | Mini player |
