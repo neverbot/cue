@@ -14,6 +14,13 @@ Cue keeps a personal queue of the YouTube videos you want to watch and plays the
 - **Your queue, your data.** No account and no sign-in. Your list lives on your Mac and can be imported and exported.
 - **Open source.** MIT licensed, and built entirely from the command line.
 
+## Privacy
+
+Cue talks to YouTube, and to nothing else. No analytics, no crash reporting, no third-party metadata or segment
+service, no account, no sync. A feature that would need an outside service is left out of the app rather than added
+behind an opt-in switch. Everything Cue fetches — the watch page, the player response, storyboard tiles, caption
+tracks — comes from YouTube straight to your Mac, and nothing about what you watch goes anywhere else.
+
 ## Features
 
 | Feature | Status |
