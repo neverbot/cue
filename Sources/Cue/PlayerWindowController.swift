@@ -221,7 +221,7 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
 
     private func runExport(to url: URL) {
         do {
-            let format = QueueFormat.detect(fileExtension: url.pathExtension, contents: "")
+            let format = QueueFormat.detectForExport(fileExtension: url.pathExtension)
             let videos = try store.videos()
             let text: String
             switch format {

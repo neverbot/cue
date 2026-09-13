@@ -41,6 +41,14 @@ public enum QueueFormat: String, CaseIterable, Sendable {
         }
         return .urlList
     }
+
+    /// Like `detect`, but for a save panel's chosen URL: an extensionless name (the user cleared the field the
+    /// suggested `.json` name filled in) must not silently fall back to the lossy URL list, so it defaults to
+    /// `.json` instead.
+    public static func detectForExport(fileExtension: String?) -> QueueFormat {
+        guard let fileExtension, !fileExtension.isEmpty else { return .json }
+        return detect(fileExtension: fileExtension, contents: "")
+    }
 }
 
 /// One video an import found, before the store decides whether it is new.

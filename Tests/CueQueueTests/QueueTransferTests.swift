@@ -155,6 +155,15 @@ import Testing
         #expect(QueueFormat.detect(fileExtension: nil, contents: "https://youtu.be/dQw4w9WgXcQ") == .urlList)
     }
 
+    /// Unlike `detect`, an extensionless save-panel name must not fall back to the lossy URL list: it defaults to
+    /// the format that keeps everything.
+    @Test func exportDefaultsToJSONWhenTheNameHasNoExtension() {
+        #expect(QueueFormat.detectForExport(fileExtension: "") == .json)
+        #expect(QueueFormat.detectForExport(fileExtension: nil) == .json)
+        #expect(QueueFormat.detectForExport(fileExtension: "csv") == .csv)
+        #expect(QueueFormat.detectForExport(fileExtension: "txt") == .urlList)
+    }
+
     @Test func addsCandidatesAndReportsWhatItSkipped() throws {
         let store = try TestQueue.store()
         try store.add(TestQueue.first, title: "Already here", addedAt: TestQueue.date)
