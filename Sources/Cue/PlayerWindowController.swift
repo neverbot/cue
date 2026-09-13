@@ -17,6 +17,10 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
     private let playerView: PlayerView
     /// The container the player view normally lives in; where it returns when the mini player closes.
     private let playerContainer: NSView
+    /// Shows and hides the sidebar from the video area, so the menu is not the only way.
+    private let sidebarButton = PlayerWindowController.sidebarToggleButton()
+    /// How far the button sits from the container's left edge. The edge moves with the sidebar, so the inset has to.
+    private var sidebarButtonLeading: NSLayoutConstraint!
     private let sidebar: QueueSidebarViewController
     private let sidebarHost: SidebarHost
     private let splitViewController: NSSplitViewController
@@ -131,6 +135,7 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
         controller.onStateChange = { [weak self] state in self?.render(state) }
         sidebar.onPlay = { [weak self] videoID in self?.coordinator.play(videoID) }
         coordinator.onQueueChange = { [weak self] in self?.refreshSidebar() }
+        installSidebarButton()
         refreshSidebar()
     }
 
@@ -396,6 +401,7 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
 
     @objc func toggleSidebar(_ sender: Any?) {
         sidebarHost.toggleVisible()
+        updateSidebarButton()
     }
 
     @objc func cycleSidebarMode(_ sender: Any?) {
@@ -404,6 +410,44 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
 
     @objc func toggleSidebarLayout(_ sender: Any?) {
         sidebarHost.setLayout(sidebarHost.layout == .push ? .overlay : .push)
+        updateSidebarButton()
+    }
+
+    /// Puts the toggle in the video area's top-left and hands it to the player view, which fades it with the rest of
+    /// the chrome. It goes through `toggleSidebar(_:)` like the menu item does, so there is one way to hide a sidebar.
+    private func installSidebarButton() {
+        sidebarButton.target = self
+        sidebarButton.action = #selector(toggleSidebar(_:))
+        sidebarButton.translatesAutoresizingMaskIntoConstraints = false
+        playerContainer.addSubview(sidebarButton)
+        sidebarButtonLeading = sidebarButton.leadingAnchor.constraint(equalTo: playerContainer.leadingAnchor)
+        NSLayoutConstraint.activate([
+            sidebarButtonLeading,
+            sidebarButton.topAnchor.constraint(equalTo: playerContainer.safeAreaLayoutGuide.topAnchor, constant: 8),
+        ])
+        updateSidebarButton()
+        playerView.companionChrome = sidebarButton
+    }
+
+    /// The container's left edge is not always the same edge. Beside a visible sidebar it starts well inside the
+    /// window and a small inset is enough; with the sidebar gone it *is* the window's edge, where the traffic lights
+    /// are, and the button has to start clear of them.
+    private func updateSidebarButton() {
+        let showing = sidebarHost.isVisible
+        sidebarButtonLeading.constant = showing ? 8 : 86
+        let label = showing ? "Hide Sidebar" : "Show Sidebar"
+        sidebarButton.toolTip = label
+        sidebarButton.setAccessibilityLabel(label)
+    }
+
+    private static func sidebarToggleButton() -> NSButton {
+        let image = NSImage(systemSymbolName: "sidebar.leading", accessibilityDescription: "Show Sidebar")?
+            .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: 15, weight: .medium))
+        let button = NSButton(image: image ?? NSImage(), target: nil, action: nil)
+        button.isBordered = false
+        button.refusesFirstResponder = true
+        button.contentTintColor = .white
+        return button
     }
 
     private func refreshSidebar() {

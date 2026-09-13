@@ -10,6 +10,11 @@ final class PlayerView: NSView {
     var onKeyPress: ((KeyPress) -> Bool)?
     /// Called whenever the controls appear or disappear, so the window can fade its title bar with them.
     var onChromeVisibilityChange: ((Bool) -> Void)?
+    /// Chrome that belongs to the window rather than to this view — the sidebar button, which sits in the container
+    /// around the video — and has to come and go with the controls instead of lingering over a bare picture.
+    weak var companionChrome: NSView? {
+        didSet { companionChrome?.isHidden = controls.isHidden }
+    }
 
     private let messageLabel = NSTextField(labelWithString: "")
     private var playerState = PlayerState()
@@ -107,6 +112,7 @@ final class PlayerView: NSView {
     private func setControlsVisible(_ visible: Bool) {
         guard controls.isHidden == visible else { return }
         controls.isHidden = !visible
+        companionChrome?.isHidden = !visible
         onChromeVisibilityChange?(visible)
     }
 
