@@ -33,10 +33,15 @@ import Testing
         #expect(StoryboardSpec("") == nil)
     }
 
+    /// A level that cannot be parsed is dropped, but the ones that survive keep the position they had in the spec:
+    /// the index is what `$L` becomes in the sheet URL, so renumbering the survivors would request a different
+    /// level from the one whose dimensions were parsed. Here the first level is malformed, so the survivor is
+    /// still level 1.
     @Test func skipsALevelWithTooFewFields() throws {
         let spec = try #require(StoryboardSpec("https://example.invalid/$L/$N.jpg|48#27#100|80#45#108#10#10#2000#M$M#rs$test"))
         #expect(spec.levels.count == 1)
-        #expect(spec.levels[0].index == 0)
+        #expect(spec.levels[0].index == 1)
+        #expect(spec.sheetURL(level: spec.levels[0], sheet: 0)?.absoluteString == "https://example.invalid/1/M0.jpg?sigh=rs$test")
     }
 
     @Test func countsFramesPerSheetAndSheets() throws {

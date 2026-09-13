@@ -58,10 +58,13 @@ public struct StoryboardSpec: Sendable, Equatable {
         guard parts.count > 1 else { return nil }
         let template = parts.removeFirst()
         guard !template.isEmpty else { return nil }
-        let parsed = parts.compactMap { Level(fields: $0) }
+        // A level's index is its own position in the spec, not its position among the levels that parsed: the index
+        // is what `$L` becomes in the sheet URL, so a dropped level must leave a gap. Renumbering the survivors
+        // would ask YouTube for one level while using the dimensions and frame count of another.
+        let parsed = parts.enumerated().compactMap { offset, fields in Level(fields: fields)?.reindexed(to: offset) }
         guard !parsed.isEmpty else { return nil }
         self.template = template
-        self.levels = parsed.enumerated().map { $0.element.reindexed(to: $0.offset) }
+        self.levels = parsed
     }
 
     /// The largest level offered. Cue's client is served three (up to 160×90); the web client sees a fourth.
