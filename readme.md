@@ -157,7 +157,7 @@ scripts/                   test runner, libmpv fetch, app bundle and fixture scr
 1. **Foundation and native extraction.** Done: `CueCore` and `cue-resolve`.
 2. **Player core.** Available: `Cue.app` plays with libmpv and hardware decoding, with on-screen controls, keyboard shortcuts and resume positions (manual checks pending).
 3. **Queue.** Available: a persistent SQLite queue with list, thumbnail and compact views, a counter and the pending time, adding by paste, drag and drop or `cue://add` links, import and export, and watched state (manual checks pending).
-4. **Polish.** On-screen controller styles, seek-bar previews, chapters, subtitles, mini player.
+4. **Polish.** Available: restyled on-screen controls with a title bar that fades with them, thumbnail previews while scrubbing, a chapters panel, a subtitles panel with SRT/VTT export, and an always-on-top mini player (manual checks pending).
 5. **Browser integration.** Bookmarklet and extensions for Firefox and Chrome.
 6. **Subscriptions.** Channel feeds and new-video notifications.
 7. **Casting.** Research first: AirPlay, Chromecast, DLNA.
