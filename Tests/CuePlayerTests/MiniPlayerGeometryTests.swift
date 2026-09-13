@@ -8,6 +8,11 @@ import Testing
 
     @Test func keepsTheVideosAspectRatio() {
         let size = MiniPlayerGeometry.size(for: VideoSize(width: 1920, height: 1080), visibleFrame: screen)
+        #expect(size == CGSize(width: 480, height: 270))
+        // The ratio's two sides are hoisted into constants deliberately. Written inline as
+        // `#expect(size.width / size.height == 16.0 / 9.0)` this fails on Swift 6.4, even though both sides are the
+        // identical bit pattern 4610685218510194460 and the same comparison is true everywhere outside the macro.
+        // Comparing two already-evaluated values is the same check without the macro's expression capture.
         let ratio = size.width / size.height
         let expected: CGFloat = 16.0 / 9.0
         #expect(ratio == expected)
