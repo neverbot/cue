@@ -189,6 +189,18 @@ import Testing
         #expect(try store.video(for: TestQueue.first)?.remainingDuration == 213)
     }
 
+    /// A duration of zero (a live stream, a bogus CSV column) is unknown, not "nothing left to watch": the header's
+    /// `unknownDurationCount` and the row's `remainingDuration` must agree on that too.
+    @Test func treatsAZeroDurationAsUnknown() throws {
+        let store = try TestQueue.store()
+        try store.add(TestQueue.first, duration: 0, addedAt: TestQueue.date)
+
+        let summary = try store.summary()
+        #expect(summary.pendingDuration == 0)
+        #expect(summary.unknownDurationCount == 1)
+        #expect(try store.video(for: TestQueue.first)?.remainingDuration == nil)
+    }
+
     @Test func summarisesAnEmptyQueue() throws {
         #expect(try TestQueue.store().summary() == QueueSummary())
     }

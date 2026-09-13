@@ -77,19 +77,20 @@ public struct QueueStore: Sendable {
     }
 
     /// Counts and the pending total. A resume position at or past the duration is treated as unstarted, exactly as
-    /// `QueuedVideo.remainingDuration` does: the two must never disagree about the same row.
+    /// `QueuedVideo.remainingDuration` does: the two must never disagree about the same row. Likewise, a duration of
+    /// zero or less (a live stream, a bogus value from an import) counts as unknown here exactly as it does there.
     public func summary() throws -> QueueSummary {
         try database.writer.read { db in
             let row = try Row.fetchOne(db, sql: """
             SELECT
               SUM(q.watchedAt IS NULL) AS pending,
               SUM(q.watchedAt IS NOT NULL) AS watched,
-              SUM(CASE WHEN q.watchedAt IS NULL AND q.duration IS NOT NULL
+              SUM(CASE WHEN q.watchedAt IS NULL AND q.duration > 0
                        THEN CASE WHEN r.position > 0 AND r.position < q.duration
                                  THEN q.duration - r.position
                                  ELSE q.duration END
                        ELSE 0 END) AS remaining,
-              SUM(q.watchedAt IS NULL AND q.duration IS NULL) AS unknown
+              SUM(q.watchedAt IS NULL AND (q.duration IS NULL OR q.duration <= 0)) AS unknown
             FROM queueItem q LEFT JOIN resumePosition r ON r.videoID = q.videoID
             """)
             guard let row else { return QueueSummary() }
