@@ -10,6 +10,10 @@ enum TestQueue {
     static let third = VideoID("12345678-_a")!
     static let date = Date(timeIntervalSince1970: 1_800_000_000)
 
+    static func store() throws -> QueueStore {
+        QueueStore(database: try QueueDatabase.inMemory())
+    }
+
     /// A directory under the system temporary directory; never the real Application Support.
     static func temporaryDirectory() -> URL {
         FileManager.default.temporaryDirectory.appending(path: "cue-queue-tests-\(UUID().uuidString)")
