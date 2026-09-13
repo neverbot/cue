@@ -29,8 +29,8 @@ tracks — comes from YouTube straight to your Mac, and nothing about what you w
 | Hardware-first format selection (AV1, H.264 or VP9 in hardware; software VP9/AV1 only as a fallback; AAC audio) | Available in `CueCore` |
 | `cue-resolve` command-line tool | Available |
 | Native player (libmpv), keyboard controls, resume position | Available in `Cue.app` (build from source) |
-| Queue sidebar with counter and total pending time; paste, drag & drop, `cue://` links | Planned |
-| Import and export of the queue | Planned |
+| Queue sidebar with counter and total pending time; paste, drag & drop, `cue://` links | Available in `Cue.app` (manual checks pending) |
+| Import and export of the queue | Available in `Cue.app` (manual checks pending) |
 | Drawn on-screen controls with chapter marks on the seek bar, and a title bar that fades with them | Available in `Cue.app` (manual checks pending) |
 | Thumbnail previews while scrubbing, from YouTube's own storyboard sheets | Available in `Cue.app` (manual checks pending) |
 | A chapters panel built from the video's own markers, or from the timestamps in its description | Available in `Cue.app` (manual checks pending) |
