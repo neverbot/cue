@@ -32,10 +32,4 @@ import Testing
         #expect(LaunchInput.parse(arguments: []) == nil)
         #expect(LaunchInput.parse(arguments: ["not a video"]) == nil)
     }
-
-    @Test func readsTheFirstVideoLineOfPastedText() {
-        #expect(LaunchInput.parse(pastedText: "watch this\nhttps://youtu.be/jNQXAC9IVRw\n") == .video(VideoID("jNQXAC9IVRw")!))
-        #expect(LaunchInput.parse(pastedText: "123456789_") == nil)
-        #expect(LaunchInput.parse(pastedText: nil) == nil)
-    }
 }

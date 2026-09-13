@@ -33,13 +33,4 @@ public enum LaunchInput: Equatable, Sendable {
         }
         return nil
     }
-
-    /// Parses pasted text: the first line that is a YouTube URL or video id.
-    public static func parse(pastedText text: String?) -> LaunchInput? {
-        guard let text else { return nil }
-        for line in text.split(whereSeparator: \.isNewline) {
-            if let videoID = VideoID(url: String(line)) { return .video(videoID) }
-        }
-        return nil
-    }
 }
