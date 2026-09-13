@@ -230,6 +230,9 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
             case .csv: text = QueueExport.csv(videos)
             }
             try Data(text.utf8).write(to: url, options: .atomic)
+            // The export is the owner's viewing history: keep it as private as the database it came from (0600),
+            // rather than whatever the umask leaves an atomic write with.
+            try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
         } catch {
             report(error, title: "Cue could not export the queue")
         }
