@@ -1,0 +1,13 @@
+{
+  "wireMagic": "pb3",
+  "pens": [{}],
+  "wsWinStyles": [{}],
+  "events": [
+    { "tStartMs": 0, "dDurationMs": 0, "id": 1, "wpWinPosId": 1 },
+    { "tStartMs": 1360, "dDurationMs": 1680, "segs": [{ "utf8": "[music]" }] },
+    { "tStartMs": 3040, "segs": [{ "utf8": "We're no " }, { "utf8": "strangers to love" }] },
+    { "tStartMs": 5000, "dDurationMs": 2000, "segs": [{ "utf8": "\n" }] },
+    { "tStartMs": 7000, "dDurationMs": 2500, "segs": [{ "utf8": "You know the rules" }, { "utf8": "\nand so do I" }] },
+    { "tStartMs": 9500, "dDurationMs": 1500, "segs": [{ "utf8": "A full commitment's" }] }
+  ]
+}
