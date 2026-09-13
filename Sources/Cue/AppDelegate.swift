@@ -117,7 +117,9 @@ enum MainMenu {
         toggleLayout.keyEquivalentModifierMask = [.control, .command]
         let fullScreen = NSMenuItem(title: "Toggle Full Screen", action: #selector(NSWindow.toggleFullScreen(_:)), keyEquivalent: "f")
         fullScreen.keyEquivalentModifierMask = [.control, .command]
-        menu.addItem(submenu("View", items: [toggleSidebar, cycleMode, toggleLayout, .separator(), fullScreen]))
+        let chapters = NSMenuItem(title: "Chapters", action: #selector(PlayerWindowController.toggleChaptersPanel(_:)), keyEquivalent: "c")
+        chapters.keyEquivalentModifierMask = [.control, .command]
+        menu.addItem(submenu("View", items: [toggleSidebar, cycleMode, toggleLayout, chapters, .separator(), fullScreen]))
 
         let windowMenu = submenu("Window", items: [
             NSMenuItem(title: "Minimize", action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m"),

@@ -30,6 +30,12 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
     private var isShutDown = false
     private let logger = Logger(subsystem: "com.neverbot.cue", category: "player")
 
+    private lazy var chaptersPanel: ChaptersPanelController = {
+        let panel = ChaptersPanelController()
+        panel.onSelect = { [weak self] seconds in self?.controller.perform(.seekAbsolute(seconds: seconds)) }
+        return panel
+    }()
+
     init(
         engine: MPVPlaybackEngine,
         store: QueueStore,
@@ -134,7 +140,20 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
             } else {
                 NSSound.beep()
             }
+        case .toggleChaptersPanel: toggleChaptersPanel(nil)
         default: controller.perform(command)
+        }
+    }
+
+    /// Shows or hides the chapters panel. Available even when the video has no chapters at all — which is the only
+    /// case this build can ever exercise — so the panel can say so rather than the menu item silently refusing.
+    @objc func toggleChaptersPanel(_ sender: Any?) {
+        if chaptersPanel.window?.isVisible == true {
+            chaptersPanel.close()
+        } else {
+            chaptersPanel.setChapters(timeline.chapters)
+            chaptersPanel.setCurrent(timeline.index(at: controller.state.position))
+            chaptersPanel.showWindow(nil)
         }
     }
 
@@ -359,6 +378,10 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
             storyboards = nil
             playerView.preview.hide()
         }
+        if chaptersPanel.window?.isVisible == true {
+            chaptersPanel.setChapters(timeline.chapters)
+            chaptersPanel.setCurrent(timeline.index(at: state.position))
+        }
         if let size = state.videoSize { fit(to: size) }
         if let stream = state.stream, stream.videoURL != loggedDecodingFor {
             loggedDecodingFor = stream.videoURL
@@ -409,8 +432,9 @@ extension PlayerWindowController: NSMenuItemValidation {
             menuItem.state = coordinator.playsNextAutomatically ? .on : .off
             return true
         case #selector(toggleSidebar(_:)), #selector(cycleSidebarMode(_:)), #selector(toggleSidebarLayout(_:)),
-             #selector(importQueue(_:)), #selector(exportQueue(_:)):
+             #selector(importQueue(_:)), #selector(exportQueue(_:)), #selector(toggleChaptersPanel(_:)):
             // Always available: they only open a panel or flip a display mode, regardless of queue or player state.
+            // The chapters panel in particular must stay reachable with no chapters at all, so it can say so.
             return true
         default:
             // No superclass implements this protocol here (NSWindowController does not conform on its own), so an
