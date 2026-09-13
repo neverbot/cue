@@ -46,6 +46,12 @@ import Testing
         #expect(timeline.previousStart(from: 1) == nil)
     }
 
+    /// The first chapter of every real list starts at zero, and restarting it is what any other chapter would do.
+    @Test func restartsTheFirstChapterWhenWellIntoIt() {
+        #expect(timeline.previousStart(from: 100) == 45)
+        #expect(timeline.previousStart(from: 30) == 0)
+    }
+
     @Test func placesTicksAsFractionsOfTheDuration() {
         #expect(timeline.tickFractions == [0.225, 0.75])
     }

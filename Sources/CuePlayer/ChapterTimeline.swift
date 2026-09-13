@@ -43,8 +43,7 @@ public struct ChapterTimeline: Equatable, Sendable {
     public func previousStart(from position: Double) -> Double? {
         guard let index = index(at: position) else { return nil }
         let current = chapters[index]
-        if position - current.start > Self.restartThreshold, current.start > 0 { return current.start }
-        if position - current.start > Self.restartThreshold { return nil }
+        if position - current.start > Self.restartThreshold { return current.start }
         return index > 0 ? chapters[index - 1].start : nil
     }
 
