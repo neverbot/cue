@@ -22,6 +22,9 @@ public final class QueueCoordinator {
     private let player: any QueuePlaying
     private let policy: ResumePolicy
     private let now: () -> Date
+    /// Warms the stream for whatever plays next, once a video starts. Nil (the default) leaves behaviour exactly
+    /// as it was before prefetching existed.
+    private let prefetcher: (any StreamPrefetching)?
     /// The video whose confirmed end was already acted on, so one `.ended` phase cannot mark it watched twice.
     private var handledEndFor: VideoID?
     /// Videos whose stored metadata was already filled in this session.
@@ -32,12 +35,14 @@ public final class QueueCoordinator {
         store: QueueStore,
         player: any QueuePlaying,
         policy: ResumePolicy = ResumePolicy(),
+        prefetcher: (any StreamPrefetching)? = nil,
         now: @escaping () -> Date = { Date() }
     ) {
         self.store = store
         self.player = player
         self.now = now
         self.policy = policy
+        self.prefetcher = prefetcher
     }
 
     /// Plays a specific video.
@@ -45,7 +50,19 @@ public final class QueueCoordinator {
         currentVideoID = videoID
         handledEndFor = nil
         Task { await player.open(.video(videoID)) }
+        warmNext()
         onQueueChange?()
+    }
+
+    /// Asks the prefetcher to warm the stream for whatever pending video would play after the one just started.
+    /// A database error here is swallowed exactly like elsewhere in this type: prefetching is speculative, and the
+    /// real playback path re-checks the queue on its own.
+    private func warmNext() {
+        guard let prefetcher,
+              let next = (attempt { try store.nextPending(excluding: currentVideoID) }) ?? nil,
+              let videoID = next.video
+        else { return }
+        Task { await prefetcher.prefetch(videoID) }
     }
 
     /// Plays the first pending video after the current one. Returns false when there is nothing left to play.

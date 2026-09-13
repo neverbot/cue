@@ -74,6 +74,21 @@ final class FakePlayer: QueuePlaying {
     }
 }
 
+/// Records every video id `QueueCoordinator` asks it to warm, without resolving anything.
+final class FakePrefetcher: StreamPrefetching, @unchecked Sendable {
+    // @unchecked: all mutable state is guarded by `lock`.
+    private let lock = NSLock()
+    private var requested: [VideoID] = []
+
+    var requestedVideoIDs: [VideoID] { lock.withLock { requested } }
+
+    @discardableResult
+    func prefetch(_ videoID: VideoID) async -> Task<Void, Never>? {
+        lock.withLock { requested.append(videoID) }
+        return nil
+    }
+}
+
 enum WaitError: Error, CustomStringConvertible {
     case timedOut
 

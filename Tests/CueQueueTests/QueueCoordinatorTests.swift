@@ -193,4 +193,27 @@ import Testing
 
         #expect(changes == 2)
     }
+
+    @Test func warmsTheNextPendingVideoOnceOneStartsPlaying() async throws {
+        let store = try queue()
+        let prefetcher = FakePrefetcher()
+        let coordinator = QueueCoordinator(store: store, player: FakePlayer(), prefetcher: prefetcher, now: { TestQueue.date })
+
+        coordinator.play(TestQueue.first)
+        try await waitUntil { !prefetcher.requestedVideoIDs.isEmpty }
+
+        #expect(prefetcher.requestedVideoIDs == [TestQueue.second])
+    }
+
+    @Test func doesNotWarmAnythingWithoutAPrefetcher() async throws {
+        let store = try queue()
+        let player = FakePlayer()
+        // No `prefetcher:` argument: behaviour must be identical to before prefetching existed.
+        let coordinator = QueueCoordinator(store: store, player: player, now: { TestQueue.date })
+
+        coordinator.play(TestQueue.first)
+        try await waitUntil { !player.opened.isEmpty }
+
+        #expect(player.opened == [.video(TestQueue.first)])
+    }
 }
