@@ -93,7 +93,9 @@ public struct Extractor: Sendable {
         do {
             player = try JSONDecoder().decode(PlayerResponse.self, from: response.body)
         } catch {
-            logger.error("Undecodable /player response for \(videoID.rawValue, privacy: .private): \(String(describing: error), privacy: .public)")
+            // The /player response is the owner's own data, and carries the signed stream URLs and caption
+            // baseUrls. A corrupted-data error can quote the bytes around the failure, so this stays private.
+            logger.error("Undecodable /player response for \(videoID.rawValue, privacy: .private): \(String(describing: error), privacy: .private)")
             throw ExtractionError.unexpectedResponse
         }
         guard player.playabilityStatus.status == "OK" else {
