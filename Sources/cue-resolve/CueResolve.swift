@@ -30,6 +30,7 @@ struct CueResolve {
             let captions = resolution.captionTracks.map(\.id).joined(separator: ", ")
             print("formats:    \(resolution.formats.count), hls: \(resolution.hlsManifestURL != nil)")
             print("captions:   \(captions.isEmpty ? "-" : captions)")
+            print("chapters:   \(resolution.chapters.isEmpty ? "-" : resolution.chapters.map(\.title).joined(separator: " | "))")
             print("expires:    \(resolution.expiresAt.map { "in \(Int($0.timeIntervalSince(Date()) / 60)) min" } ?? "-")")
             let shortSide = [video.width, video.height].compactMap { $0 }.min()
             let softwareSuffix = resolution.selection.decoding == .software ? " | software decoding" : ""

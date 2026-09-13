@@ -34,6 +34,45 @@ import Testing
         #expect(resolution.userAgent == ClientProfile.visionOS.userAgent)
     }
 
+    @Test func resolvesChaptersFromTheWatchPage() async throws {
+        let http = StubHTTPClient()
+        http.on(path: "/watch", body: try Fixture.data("watch-page-chapters.html"))
+        http.on(path: "/youtubei/v1/player", body: try Fixture.data("player-visionos-dQw4w9WgXcQ.json"))
+        let extractor = Extractor(
+            http: http,
+            selector: FormatSelector(maxShortSide: 1080, av1HardwareDecoding: false, vp9HardwareDecoding: false),
+            solver: nil
+        )
+
+        let resolution = try await extractor.resolve(videoID)
+
+        #expect(resolution.chapters.map(\.title) == ["Intro", "The middle", "Outro"])
+        #expect(resolution.chapters.last?.end == 213)
+    }
+
+    /// A page without markers falls back to the timestamps in the video's own description.
+    @Test func fallsBackToDescriptionChapters() async throws {
+        let fixture = try Fixture.data("player-visionos-dQw4w9WgXcQ.json")
+        let original = Data(#""lengthSeconds": "213""#.utf8)
+        let replacement = Data(#""lengthSeconds": "213", "shortDescription": "0:00 Intro\n1:00 Chorus""#.utf8)
+        var body = fixture
+        let range = try #require(body.range(of: original))
+        body.replaceSubrange(range, with: replacement)
+
+        let http = StubHTTPClient()
+        http.on(path: "/watch", body: try Fixture.data("watch-page-snippet.html"))
+        http.on(path: "/youtubei/v1/player", body: body)
+        let extractor = Extractor(
+            http: http,
+            selector: FormatSelector(maxShortSide: 1080, av1HardwareDecoding: false, vp9HardwareDecoding: false),
+            solver: nil
+        )
+
+        let resolution = try await extractor.resolve(videoID)
+
+        #expect(resolution.chapters.map(\.title) == ["Intro", "Chorus"])
+    }
+
     @Test func ignoresUnreadableExpiry() async throws {
         let fixture = try Fixture.data("player-visionos-dQw4w9WgXcQ.json")
         let original = Data(#""expiresInSeconds": "21540""#.utf8)

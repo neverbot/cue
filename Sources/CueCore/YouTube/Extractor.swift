@@ -8,6 +8,8 @@ public struct Resolution: Sendable {
     public let title: String
     public let author: String?
     public let duration: TimeInterval?
+    /// The video's own sections, empty when it has none.
+    public let chapters: [Chapter]
     public let selection: FormatSelection
     /// Playable formats: unciphered formats plus ciphered formats in the selector's acceptable set, with their challenges solved.
     public let formats: [StreamFormat]
@@ -78,7 +80,8 @@ public struct Extractor: Sendable {
         let watchURL = WatchPage.url(for: videoID)
         let page = try await http.send(HTTPRequest(url: watchURL, headers: ["User-Agent": client.userAgent, "Cookie": WatchPage.consentCookie]))
         guard page.status == 200 else { throw ExtractionError.httpStatus(page.status, watchURL) }
-        guard let visitorData = WatchPage.visitorData(in: String(decoding: page.body, as: UTF8.self)) else {
+        let html = String(decoding: page.body, as: UTF8.self)
+        guard let visitorData = WatchPage.visitorData(in: html) else {
             throw ExtractionError.visitorDataNotFound
         }
 
@@ -107,11 +110,20 @@ public struct Extractor: Sendable {
             throw selector.select(from: offered) != nil ? ExtractionError.unsolvedChallenges : ExtractionError.noPlayableFormats
         }
 
+        let duration = player.videoDetails?.lengthSeconds.flatMap(TimeInterval.init)
+        // The page's markers are what the video says about itself; its description is the fallback for the many
+        // videos whose chapters were only ever written there.
+        let marked = WatchPageChapters.chapters(inHTML: html, duration: duration)
+        let chapters = marked.isEmpty
+            ? Chapter.list(inDescription: player.videoDetails?.shortDescription ?? "", duration: duration)
+            : marked
+
         return Resolution(
             videoID: videoID,
             title: player.videoDetails?.title ?? videoID.rawValue,
             author: player.videoDetails?.author,
-            duration: player.videoDetails?.lengthSeconds.flatMap(TimeInterval.init),
+            duration: duration,
+            chapters: chapters,
             selection: selection,
             formats: formats,
             hlsManifestURL: player.streamingData?.hlsManifestUrl.flatMap(URL.init(string:)),
