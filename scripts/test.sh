@@ -44,8 +44,10 @@ status="${PIPESTATUS[0]}"
 set -e
 
 if [ "$filtered" -eq 0 ]; then
-  expected="$(grep -c '^[[:space:]]*\.testTarget(' "$repo/Package.swift")"
-  reported="$(grep -cE '^(✔|✘) Test run with [0-9]+ tests? in [0-9]+ suites? (passed|failed)' "$log")"
+  # `grep -c` exits 1 when it matches nothing, which under `set -e` would abort this script before the
+  # message below is printed - and no summary lines at all is exactly the failure worth explaining.
+  expected="$(grep -c '^[[:space:]]*\.testTarget(' "$repo/Package.swift" || true)"
+  reported="$(grep -cE '^(✔|✘) Test run with [0-9]+ tests? in [0-9]+ suites? (passed|failed)' "$log" || true)"
   if [ "$reported" -ne "$expected" ]; then
     echo "scripts/test.sh: expected $expected test target summaries (from Package.swift), got $reported." >&2
     echo "scripts/test.sh: a target's run did not report - check for a build failure or a crash above." >&2
