@@ -39,6 +39,32 @@ import Testing
         }
     }
 
+    /// A caption URL's query carries its signature, so a failure must not drag it into an error that someone may
+    /// log or show in an alert.
+    @Test func keepsTheSignatureOutOfAFailure() async throws {
+        let http = StubHTTPClient()
+        http.on(path: "/api/timedtext", status: 403, body: Data())
+        let signed = CaptionTrack(
+            languageCode: "en",
+            displayName: "English",
+            isAutomatic: false,
+            baseURL: URL(string: "https://www.youtube.com/api/timedtext?v=dQw4w9WgXcQ&lang=en&signature=123456789_")!
+        )
+
+        do {
+            _ = try await CaptionLoader(http: http).cues(for: signed, userAgent: "test-agent")
+            Issue.record("Expected the request to fail")
+        } catch let error as ExtractionError {
+            guard case let .httpStatus(_, url) = error else {
+                Issue.record("Expected an httpStatus failure, got \(error)")
+                return
+            }
+            #expect(url.query == nil)
+            #expect(url.absoluteString == "https://www.youtube.com/api/timedtext")
+            #expect(error.errorDescription?.contains("123456789_") != true)
+        }
+    }
+
     /// A caption URL taken from the wrong place answers 200 with nothing in it. That is a failure, not a track
     /// without captions.
     @Test func reportsAnEmptyBody() async throws {
