@@ -46,6 +46,21 @@ import Testing
         #expect(candidates[1].watchedAt == nil)
     }
 
+    /// A JSON import must not silently drop an item its id validation rejects: it is reported as unreadable, exactly
+    /// like the URL-list and CSV formats.
+    @Test func reportsAJSONItemWithAnUnreadableID() throws {
+        let text = """
+        {"version": 1, "items": [
+          {"videoID": "dQw4w9WgXcQ", "title": "Good"},
+          {"videoID": "not-a-video-id"}
+        ]}
+        """
+        let (candidates, unreadable) = try QueueImport.candidates(in: text, format: .json)
+
+        #expect(candidates.map(\.videoID) == [TestQueue.first])
+        #expect(unreadable == ["not-a-video-id"])
+    }
+
     @Test func refusesJSONItCannotRead() {
         #expect(throws: QueueImport.ImportError.unreadableJSON) {
             try QueueImport.candidates(in: "not json", format: .json)

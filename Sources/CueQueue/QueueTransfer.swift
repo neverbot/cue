@@ -120,7 +120,7 @@ public enum QueueImport {
         switch format {
         case .urlList: return urlListCandidates(in: contents)
         case .csv: return CSVQueueFormat.candidates(in: contents)
-        case .json: return (try jsonCandidates(in: contents), [])
+        case .json: return try jsonCandidates(in: contents)
         }
     }
 
@@ -170,7 +170,7 @@ public enum QueueImport {
         return (candidates, unreadable)
     }
 
-    private static func jsonCandidates(in contents: String) throws -> [ImportCandidate] {
+    private static func jsonCandidates(in contents: String) throws -> ([ImportCandidate], [String]) {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         guard let document = try? decoder.decode(JSONDocument.self, from: Data(contents.utf8)) else {
@@ -180,15 +180,20 @@ public enum QueueImport {
             throw ImportError.unsupportedJSONVersion(document.version)
         }
         var candidates: [ImportCandidate] = []
+        var unreadable: [String] = []
         var seen: Set<VideoID> = []
         for item in document.items {
-            guard let videoID = VideoID(item.videoID) ?? VideoID(url: item.videoID), seen.insert(videoID).inserted else { continue }
+            guard let videoID = VideoID(item.videoID) ?? VideoID(url: item.videoID) else {
+                unreadable.append(item.videoID)
+                continue
+            }
+            guard seen.insert(videoID).inserted else { continue }
             candidates.append(ImportCandidate(
                 videoID: videoID, title: item.title, author: item.author, duration: item.duration,
                 addedAt: item.addedAt, watchedAt: item.watchedAt
             ))
         }
-        return candidates
+        return (candidates, unreadable)
     }
 }
 
