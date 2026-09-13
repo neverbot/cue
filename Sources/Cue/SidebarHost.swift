@@ -1,0 +1,112 @@
+import AppKit
+import CueQueue
+
+/// Holds the queue sidebar in one of two places and moves it between them: inside the split view, where it pushes
+/// the video aside, or floating over the video. The sidebar view controller is the same object either way; only its
+/// parent changes.
+@MainActor
+final class SidebarHost {
+    let sidebar: QueueSidebarViewController
+
+    private(set) var layout: SidebarLayout
+    private(set) var isVisible: Bool
+
+    /// The split view item the sidebar occupies in `push` layout.
+    private let splitItem: NSSplitViewItem
+    /// The view it floats in, over the video, in `overlay` layout.
+    private let overlayContainer: NSView
+    private let parent: NSViewController
+    private var overlayConstraints: [NSLayoutConstraint] = []
+
+    init(
+        sidebar: QueueSidebarViewController,
+        splitItem: NSSplitViewItem,
+        overlayContainer: NSView,
+        parent: NSViewController,
+        layout: SidebarLayout = .push,
+        isVisible: Bool = true
+    ) {
+        self.sidebar = sidebar
+        self.splitItem = splitItem
+        self.overlayContainer = overlayContainer
+        self.parent = parent
+        self.layout = layout
+        self.isVisible = isVisible
+        apply(animated: false)
+    }
+
+    func toggleVisible() {
+        setVisible(!isVisible)
+    }
+
+    func setVisible(_ visible: Bool) {
+        guard visible != isVisible else { return }
+        isVisible = visible
+        apply(animated: true)
+    }
+
+    func setLayout(_ newLayout: SidebarLayout) {
+        guard newLayout != layout else { return }
+        layout = newLayout
+        apply(animated: false)
+    }
+
+    private func apply(animated: Bool) {
+        switch (layout, isVisible) {
+        case (.push, let visible):
+            detachFromOverlay()
+            attachToSplitItem()
+            splitItem.animator().isCollapsed = !visible
+            if animated { return }
+            splitItem.isCollapsed = !visible
+        case (.overlay, true):
+            splitItem.isCollapsed = true
+            attachToOverlay()
+        case (.overlay, false):
+            splitItem.isCollapsed = true
+            detachFromOverlay()
+        }
+    }
+
+    private func attachToSplitItem() {
+        guard sidebar.parent !== splitItem.viewController else { return }
+        let container = splitItem.viewController
+        sidebar.removeFromParent()
+        sidebar.view.removeFromSuperview()
+        container.addChild(sidebar)
+        sidebar.view.translatesAutoresizingMaskIntoConstraints = false
+        container.view.addSubview(sidebar.view)
+        NSLayoutConstraint.activate([
+            sidebar.view.leadingAnchor.constraint(equalTo: container.view.leadingAnchor),
+            sidebar.view.trailingAnchor.constraint(equalTo: container.view.trailingAnchor),
+            sidebar.view.topAnchor.constraint(equalTo: container.view.topAnchor),
+            sidebar.view.bottomAnchor.constraint(equalTo: container.view.bottomAnchor),
+        ])
+    }
+
+    private func attachToOverlay() {
+        guard sidebar.view.superview !== overlayContainer else { return }
+        sidebar.removeFromParent()
+        sidebar.view.removeFromSuperview()
+        parent.addChild(sidebar)
+        sidebar.view.translatesAutoresizingMaskIntoConstraints = false
+        sidebar.view.wantsLayer = true
+        sidebar.view.layer?.backgroundColor = NSColor.windowBackgroundColor.withAlphaComponent(0.85).cgColor
+        overlayContainer.addSubview(sidebar.view)
+        overlayConstraints = [
+            sidebar.view.leadingAnchor.constraint(equalTo: overlayContainer.leadingAnchor),
+            sidebar.view.topAnchor.constraint(equalTo: overlayContainer.topAnchor),
+            sidebar.view.bottomAnchor.constraint(equalTo: overlayContainer.bottomAnchor),
+            sidebar.view.widthAnchor.constraint(equalToConstant: QueueSidebarViewController.width),
+        ]
+        NSLayoutConstraint.activate(overlayConstraints)
+    }
+
+    private func detachFromOverlay() {
+        guard sidebar.view.superview === overlayContainer else { return }
+        NSLayoutConstraint.deactivate(overlayConstraints)
+        overlayConstraints = []
+        sidebar.removeFromParent()
+        sidebar.view.removeFromSuperview()
+    }
+}

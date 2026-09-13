@@ -1,7 +1,12 @@
 import AppKit
+import CueCore
 import CuePlayer
+import CueQueue
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    /// Overrides the database location, for automated checks that must not touch the real one.
+    static let databasePathVariable = "CUE_DATABASE_PATH"
+
     private let arguments: [String]
     private var windowController: PlayerWindowController?
 
@@ -9,10 +14,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.arguments = arguments
     }
 
+    /// The real database, or the override from the environment.
+    static func databaseURL(environment: [String: String] = ProcessInfo.processInfo.environment) -> URL {
+        guard let path = environment[databasePathVariable], !path.isEmpty else { return QueueDatabase.defaultFileURL }
+        return URL(fileURLWithPath: path)
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
+        let databaseURL = Self.databaseURL()
+        if QueueSmoke.isRequested(in: arguments) {
+            QueueSmoke.run(databaseURL: databaseURL)
+        }
         NSApp.mainMenu = MainMenu.make()
         do {
-            let controller = PlayerWindowController(engine: try MPVPlaybackEngine())
+            let store = QueueStore(database: try QueueDatabase.open(at: databaseURL))
+            // One-time move of the player's JSON positions into the database. The file is left where it is.
+            try JSONResumeImport(store: store).runIfNeeded(from: JSONResumeStore.defaultFileURL)
+
+            let controller = PlayerWindowController(
+                engine: try MPVPlaybackEngine(),
+                store: store,
+                thumbnails: ThumbnailStore(directory: ThumbnailStore.defaultDirectory),
+                // One extractor, so one URLSession and one shared solver cache for the whole app.
+                resolver: Extractor(),
+                resumeStore: DatabaseResumeStore(store: store)
+            )
             windowController = controller
             controller.showWindow(nil)
             NSApp.activate()
@@ -24,10 +50,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         } catch {
             let alert = NSAlert()
-            alert.messageText = "Cue could not start its player"
+            alert.messageText = "Cue could not start"
             alert.informativeText = String(describing: error)
             alert.runModal()
             NSApp.terminate(nil)
+        }
+    }
+
+    /// `cue://add?url=…`, from a browser, a bookmarklet or `open`.
+    func application(_ application: NSApplication, open urls: [URL]) {
+        for url in urls {
+            windowController?.handleAddLink(url)
         }
     }
 
@@ -54,14 +87,37 @@ enum MainMenu {
             NSMenuItem(title: "Quit Cue", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"),
         ]))
         menu.addItem(submenu("File", items: [
+            NSMenuItem(title: "Import Queue…", action: #selector(PlayerWindowController.importQueue(_:)), keyEquivalent: "i"),
+            NSMenuItem(title: "Export Queue…", action: #selector(PlayerWindowController.exportQueue(_:)), keyEquivalent: "e"),
+            .separator(),
             NSMenuItem(title: "Close", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w"),
         ]))
         menu.addItem(submenu("Edit", items: [
             NSMenuItem(title: "Paste", action: #selector(PlayerWindowController.paste(_:)), keyEquivalent: "v"),
         ]))
+
+        let playNext = NSMenuItem(title: "Play Next in Queue", action: #selector(PlayerWindowController.playNextInQueue(_:)), keyEquivalent: "n")
+        playNext.keyEquivalentModifierMask = [.command, .shift]
+        let markWatched = NSMenuItem(title: "Mark as Watched", action: #selector(PlayerWindowController.markCurrentWatched(_:)), keyEquivalent: "d")
+        markWatched.keyEquivalentModifierMask = [.command, .shift]
+        // Checked or unchecked by PlayerWindowController.validateMenuItem(_:).
+        let automatic = NSMenuItem(
+            title: "Play Next Automatically",
+            action: #selector(PlayerWindowController.togglePlaysNextAutomatically(_:)),
+            keyEquivalent: ""
+        )
+        menu.addItem(submenu("Queue", items: [playNext, markWatched, .separator(), automatic]))
+
+        let toggleSidebar = NSMenuItem(title: "Toggle Sidebar", action: #selector(PlayerWindowController.toggleSidebar(_:)), keyEquivalent: "s")
+        toggleSidebar.keyEquivalentModifierMask = [.control, .command]
+        let cycleMode = NSMenuItem(title: "Next Sidebar Mode", action: #selector(PlayerWindowController.cycleSidebarMode(_:)), keyEquivalent: "m")
+        cycleMode.keyEquivalentModifierMask = [.control, .command]
+        let toggleLayout = NSMenuItem(title: "Overlay or Push Sidebar", action: #selector(PlayerWindowController.toggleSidebarLayout(_:)), keyEquivalent: "o")
+        toggleLayout.keyEquivalentModifierMask = [.control, .command]
         let fullScreen = NSMenuItem(title: "Toggle Full Screen", action: #selector(NSWindow.toggleFullScreen(_:)), keyEquivalent: "f")
         fullScreen.keyEquivalentModifierMask = [.control, .command]
-        menu.addItem(submenu("View", items: [fullScreen]))
+        menu.addItem(submenu("View", items: [toggleSidebar, cycleMode, toggleLayout, .separator(), fullScreen]))
+
         let windowMenu = submenu("Window", items: [
             NSMenuItem(title: "Minimize", action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m"),
         ])
