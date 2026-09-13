@@ -100,7 +100,9 @@ final class ControlsView: NSVisualEffectView {
 
         let enabled = playerState.phase == .ready || playerState.phase == .ended
         seekBar.isEnabled = enabled
-        chaptersButton.isEnabled = enabled && !timeline.isEmpty
+        // Enabled with no chapters too, like the menu item: the panel says the video has none, which beats a button
+        // that refuses silently.
+        chaptersButton.isEnabled = enabled
         subtitlesButton.isEnabled = enabled && !(playerState.stream?.captionTracks.isEmpty ?? true)
         miniButton.isEnabled = enabled
         for control in [playButton, muteButton, volumeSlider] as [NSControl] {
