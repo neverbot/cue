@@ -15,7 +15,10 @@ enum WatchPageChapters {
         do {
             initial = try JSONDecoder().decode(InitialData.self, from: data)
         } catch {
-            logger.error("Unreadable watch page data: \(String(describing: error), privacy: .public)")
+            // The watch page is the sensitive response: it carries visitorData and the owner's session. A decoding
+            // failure describes what was being read, and a corrupted-data error can quote the bytes around it, so
+            // this stays private like every other error raised over the owner's own data.
+            logger.error("Unreadable watch page data: \(String(describing: error), privacy: .private)")
             return []
         }
         let maps = initial.playerOverlays?.playerOverlayRenderer?.decoratedPlayerBarRenderer?
