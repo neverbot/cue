@@ -7,9 +7,12 @@ final class PlayerView: NSView {
     let videoView: VideoView
     let controls = ControlsView()
     var onKeyPress: ((KeyPress) -> Bool)?
+    /// Called whenever the controls appear or disappear, so the window can fade its title bar with them.
+    var onChromeVisibilityChange: ((Bool) -> Void)?
 
     private let messageLabel = NSTextField(labelWithString: "")
     private var playerState = PlayerState()
+    private var timeline = ChapterTimeline(chapters: [], duration: nil)
     private var hideTask: Task<Void, Never>?
 
     init(handle: MPVHandle) {
@@ -66,7 +69,8 @@ final class PlayerView: NSView {
 
     func update(_ state: PlayerState) {
         playerState = state
-        controls.update(state)
+        if state.stream != timeline.streamReference { timeline = ChapterTimeline(stream: state.stream) }
+        controls.update(state, timeline: timeline)
         let message = Self.message(for: state.phase)
         messageLabel.stringValue = message ?? ""
         messageLabel.isHidden = message == nil
@@ -76,14 +80,27 @@ final class PlayerView: NSView {
     }
 
     private func revealControls() {
-        controls.isHidden = playerState.phase == .idle || playerState.phase == .resolving
+        setControlsVisible(playerState.phase != .idle && playerState.phase != .resolving)
         hideTask?.cancel()
         guard playerState.phase == .ready, !playerState.isPaused else { return }
         hideTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(2.5))
-            guard !Task.isCancelled else { return }
-            self?.controls.isHidden = true
+            guard !Task.isCancelled, let self, !self.pointerIsOverControls else { return }
+            self.setControlsVisible(false)
         }
+    }
+
+    private func setControlsVisible(_ visible: Bool) {
+        guard controls.isHidden == visible else { return }
+        controls.isHidden = !visible
+        onChromeVisibilityChange?(visible)
+    }
+
+    /// The controls must not vanish from under the pointer that is about to click them.
+    private var pointerIsOverControls: Bool {
+        guard let window, !controls.isHidden else { return false }
+        let point = controls.convert(window.mouseLocationOutsideOfEventStream, from: nil)
+        return controls.bounds.contains(point)
     }
 
     private static func message(for phase: PlayerState.Phase) -> String? {

@@ -1,15 +1,24 @@
 import AppKit
+import CueCore
 import CuePlayer
 
-/// Minimal on-screen controls: play/pause, elapsed time, seek bar, duration, mute and volume.
+/// The on-screen controls: play/pause, elapsed time, the seek bar, duration, chapters, subtitles, the mini player,
+/// mute and volume — on one translucent bar.
 final class ControlsView: NSVisualEffectView {
     var onCommand: ((PlayerCommand) -> Void)?
+    /// Forwarded from the seek bar, in this view's coordinates.
+    var onHover: ((Double?, CGFloat) -> Void)?
+
+    let seekBar = SeekBarView()
 
     private let playButton = ControlsView.button(symbol: "play.fill", label: "Play")
     private let muteButton = ControlsView.button(symbol: "speaker.wave.2.fill", label: "Mute")
+    private let chaptersButton = ControlsView.button(symbol: "list.bullet", label: "Chapters")
+    private let subtitlesButton = ControlsView.button(symbol: "captions.bubble", label: "Subtitles")
+    private let miniButton = ControlsView.button(symbol: "rectangle.inset.bottomright.filled", label: "Mini Player")
     private let elapsedLabel = ControlsView.timeLabel()
     private let durationLabel = ControlsView.timeLabel()
-    private let seekSlider = NSSlider(value: 0, minValue: 0, maxValue: 1, target: nil, action: nil)
+    private let chapterLabel = ControlsView.chapterLabel()
     private let volumeSlider = NSSlider(value: 100, minValue: 0, maxValue: 100, target: nil, action: nil)
 
     init() {
@@ -18,34 +27,54 @@ final class ControlsView: NSVisualEffectView {
         blendingMode = .withinWindow
         state = .active
         wantsLayer = true
-        layer?.cornerRadius = 10
+        layer?.cornerRadius = 12
+        layer?.cornerCurve = .continuous
 
         playButton.target = self
         playButton.action = #selector(togglePause)
         muteButton.target = self
         muteButton.action = #selector(toggleMute)
-        seekSlider.target = self
-        seekSlider.action = #selector(seek(_:))
-        seekSlider.isContinuous = false
+        chaptersButton.target = self
+        chaptersButton.action = #selector(toggleChapters)
+        subtitlesButton.target = self
+        subtitlesButton.action = #selector(toggleSubtitles)
+        miniButton.target = self
+        miniButton.action = #selector(toggleMini)
         volumeSlider.target = self
         volumeSlider.action = #selector(changeVolume(_:))
-        for slider in [seekSlider, volumeSlider] {
-            slider.controlSize = .small
-            slider.refusesFirstResponder = true
-        }
+        volumeSlider.controlSize = .small
+        volumeSlider.refusesFirstResponder = true
         volumeSlider.widthAnchor.constraint(equalToConstant: 80).isActive = true
 
-        let row = NSStackView(views: [playButton, elapsedLabel, seekSlider, durationLabel, muteButton, volumeSlider])
-        row.orientation = .horizontal
-        row.spacing = 8
-        row.edgeInsets = NSEdgeInsets(top: 6, left: 10, bottom: 6, right: 12)
-        row.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(row)
+        seekBar.onScrub = { [weak self] seconds, isFinal in
+            guard isFinal else { return }
+            self?.onCommand?(.seekAbsolute(seconds: seconds))
+        }
+        seekBar.onHover = { [weak self] seconds, x in
+            guard let self else { return }
+            self.onHover?(seconds, self.convert(NSPoint(x: x, y: 0), from: self.seekBar).x)
+        }
+
+        let times = NSStackView(views: [elapsedLabel, seekBar, durationLabel])
+        times.orientation = .horizontal
+        times.spacing = 8
+        let buttons = NSStackView(views: [
+            playButton, chapterLabel, NSView(), chaptersButton, subtitlesButton, miniButton, muteButton, volumeSlider,
+        ])
+        buttons.orientation = .horizontal
+        buttons.spacing = 10
+
+        let column = NSStackView(views: [times, buttons])
+        column.orientation = .vertical
+        column.spacing = 2
+        column.edgeInsets = NSEdgeInsets(top: 8, left: 14, bottom: 8, right: 14)
+        column.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(column)
         NSLayoutConstraint.activate([
-            row.leadingAnchor.constraint(equalTo: leadingAnchor),
-            row.trailingAnchor.constraint(equalTo: trailingAnchor),
-            row.topAnchor.constraint(equalTo: topAnchor),
-            row.bottomAnchor.constraint(equalTo: bottomAnchor),
+            column.leadingAnchor.constraint(equalTo: leadingAnchor),
+            column.trailingAnchor.constraint(equalTo: trailingAnchor),
+            column.topAnchor.constraint(equalTo: topAnchor),
+            column.bottomAnchor.constraint(equalTo: bottomAnchor),
         ])
     }
 
@@ -53,38 +82,57 @@ final class ControlsView: NSVisualEffectView {
         fatalError("init(coder:) is not supported")
     }
 
-    func update(_ playerState: PlayerState) {
+    /// `timeline` decides the ticks and the chapter name; this view decides nothing.
+    func update(_ playerState: PlayerState, timeline: ChapterTimeline) {
         let playing = !playerState.isPaused && playerState.phase == .ready
-        playButton.image = NSImage(systemSymbolName: playing ? "pause.fill" : "play.fill", accessibilityDescription: playing ? "Pause" : "Play")
-        muteButton.image = NSImage(
-            systemSymbolName: playerState.isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill",
-            accessibilityDescription: playerState.isMuted ? "Unmute" : "Mute"
+        playButton.image = Self.symbol(playing ? "pause.fill" : "play.fill", label: playing ? "Pause" : "Play")
+        muteButton.image = Self.symbol(
+            playerState.isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill",
+            label: playerState.isMuted ? "Unmute" : "Mute"
         )
         elapsedLabel.stringValue = PlaybackTime.format(playerState.position)
         durationLabel.stringValue = PlaybackTime.format(playerState.duration ?? 0)
-        seekSlider.maxValue = max(playerState.duration ?? 0, 1)
-        // Leave the knob alone while the user drags it.
-        if seekSlider.cell?.isHighlighted != true {
-            seekSlider.doubleValue = playerState.position
-        }
-        volumeSlider.doubleValue = playerState.volume
+        seekBar.duration = playerState.duration
+        seekBar.position = playerState.position
+        seekBar.chapterFractions = timeline.tickFractions
+        chapterLabel.stringValue = timeline.chapter(at: playerState.position)?.title ?? ""
+        chapterLabel.isHidden = timeline.isEmpty
+
         let enabled = playerState.phase == .ready || playerState.phase == .ended
-        for control in [playButton, muteButton, seekSlider, volumeSlider] as [NSControl] {
+        seekBar.isEnabled = enabled
+        chaptersButton.isEnabled = enabled && !timeline.isEmpty
+        subtitlesButton.isEnabled = enabled && !(playerState.stream?.captionTracks.isEmpty ?? true)
+        miniButton.isEnabled = enabled
+        for control in [playButton, muteButton, volumeSlider] as [NSControl] {
             control.isEnabled = enabled
         }
+        volumeSlider.doubleValue = playerState.volume
+    }
+
+    /// Marks the subtitles button when a track is showing, so the state is visible without opening the panel.
+    func setSubtitlesActive(_ active: Bool) {
+        subtitlesButton.contentTintColor = active ? .controlAccentColor : .white
     }
 
     @objc private func togglePause() { onCommand?(.togglePause) }
     @objc private func toggleMute() { onCommand?(.toggleMute) }
-    @objc private func seek(_ sender: NSSlider) { onCommand?(.seekAbsolute(seconds: sender.doubleValue)) }
+    @objc private func toggleChapters() { onCommand?(.toggleChaptersPanel) }
+    @objc private func toggleSubtitles() { onCommand?(.toggleSubtitlesPanel) }
+    @objc private func toggleMini() { onCommand?(.toggleMiniPlayer) }
     @objc private func changeVolume(_ sender: NSSlider) { onCommand?(.setVolume(sender.doubleValue)) }
 
-    private static func button(symbol: String, label: String) -> NSButton {
-        let image = NSImage(systemSymbolName: symbol, accessibilityDescription: label) ?? NSImage()
-        let button = NSButton(image: image, target: nil, action: nil)
+    private static func symbol(_ name: String, label: String) -> NSImage? {
+        NSImage(systemSymbolName: name, accessibilityDescription: label)?
+            .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: 15, weight: .medium))
+    }
+
+    private static func button(symbol name: String, label: String) -> NSButton {
+        let button = NSButton(image: symbol(name, label: label) ?? NSImage(), target: nil, action: nil)
         button.isBordered = false
         button.refusesFirstResponder = true
         button.contentTintColor = .white
+        button.toolTip = label
+        button.setAccessibilityLabel(label)
         return button
     }
 
@@ -92,6 +140,15 @@ final class ControlsView: NSVisualEffectView {
         let label = NSTextField(labelWithString: "0:00")
         label.font = .monospacedDigitSystemFont(ofSize: 12, weight: .regular)
         label.textColor = .white
+        return label
+    }
+
+    private static func chapterLabel() -> NSTextField {
+        let label = NSTextField(labelWithString: "")
+        label.font = .systemFont(ofSize: 11)
+        label.textColor = .white.withAlphaComponent(0.75)
+        label.lineBreakMode = .byTruncatingTail
+        label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         return label
     }
 }

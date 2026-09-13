@@ -20,6 +20,8 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
     private let splitViewController: NSSplitViewController
     private let sidebarItem: NSSplitViewItem
     private var fittedVideoSize: VideoSize?
+    /// The chapters of whatever is playing, rebuilt when the stream changes.
+    private var timeline = ChapterTimeline(chapters: [], duration: nil)
     private var loggedDecodingFor: URL?
     private var isShutDown = false
     private let logger = Logger(subsystem: "com.neverbot.cue", category: "player")
@@ -74,11 +76,14 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
 
         let window = NSWindow(
             contentRect: NSRect(origin: .zero, size: WindowGeometry.defaultContentSize),
-            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
         window.title = "Cue"
+        window.titlebarAppearsTransparent = true
+        window.titleVisibility = .visible
+        window.isMovableByWindowBackground = true
         window.isRestorable = false
         window.backgroundColor = .black
         window.collectionBehavior.insert(.fullScreenPrimary)
@@ -91,6 +96,7 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
         window.makeFirstResponder(playerView)
         playerView.onKeyPress = { [weak self] press in self?.handle(press) ?? false }
         playerView.controls.onCommand = { [weak self] command in self?.perform(command) }
+        playerView.onChromeVisibilityChange = { [weak self] visible in self?.setTitleBarVisible(visible) }
         controller.onStateChange = { [weak self] state in self?.render(state) }
         sidebar.onPlay = { [weak self] videoID in self?.coordinator.play(videoID) }
         coordinator.onQueueChange = { [weak self] in self?.refreshSidebar() }
@@ -111,6 +117,18 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
         switch command {
         case .toggleFullScreen: window?.toggleFullScreen(nil)
         case .close: window?.performClose(nil)
+        case .nextChapter:
+            if let target = timeline.nextStart(from: controller.state.position) {
+                controller.perform(.seekAbsolute(seconds: target))
+            } else {
+                NSSound.beep()
+            }
+        case .previousChapter:
+            if let target = timeline.previousStart(from: controller.state.position) {
+                controller.perform(.seekAbsolute(seconds: target))
+            } else {
+                NSSound.beep()
+            }
         default: controller.perform(command)
         }
     }
@@ -269,6 +287,21 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
         shutdown()
     }
 
+    /// Fades the title bar with the controls. The traffic lights stay put while the pointer is up there, and the bar
+    /// never fades while the window is not key: a window you are about to click must show its buttons.
+    private func setTitleBarVisible(_ visible: Bool) {
+        guard let window, !window.styleMask.contains(.fullScreen) else { return }
+        let pointerIsInTitleArea = window.mouseLocationOutsideOfEventStream.y > window.frame.height - 28
+        let shown = visible || pointerIsInTitleArea || !window.isKeyWindow
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.2
+            for button in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] {
+                window.standardWindowButton(button)?.animator().alphaValue = shown ? 1 : 0
+            }
+        }
+        window.titleVisibility = shown ? .visible : .hidden
+    }
+
     func windowDidChangeOcclusionState(_ notification: Notification) {
         guard let window else { return }
         playerView.videoView.videoLayer.setVisible(window.occlusionState.contains(.visible))
@@ -284,6 +317,7 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
         window?.title = state.windowTitle
         window?.subtitle = state.windowSubtitle
         playerView.update(state)
+        if state.stream != timeline.streamReference { timeline = ChapterTimeline(stream: state.stream) }
         if let size = state.videoSize { fit(to: size) }
         if let stream = state.stream, stream.videoURL != loggedDecodingFor {
             loggedDecodingFor = stream.videoURL

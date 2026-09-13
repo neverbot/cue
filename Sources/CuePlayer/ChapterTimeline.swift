@@ -9,6 +9,8 @@ public struct ChapterTimeline: Equatable, Sendable {
 
     public let chapters: [Chapter]
     public let duration: Double?
+    /// The stream this timeline was built from, so a view can tell when to rebuild it.
+    public private(set) var streamReference: PlayableStream?
 
     public init(chapters: [Chapter], duration: Double?) {
         self.chapters = chapters
@@ -18,6 +20,7 @@ public struct ChapterTimeline: Equatable, Sendable {
     /// Built from a stream, which is where the window gets it.
     public init(stream: PlayableStream?) {
         self.init(chapters: stream?.chapters ?? [], duration: stream?.duration)
+        streamReference = stream
     }
 
     public var isEmpty: Bool { chapters.isEmpty }
