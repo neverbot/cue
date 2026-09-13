@@ -17,6 +17,12 @@ public struct SubtitleSession: Equatable, Sendable {
 
     public init() {}
 
+    /// A session for the next video that keeps the user's settings but no track: the new video has its own.
+    public init(keeping previous: SubtitleSession) {
+        delay = previous.delay
+        style = previous.style
+    }
+
     /// Loads `file` as the only external subtitle and applies the current delay and style.
     public mutating func select(_ track: CaptionTrack, file: URL) -> [PlayerCommand] {
         var commands: [PlayerCommand] = selected == nil ? [] : [.removeSubtitles]

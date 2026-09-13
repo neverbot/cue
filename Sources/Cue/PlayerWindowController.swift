@@ -30,9 +30,23 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
     private var isShutDown = false
     private let logger = Logger(subsystem: "com.neverbot.cue", category: "player")
 
+    private var subtitles = SubtitleSession()
+    /// Cues already downloaded for the video playing now, by track id.
+    private var loadedCues: [String: [CaptionCue]] = [:]
+    private let captions = CaptionLoader()
+
     private lazy var chaptersPanel: ChaptersPanelController = {
         let panel = ChaptersPanelController()
         panel.onSelect = { [weak self] seconds in self?.controller.perform(.seekAbsolute(seconds: seconds)) }
+        return panel
+    }()
+
+    private lazy var subtitlesPanel: SubtitlesPanelController = {
+        let panel = SubtitlesPanelController()
+        panel.onSelect = { [weak self] track in self?.chooseSubtitle(track) }
+        panel.onStyleChange = { [weak self] style in self?.send(self?.subtitles.apply(style) ?? []) }
+        panel.onDelayChange = { [weak self] delay in self?.send(self?.subtitles.setDelay(delay) ?? []) }
+        panel.onExport = { [weak self] format in self?.exportSubtitle(as: format) }
         return panel
     }()
 
@@ -141,6 +155,10 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
                 NSSound.beep()
             }
         case .toggleChaptersPanel: toggleChaptersPanel(nil)
+        case .toggleSubtitlesPanel: toggleSubtitlesPanel(nil)
+        case let .adjustSubtitleDelay(delta):
+            send(subtitles.setDelay(((subtitles.delay + delta) * 10).rounded() / 10))
+            refreshSubtitlesPanel()
         default: controller.perform(command)
         }
     }
@@ -155,6 +173,88 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
             chaptersPanel.setCurrent(timeline.index(at: controller.state.position))
             chaptersPanel.showWindow(nil)
         }
+    }
+
+    /// Shows or hides the subtitles panel. Unlike the chapters panel, this one has nothing useful to say without a
+    /// video that actually offers caption tracks, so opening it is refused rather than shown empty.
+    @objc func toggleSubtitlesPanel(_ sender: Any?) {
+        guard let stream = controller.state.stream, !stream.captionTracks.isEmpty else {
+            NSSound.beep()
+            return
+        }
+        if subtitlesPanel.window?.isVisible == true {
+            subtitlesPanel.close()
+        } else {
+            refreshSubtitlesPanel()
+            subtitlesPanel.showWindow(nil)
+        }
+    }
+
+    private func refreshSubtitlesPanel() {
+        subtitlesPanel.setTracks(
+            controller.state.stream?.captionTracks ?? [],
+            selected: subtitles.selected,
+            style: subtitles.style,
+            delay: subtitles.delay
+        )
+    }
+
+    /// Downloads the track if it is new, writes it as a file and tells mpv to use it.
+    private func chooseSubtitle(_ track: CaptionTrack?) {
+        guard let track, let stream = controller.state.stream, let videoID = stream.videoID else {
+            send(subtitles.disable())
+            playerView.controls.setSubtitlesActive(false)
+            return
+        }
+        subtitlesPanel.setStatus("Loading \(track.menuTitle)…")
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                let cues: [CaptionCue]
+                if let cached = self.loadedCues[track.id] {
+                    cues = cached
+                } else {
+                    cues = try await self.captions.cues(for: track, userAgent: stream.userAgent ?? ClientProfile.visionOS.userAgent)
+                    self.loadedCues[track.id] = cues
+                }
+                let file = try SubtitleSession.write(
+                    cues: cues, for: track, videoID: videoID, in: SubtitleSession.defaultDirectory()
+                )
+                self.send(self.subtitles.select(track, file: file))
+                self.playerView.controls.setSubtitlesActive(true)
+                self.subtitlesPanel.setStatus("\(cues.count) lines")
+            } catch {
+                self.subtitlesPanel.setStatus("Could not load \(track.menuTitle)")
+                self.report(error, title: "Cue could not load those subtitles")
+            }
+        }
+    }
+
+    /// Writes the selected track as SRT or VTT wherever the user says.
+    private func exportSubtitle(as format: CaptionTrack.TimedTextFormat) {
+        guard let window, let track = subtitles.selected, let cues = loadedCues[track.id], !cues.isEmpty else {
+            NSSound.beep()
+            return
+        }
+        let isSRT = format == .json3
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = "\(controller.state.stream?.videoID?.rawValue ?? "subtitles").\(track.fileNameStem).\(isSRT ? "srt" : "vtt")"
+        panel.beginSheetModal(for: window) { response in
+            guard response == .OK, let url = panel.url else { return }
+            do {
+                let text = isSRT ? SubtitleWriter.srt(cues) : SubtitleWriter.vtt(cues)
+                try Data(text.utf8).write(to: url, options: .atomic)
+                // The export is the owner's viewing material: as private as the queue export (0600), not whatever
+                // the umask leaves an atomic write with.
+                try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
+            } catch {
+                self.report(error, title: "Cue could not export those subtitles")
+            }
+        }
+    }
+
+    private func send(_ commands: [PlayerCommand]) {
+        for command in commands { controller.perform(command) }
     }
 
     /// The pointer moved over the seek bar. The time and the chapter appear immediately; the frame follows when its
@@ -330,6 +430,7 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
     func shutdown() {
         guard !isShutDown else { return }
         isShutDown = true
+        SubtitleSession.removeFiles(in: SubtitleSession.defaultDirectory())
         controller.close()
         playerView.videoView.videoLayer.teardown()
         do {
@@ -377,6 +478,10 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
             timeline = ChapterTimeline(stream: state.stream)
             storyboards = nil
             playerView.preview.hide()
+            loadedCues.removeAll()
+            subtitles = SubtitleSession(keeping: subtitles)
+            playerView.controls.setSubtitlesActive(false)
+            if subtitlesPanel.window?.isVisible == true { refreshSubtitlesPanel() }
         }
         if chaptersPanel.window?.isVisible == true {
             chaptersPanel.setChapters(timeline.chapters)
@@ -436,6 +541,8 @@ extension PlayerWindowController: NSMenuItemValidation {
             // Always available: they only open a panel or flip a display mode, regardless of queue or player state.
             // The chapters panel in particular must stay reachable with no chapters at all, so it can say so.
             return true
+        case #selector(toggleSubtitlesPanel(_:)):
+            return !(controller.state.stream?.captionTracks.isEmpty ?? true)
         default:
             // No superclass implements this protocol here (NSWindowController does not conform on its own), so an
             // unrecognized selector — one this object was never meant to validate — is allowed rather than guessed at.
