@@ -4,7 +4,7 @@ public enum LogRedactor {
     /// Signed stream URLs embed the requester's IP address; mpv prints them in error messages.
     public static func redact(_ text: String) -> String {
         text.replacingOccurrences(
-            of: #"(https?:)?//[^\s'"]*(googlevideo|youtube)\.com[^\s'"]*"#,
+            of: #"(https?:)?//[^\s'"]*(googlevideo|youtube|ytimg)\.com[^\s'"]*"#,
             with: "<url>",
             options: .regularExpression
         )

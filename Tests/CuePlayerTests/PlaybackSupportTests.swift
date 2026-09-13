@@ -9,6 +9,12 @@ import Testing
         #expect(LogRedactor.redact("audio: aac 44100 Hz") == "audio: aac 44100 Hz")
     }
 
+    /// Storyboard URLs carry a signature tied to the request; they have no business in a log or an alert either.
+    @Test func redactsStoryboardURLs() {
+        let message = "failed to open https://i.ytimg.com/sb/dQw4w9WgXcQ/storyboard3_L2/M0.jpg?sigh=rs$secret"
+        #expect(LogRedactor.redact(message) == "failed to open <url>")
+    }
+
     @Test func formatsPlaybackTimes() {
         #expect(PlaybackTime.format(0) == "0:00")
         #expect(PlaybackTime.format(59.9) == "0:59")
