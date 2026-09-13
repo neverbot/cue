@@ -18,7 +18,7 @@ public final class DatabaseResumeStore: ResumeStore {
         do {
             return try store.resumeEntry(for: videoID)
         } catch {
-            logger.error("Could not read a resume position: \(String(describing: error), privacy: .public)")
+            logger.error("Could not read a resume position: \(String(describing: error), privacy: .private)")
             return nil
         }
     }
@@ -27,7 +27,7 @@ public final class DatabaseResumeStore: ResumeStore {
         do {
             try store.saveResumeEntry(entry, for: videoID)
         } catch {
-            logger.error("Could not save a resume position: \(String(describing: error), privacy: .public)")
+            logger.error("Could not save a resume position: \(String(describing: error), privacy: .private)")
         }
     }
 
@@ -35,7 +35,7 @@ public final class DatabaseResumeStore: ResumeStore {
         do {
             try store.removeResumeEntry(for: videoID)
         } catch {
-            logger.error("Could not remove a resume position: \(String(describing: error), privacy: .public)")
+            logger.error("Could not remove a resume position: \(String(describing: error), privacy: .private)")
         }
     }
 }

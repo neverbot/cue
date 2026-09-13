@@ -119,7 +119,7 @@ public final class QueueCoordinator {
         do {
             return try work()
         } catch {
-            logger.error("Queue database error: \(String(describing: error), privacy: .public)")
+            logger.error("Queue database error: \(String(describing: error), privacy: .private)")
             return nil
         }
     }

@@ -117,7 +117,7 @@ public final class JSONResumeStore: ResumeStore {
             try FileManager.default.createDirectory(at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
             try encoder.encode(Contents(version: Self.formatVersion, entries: entries)).write(to: fileURL, options: .atomic)
         } catch {
-            logger.error("Could not save resume positions: \(String(describing: error), privacy: .public)")
+            logger.error("Could not save resume positions: \(String(describing: error), privacy: .private)")
         }
     }
 }

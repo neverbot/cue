@@ -200,7 +200,7 @@ final class QueueSidebarViewController: NSViewController, NSTableViewDataSource,
         do {
             try work(store)
         } catch {
-            logger.error("Queue database error: \(String(describing: error), privacy: .public)")
+            logger.error("Queue database error: \(String(describing: error), privacy: .private)")
         }
         reload()
         onQueueChange?()
