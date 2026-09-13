@@ -13,7 +13,8 @@ public struct Resolution: Sendable {
     public let formats: [StreamFormat]
     public let hlsManifestURL: URL?
     public let captionTrackCount: Int
-    public let storyboardSpec: String?
+    /// The seek-bar preview sheets, when YouTube offers them.
+    public let storyboard: StoryboardSpec?
     /// When the stream URLs stop working; re-resolve before then.
     public let expiresAt: Date?
     /// Stream requests must use this User-Agent.
@@ -113,7 +114,7 @@ public struct Extractor: Sendable {
             formats: formats,
             hlsManifestURL: player.streamingData?.hlsManifestUrl.flatMap(URL.init(string:)),
             captionTrackCount: player.captions?.playerCaptionsTracklistRenderer?.captionTracks?.count ?? 0,
-            storyboardSpec: player.storyboards?.playerStoryboardSpecRenderer?.spec,
+            storyboard: player.storyboards?.playerStoryboardSpecRenderer?.spec.flatMap(StoryboardSpec.init),
             expiresAt: player.streamingData?.expiresInSeconds.flatMap(TimeInterval.init).map { requestedAt.addingTimeInterval($0) },
             userAgent: client.userAgent
         )
