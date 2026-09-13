@@ -4,7 +4,7 @@
 
 Cue keeps a personal queue of the YouTube videos you want to watch and plays them in a fast, native player built for the Mac. It aims for the polish of the best Mac media players: a clean window that stays out of the way, a sidebar with everything still pending, and playback that uses the hardware decoder in your Mac instead of a browser tab.
 
-> **Status: early development.** The native extraction core, a command-line tool and a first player app work today. The queue is next. See [Roadmap](#roadmap).
+> **Status: early development.** The extraction core, the command-line tool, the player, the queue and the player's chrome — chapters, subtitles, scrubbing previews and a mini player — are all built and covered by the test suite. What is still missing is a pass with human eyes on the interface, and a signed release you can download. See [Roadmap](#roadmap).
 
 ## Why Cue
 
