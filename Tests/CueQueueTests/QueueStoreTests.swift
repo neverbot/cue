@@ -102,6 +102,51 @@ import Testing
         #expect(try store.contains(TestQueue.first) == false)
     }
 
+    /// Removing a video is meant to erase it, not leave a permanent trace of it in the resume table.
+    @Test func removingAVideoForgetsWhereItWasWatchedTo() throws {
+        let store = try TestQueue.store()
+        try store.add(TestQueue.first, duration: 213, addedAt: TestQueue.date)
+        try store.saveResumeEntry(ResumeEntry(position: 42, duration: 213, updatedAt: TestQueue.date), for: TestQueue.first)
+        try store.remove(TestQueue.first)
+
+        #expect(try store.resumeEntry(for: TestQueue.first) == nil)
+    }
+
+    /// The independence of the two tables is deliberate for a video that was never queued: removing an unrelated
+    /// video must not touch its resume position.
+    @Test func removingAVideoLeavesUnrelatedResumePositionsAlone() throws {
+        let store = try TestQueue.store()
+        let entry = ResumeEntry(position: 42, duration: 213, updatedAt: TestQueue.date)
+        try store.saveResumeEntry(entry, for: TestQueue.second)
+        try store.add(TestQueue.first, addedAt: TestQueue.date)
+        try store.remove(TestQueue.first)
+
+        #expect(try store.resumeEntry(for: TestQueue.second) == entry)
+    }
+
+    @Test func clearingTheQueueForgetsWhereEverythingWasWatchedTo() throws {
+        let store = try TestQueue.store()
+        try store.add(TestQueue.first, duration: 213, addedAt: TestQueue.date)
+        try store.add(TestQueue.second, duration: 19, addedAt: TestQueue.date)
+        try store.saveResumeEntry(ResumeEntry(position: 42, duration: 213, updatedAt: TestQueue.date), for: TestQueue.first)
+        try store.saveResumeEntry(ResumeEntry(position: 5, duration: 19, updatedAt: TestQueue.date), for: TestQueue.second)
+        try store.removeAll()
+
+        #expect(try store.resumeEntry(for: TestQueue.first) == nil)
+        #expect(try store.resumeEntry(for: TestQueue.second) == nil)
+    }
+
+    /// Clearing the queue must not touch a resume position for a video that was never queued in the first place.
+    @Test func clearingTheQueueLeavesUnrelatedResumePositionsAlone() throws {
+        let store = try TestQueue.store()
+        let entry = ResumeEntry(position: 42, duration: 213, updatedAt: TestQueue.date)
+        try store.saveResumeEntry(entry, for: TestQueue.first)
+        try store.add(TestQueue.second, addedAt: TestQueue.date)
+        try store.removeAll()
+
+        #expect(try store.resumeEntry(for: TestQueue.first) == entry)
+    }
+
     @Test func marksWatchedAndForgetsThePosition() throws {
         let store = try TestQueue.store()
         try store.add(TestQueue.first, duration: 213, addedAt: TestQueue.date)

@@ -152,15 +152,23 @@ public struct QueueStore: Sendable {
         }
     }
 
+    /// Removing a video from the queue also forgets where it was watched to: a resume position is a record of what
+    /// was played, and leaving it behind would keep it as a permanent trace of a video the owner deliberately
+    /// removed. (Resume positions for a video that was never queued at all are unaffected: that independence, for a
+    /// paste or a `cue://` link that went straight to the player, is deliberate — see `ResumePosition`.)
     public func remove(_ videoID: VideoID) throws {
         _ = try database.writer.write { db in
             try QueueItem.deleteOne(db, key: videoID.rawValue)
+            try ResumePosition.deleteOne(db, key: videoID.rawValue)
         }
     }
 
+    /// Clears the queue and, for exactly the videos that were in it, their resume positions too — see `remove(_:)`.
     public func removeAll() throws {
         _ = try database.writer.write { db in
+            let ids = try String.fetchAll(db, sql: "SELECT videoID FROM queueItem")
             try QueueItem.deleteAll(db)
+            try ResumePosition.deleteAll(db, keys: ids)
         }
     }
 
