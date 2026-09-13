@@ -10,8 +10,12 @@ let package = Package(
     platforms: [.macOS(.v14)],
     products: [
         .library(name: "CueCore", targets: ["CueCore"]),
+        .library(name: "CueQueue", targets: ["CueQueue"]),
         .executable(name: "cue-resolve", targets: ["cue-resolve"]),
         .executable(name: "Cue", targets: ["Cue"]),
+    ],
+    dependencies: [
+        .package(url: "https://github.com/groue/GRDB.swift.git", exact: "7.11.1"),
     ],
     targets: [
         .target(
@@ -32,9 +36,13 @@ let package = Package(
             name: "CuePlayer",
             dependencies: ["CueCore", "CueMPV"]
         ),
+        .target(
+            name: "CueQueue",
+            dependencies: ["CueCore", "CuePlayer", .product(name: "GRDB", package: "GRDB.swift")]
+        ),
         .executableTarget(
             name: "Cue",
-            dependencies: ["CueCore", "CueMPV", "CuePlayer"]
+            dependencies: ["CueCore", "CueMPV", "CuePlayer", "CueQueue"]
         ),
         .testTarget(
             name: "CueCoreTests",
@@ -44,6 +52,10 @@ let package = Package(
         .testTarget(
             name: "CueMPVTests",
             dependencies: ["CueMPV", "CMpv"]
+        ),
+        .testTarget(
+            name: "CueQueueTests",
+            dependencies: ["CueCore", "CuePlayer", "CueQueue"]
         ),
         .testTarget(
             name: "CuePlayerTests",
