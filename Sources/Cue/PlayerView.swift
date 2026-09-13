@@ -21,6 +21,8 @@ final class PlayerView: NSView {
     private var timeline = ChapterTimeline(chapters: [], duration: nil)
     private var hideTask: Task<Void, Never>?
     private var previewLeadingConstraint: NSLayoutConstraint!
+    /// Where the pointer was pressed, in window coordinates, so a release can tell a click from a window drag.
+    private var pressLocation: NSPoint?
 
     init(handle: MPVHandle) {
         videoView = VideoView(handle: handle)
@@ -75,6 +77,34 @@ final class PlayerView: NSView {
 
     override func mouseMoved(with event: NSEvent) {
         revealControls()
+    }
+
+    /// How far the pointer may travel between press and release and still count as a click rather than a drag.
+    private static let dragSlop: CGFloat = 3
+
+    override func mouseDown(with event: NSEvent) {
+        pressLocation = event.locationInWindow
+        // Passed on, so the window can still be moved by dragging the picture. A drag that the window takes over ends
+        // without a mouse up here, which is one of the two reasons a drag never toggles playback.
+        super.mouseDown(with: event)
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        let start = pressLocation
+        pressLocation = nil
+        if event.clickCount == 2 {
+            // The macOS convention, and the one the rest of the window already follows.
+            controls.onCommand?(.toggleFullScreen)
+        } else if event.clickCount == 1, let start, Self.isClick(from: start, to: event.locationInWindow) {
+            // The same route as the play button: the window decides what a toggle means, this view only asks.
+            controls.onCommand?(.togglePause)
+        }
+        super.mouseUp(with: event)
+    }
+
+    /// The second reason: a press that travelled was aimed at moving the window, not at the video under it.
+    private static func isClick(from start: NSPoint, to end: NSPoint) -> Bool {
+        abs(end.x - start.x) < dragSlop && abs(end.y - start.y) < dragSlop
     }
 
     func update(_ state: PlayerState) {
