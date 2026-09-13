@@ -11,6 +11,9 @@ public struct PlayableStream: Equatable, Sendable {
     /// Nil for local files, which have no resume position.
     public var videoID: VideoID?
     public var title: String
+    /// Who published the video, when the source says. The queue stores it so its sidebar can show it for videos that
+    /// arrived by paste, drop or link, not only for imported ones.
+    public var author: String?
     public var videoURL: URL
     /// A separate audio stream (YouTube serves DASH video and audio apart).
     public var audioURL: URL?
@@ -24,6 +27,7 @@ public struct PlayableStream: Equatable, Sendable {
     public init(
         videoID: VideoID?,
         title: String,
+        author: String? = nil,
         videoURL: URL,
         audioURL: URL? = nil,
         videoSize: VideoSize? = nil,
@@ -34,6 +38,7 @@ public struct PlayableStream: Equatable, Sendable {
     ) {
         self.videoID = videoID
         self.title = title
+        self.author = author
         self.videoURL = videoURL
         self.audioURL = audioURL
         self.videoSize = videoSize
@@ -50,6 +55,7 @@ extension PlayableStream {
         self.init(
             videoID: resolution.videoID,
             title: resolution.title,
+            author: resolution.author,
             videoURL: video.url,
             audioURL: resolution.selection.audio.url,
             videoSize: VideoSize(reportedWidth: video.width, reportedHeight: video.height),
