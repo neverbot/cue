@@ -70,10 +70,15 @@ final class PreviewPopover: NSVisualEffectView {
     /// One tile out of a sheet. The sheet's rows run downwards while AppKit's coordinates run upwards, which is the
     /// only reason this is not a straight crop.
     static func tile(_ frame: StoryboardSpec.Frame, from data: Data) -> NSImage? {
-        guard let sheet = NSImage(data: data), sheet.size.width > 0 else { return nil }
+        guard let sheet = NSImage(data: data),
+              let bitmap = sheet.representations.compactMap({ $0 as? NSBitmapImageRep }).first,
+              bitmap.pixelsWide > 0, bitmap.pixelsHigh > 0 else { return nil }
+        // An NSImage sizes itself in points, from whatever DPI the file claims, while the storyboard spec's offsets
+        // are pixels. Pinning the image to its pixel dimensions keeps the crop arithmetic in one unit.
+        sheet.size = NSSize(width: bitmap.pixelsWide, height: bitmap.pixelsHigh)
         let source = NSRect(
             x: CGFloat(frame.originX),
-            y: sheet.size.height - CGFloat(frame.originY + frame.height),
+            y: CGFloat(bitmap.pixelsHigh) - CGFloat(frame.originY + frame.height),
             width: CGFloat(frame.width),
             height: CGFloat(frame.height)
         )
