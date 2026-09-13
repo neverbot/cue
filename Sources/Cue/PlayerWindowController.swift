@@ -317,8 +317,11 @@ extension PlayerWindowController: NSMenuItemValidation {
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
         switch menuItem.action {
         case #selector(paste(_:)):
-            // Nothing to queue when the pasteboard holds no recognizable video, same test `paste(_:)` itself uses.
-            return !AddRequest.videoIDs(in: NSPasteboard.general.string(forType: .string) ?? "").isEmpty
+            // Only ask whether the pasteboard *offers* text, never read it here: menu validation runs every time a
+            // menu opens, with no gesture behind it, and reading pasteboard contents that way is what makes the
+            // system warn the user that an app is looking at what they copied. `paste(_:)` reads it for real, once,
+            // when they actually choose the item - and still beeps if it holds no video.
+            return NSPasteboard.general.types?.contains(.string) ?? false
         case #selector(playNextInQueue(_:)):
             // Mirrors what `playNext()` would do, without consuming anything: nothing pending means nothing to do.
             return coordinator.canPlayNext
