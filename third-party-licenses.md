@@ -20,6 +20,19 @@ The lib script bundles:
 
 The full ISC and MIT license texts are reproduced in the header of `yt.solver.lib.js`.
 
+## GRDB.swift 7.11.1
+
+Cue stores its queue in SQLite through GRDB.swift, a SwiftPM **source** dependency pinned to an exact version
+(`Package.swift`, with the resolved revision in `Package.resolved`). It is compiled into `Cue.app`, so nothing is
+downloaded at first launch.
+
+Source: https://github.com/groue/GRDB.swift
+License: MIT, Copyright (C) 2015-2025 Gwendal Roué. The full text ships in
+`Cue.app/Contents/Resources/licenses/grdb-mit.txt`.
+
+GRDB links the SQLite library that ships with macOS (`libsqlite3`); no copy of SQLite is bundled. SQLite itself is in
+the public domain.
+
 ## libmpv and FFmpeg (LGPL build)
 
 `Cue.app` includes `Contents/Frameworks/libmpv.2.dylib`, a shared library that `scripts/fetch-libmpv.sh` links from the prebuilt LGPL archives of the MPVKit project, release 1.0.0 (https://github.com/mpvkit/MPVKit). Cue uses it only through libmpv's public client API. The archives and their SHA-256 checksums are pinned in `scripts/libmpv-artifacts.tsv`.

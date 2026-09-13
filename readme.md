@@ -145,12 +145,54 @@ scripts/                   test runner, libmpv fetch, app bundle and fixture scr
 
 1. **Foundation and native extraction.** Done: `CueCore` and `cue-resolve`.
 2. **Player core.** Available: `Cue.app` plays with libmpv and hardware decoding, with on-screen controls, keyboard shortcuts and resume positions (manual checks pending).
-3. **Queue.** Persistent queue with list and thumbnail views, counter and pending time, adding by paste or drag & drop or `cue://` links, import and export.
+3. **Queue.** Available: a persistent SQLite queue with list, thumbnail and compact views, a counter and the pending time, adding by paste, drag and drop or `cue://add` links, import and export, and watched state (manual checks pending).
 4. **Polish.** On-screen controller styles, seek-bar previews, chapters, subtitles, mini player.
 5. **Browser integration.** Bookmarklet and extensions for Firefox and Chrome.
 6. **Subscriptions.** Channel feeds and new-video notifications.
 7. **Casting.** Research first: AirPlay, Chromecast, DLNA.
 8. **Distribution.** Developer ID signing, notarization, automatic updates.
+
+## The queue
+
+Cue keeps its queue in SQLite at `~/Library/Application Support/Cue/queue.sqlite`, with schema migrations, beside the
+player's own data. The file is created readable only by you. Resume positions live in the same database; a
+`resume-positions.json` left by an earlier version is imported once at launch and then left alone.
+
+The sidebar (⌃⌘S to show or hide it, ⌃⌘M to cycle its density, ⌃⌘O to float it over the video instead of pushing it
+aside) lists what is left to watch with a counter and the total pending time. Videos whose length is not known yet are
+not in that total, which is why it can read `3 h 21 min+`.
+
+Add videos by pasting links (⌘V takes as many as the clipboard holds), by dropping links onto the sidebar, or with a
+`cue://add?url=<video URL>` link from a browser or a script. Adding the same video twice never duplicates it. ⇧⌘N
+plays the next pending video and ⇧⌘D marks the current one watched; Queue ▸ Play Next Automatically decides whether
+finishing a video starts the next one. A video is marked watched on its own when playback reaches the last 20 seconds.
+
+Thumbnails are YouTube's public still images, cached in `~/Library/Caches/Cue/thumbnails` by video id and capped at
+32 MB. Deleting that folder costs nothing.
+
+### Import and export
+
+File ▸ Import Queue… reads three formats, and File ▸ Export Queue… writes them; the file extension decides which
+(`.txt`, `.json`, `.csv`), and an imported file is sniffed if its extension says nothing. Importing is idempotent:
+videos already queued are left as they are, and the summary says how many were added, skipped and unreadable.
+
+- **URL list** (`.txt`): one video URL or id per line. Lines starting with `#` are comments.
+- **Cue JSON** (`.json`): `{"version": 1, "items": [{"videoID", "title", "author", "duration", "addedAt",
+  "watchedAt"}]}`. This is the format that round-trips everything, watched state included.
+- **CSV** (`.csv`): comma separated, `"` quoted. A Google Takeout playlist export
+  (`Video ID,Playlist Video Creation Timestamp`) imports as it is. Column names are matched case-insensitively:
+
+  | Field | Accepted column names |
+  |---|---|
+  | video id or URL | `video id`, `videoid`, `id`, `video url`, `url`, `video` |
+  | title | `title`, `video title` |
+  | author | `author`, `channel`, `channel title` |
+  | duration in seconds | `duration`, `duration seconds` |
+  | added | `playlist video creation timestamp`, `video creation timestamp`, `timestamp`, `added`, `added timestamp` |
+  | watched | `watched`, `watched timestamp` |
+
+  A CSV whose header names none of the video columns is read as a URL list instead, and a file without a header is read
+  as ids in the first column. A quoted field keeps its spaces; an unquoted one is trimmed.
 
 ## Contributing
 
