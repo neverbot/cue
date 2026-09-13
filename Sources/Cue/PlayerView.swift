@@ -13,7 +13,10 @@ final class PlayerView: NSView {
     /// Chrome that belongs to the window rather than to this view — the sidebar button, which sits in the container
     /// around the video — and has to come and go with the controls instead of lingering over a bare picture.
     weak var companionChrome: NSView? {
-        didSet { companionChrome?.isHidden = controls.isHidden }
+        didSet {
+            companionChrome?.alphaValue = chromeIsVisible ? 1 : 0
+            companionChrome?.isHidden = !chromeIsVisible
+        }
     }
 
     private let messageLabel = NSTextField(labelWithString: "")
@@ -140,11 +143,39 @@ final class PlayerView: NSView {
     }
 
     private func setControlsVisible(_ visible: Bool) {
-        guard controls.isHidden == visible else { return }
-        controls.isHidden = !visible
-        companionChrome?.isHidden = !visible
+        guard chromeIsVisible != visible else { return }
+        chromeIsVisible = visible
+        let fading = [controls, companionChrome].compactMap { $0 }
+        if visible {
+            // Unhidden before the fade, or there would be nothing on screen for it to act on.
+            for view in fading {
+                view.alphaValue = 0
+                view.isHidden = false
+            }
+        }
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = ChromeStyle.fadeDuration
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            for view in fading {
+                view.animator().alphaValue = visible ? 1 : 0
+            }
+        } completionHandler: { [weak self] in
+            // AppKit runs this on the main thread, but the handler itself is `@Sendable`, so the isolation has to be
+            // stated rather than assumed by the compiler. Nothing is captured but `self`.
+            MainActor.assumeIsolated {
+                // Hidden only once it has actually faded, so it keeps hit-testing until it is gone — and not at all
+                // if the pointer brought the chrome back while the fade was still running.
+                guard let self, !self.chromeIsVisible else { return }
+                self.controls.isHidden = true
+                self.companionChrome?.isHidden = true
+            }
+        }
         onChromeVisibilityChange?(visible)
     }
+
+    /// What the chrome is doing, which is not the same question as `controls.isHidden`: through a fade out the bar is
+    /// still on screen and still hidden only at the end.
+    private var chromeIsVisible = true
 
     /// The controls must not vanish from under the pointer that is about to click them.
     private var pointerIsOverControls: Bool {
