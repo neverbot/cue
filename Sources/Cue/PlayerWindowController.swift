@@ -34,7 +34,9 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
         self.engine = engine
         self.store = store
         controller = PlayerController(engine: engine, resolver: resolver, resumeStore: resumeStore)
-        coordinator = QueueCoordinator(store: store, player: controller)
+        // Only a resolver that also does prefetching (PrefetchingResolver, in production) drives it; a bare
+        // resolver leaves the queue's behaviour exactly as it was before prefetching existed.
+        coordinator = QueueCoordinator(store: store, player: controller, prefetcher: resolver as? any StreamPrefetching)
         playerView = PlayerView(handle: engine.handle)
         sidebar = QueueSidebarViewController(store: store, thumbnails: thumbnails)
 

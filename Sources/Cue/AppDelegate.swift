@@ -35,8 +35,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 engine: try MPVPlaybackEngine(),
                 store: store,
                 thumbnails: ThumbnailStore(directory: ThumbnailStore.defaultDirectory),
-                // One extractor, so one URLSession and one shared solver cache for the whole app.
-                resolver: Extractor(),
+                // One extractor, so one URLSession and one shared solver cache for the whole app. Wrapped so the
+                // queue can warm the next video ahead of playback (see PlayerWindowController).
+                resolver: PrefetchingResolver(wrapping: Extractor()),
                 resumeStore: DatabaseResumeStore(store: store)
             )
             windowController = controller
