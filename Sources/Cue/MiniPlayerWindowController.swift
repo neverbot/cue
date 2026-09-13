@@ -10,7 +10,11 @@ final class MiniPlayerWindowController: NSWindowController, NSWindowDelegate {
     /// Called when the window is closed by its button rather than by the toggle.
     var onClose: (() -> Void)?
 
-    init(contentSize: CGSize) {
+    /// The video's shape, which the window keeps while it is resized.
+    private let aspectRatio: Double
+
+    init(contentSize: CGSize, aspectRatio: Double) {
+        self.aspectRatio = aspectRatio > 0 ? aspectRatio : 16.0 / 9.0
         let window = NSWindow(
             contentRect: NSRect(origin: .zero, size: contentSize),
             styleMask: [.titled, .closable, .resizable, .fullSizeContentView],
@@ -25,7 +29,10 @@ final class MiniPlayerWindowController: NSWindowController, NSWindowDelegate {
         window.isRestorable = false
         window.level = .floating
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        window.contentMinSize = CGSize(width: MiniPlayerGeometry.minimumWidth, height: MiniPlayerGeometry.minimumWidth * 9 / 16)
+        window.contentMinSize = CGSize(
+            width: MiniPlayerGeometry.minimumWidth,
+            height: MiniPlayerGeometry.minimumWidth / CGFloat(self.aspectRatio)
+        )
         super.init(window: window)
         window.delegate = self
     }
@@ -51,6 +58,19 @@ final class MiniPlayerWindowController: NSWindowController, NSWindowDelegate {
             view.topAnchor.constraint(equalTo: container.topAnchor),
             view.bottomAnchor.constraint(equalTo: container.bottomAnchor),
         ])
+    }
+
+    /// Keeps the video's proportions during a live resize: the user drags the width, the height follows. The rule
+    /// itself lives in `MiniPlayerGeometry`, so it can be argued with in tests rather than on screen.
+    func windowWillResize(_ sender: NSWindow, to frameSize: NSSize) -> NSSize {
+        let visible = (sender.screen ?? NSScreen.main)?.visibleFrame ?? NSRect(origin: .zero, size: frameSize)
+        let proposed = NSRect(origin: sender.frame.origin, size: frameSize)
+        let content = MiniPlayerGeometry.resized(
+            toWidth: sender.contentRect(forFrameRect: proposed).width,
+            aspectRatio: aspectRatio,
+            visibleFrame: visible
+        )
+        return sender.frameRect(forContentRect: NSRect(origin: sender.frame.origin, size: content)).size
     }
 
     func windowWillClose(_ notification: Notification) {

@@ -213,11 +213,19 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
         guard miniPlayer == nil, let screen = (window?.screen ?? NSScreen.main)?.visibleFrame else { return }
         if window?.styleMask.contains(.fullScreen) == true { window?.toggleFullScreen(nil) }
         let size = MiniPlayerGeometry.size(for: controller.state.videoSize, visibleFrame: screen)
-        let mini = MiniPlayerWindowController(contentSize: size)
+        let mini = MiniPlayerWindowController(
+            contentSize: size,
+            aspectRatio: controller.state.videoSize?.aspectRatio ?? 16.0 / 9.0
+        )
         mini.onClose = { [weak self] in self?.leaveMiniPlayer() }
         mini.adopt(playerView)
+        // The remembered corner may come from a display that is no longer attached, so the frame is put back on the
+        // screen in use before it is shown.
         mini.window?.setFrame(
-            MiniPlayerGeometry.frame(size: size, corner: miniPlayerCorner, visibleFrame: screen),
+            MiniPlayerGeometry.clamped(
+                MiniPlayerGeometry.frame(size: size, corner: miniPlayerCorner, visibleFrame: screen),
+                visibleFrame: screen
+            ),
             display: true
         )
         miniPlayer = mini
