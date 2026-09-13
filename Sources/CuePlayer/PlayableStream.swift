@@ -23,6 +23,12 @@ public struct PlayableStream: Equatable, Sendable {
     public var userAgent: String?
     public var expiresAt: Date?
     public var decoding: Decoding
+    /// The video's own sections, empty when it has none.
+    public var chapters: [Chapter] = []
+    /// Caption tracks offered for this video; fetched only when the user asks for one.
+    public var captionTracks: [CaptionTrack] = []
+    /// Seek-bar preview sheets, when YouTube offers them.
+    public var storyboard: StoryboardSpec?
 
     public init(
         videoID: VideoID?,
@@ -34,7 +40,10 @@ public struct PlayableStream: Equatable, Sendable {
         duration: Double? = nil,
         userAgent: String? = nil,
         expiresAt: Date? = nil,
-        decoding: Decoding = .hardware
+        decoding: Decoding = .hardware,
+        chapters: [Chapter] = [],
+        captionTracks: [CaptionTrack] = [],
+        storyboard: StoryboardSpec? = nil
     ) {
         self.videoID = videoID
         self.title = title
@@ -46,6 +55,9 @@ public struct PlayableStream: Equatable, Sendable {
         self.userAgent = userAgent
         self.expiresAt = expiresAt
         self.decoding = decoding
+        self.chapters = chapters
+        self.captionTracks = captionTracks
+        self.storyboard = storyboard
     }
 }
 
@@ -62,7 +74,10 @@ extension PlayableStream {
             duration: resolution.duration,
             userAgent: resolution.userAgent,
             expiresAt: resolution.expiresAt,
-            decoding: resolution.selection.decoding == .software ? .software : .hardware
+            decoding: resolution.selection.decoding == .software ? .software : .hardware,
+            chapters: resolution.chapters,
+            captionTracks: resolution.captionTracks,
+            storyboard: resolution.storyboard
         )
     }
 

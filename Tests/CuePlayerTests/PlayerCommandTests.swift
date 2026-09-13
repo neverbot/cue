@@ -21,7 +21,7 @@ import Testing
     @Test func leavesModifiedAndUnknownKeysToTheMenu() {
         #expect(bindings.command(for: KeyPress(.character("w"), modifiers: .command)) == nil)
         #expect(bindings.command(for: KeyPress(.character("f"), modifiers: [.command, .control])) == nil)
-        #expect(bindings.command(for: KeyPress(.character("x"))) == nil)
+        #expect(bindings.command(for: KeyPress(.character("q"))) == nil)
     }
 
     @Test func buildsMPVCommands() {

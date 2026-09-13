@@ -10,6 +10,21 @@ public enum PlayerCommand: Equatable, Sendable {
     case toggleMute
     case toggleFullScreen
     case close
+    /// Loads an external subtitle file and selects it.
+    case addSubtitle(fileURL: URL)
+    /// Removes the external subtitle currently loaded.
+    case removeSubtitles
+    /// Selects a subtitle track, or none.
+    case selectSubtitle(id: Int?)
+    case setSubtitleDelay(seconds: Double)
+    case adjustSubtitleDelay(by: Double)
+    /// One `sub-*` property, as `SubtitleStyle` produces them.
+    case setSubtitleProperty(name: String, value: String)
+    case nextChapter
+    case previousChapter
+    case toggleChaptersPanel
+    case toggleSubtitlesPanel
+    case toggleMiniPlayer
 
     /// The mpv command for commands the engine handles; nil for window-level commands.
     public var mpvArguments: [String]? {
@@ -20,7 +35,14 @@ public enum PlayerCommand: Equatable, Sendable {
         case let .adjustVolume(delta): ["add", "volume", "\(delta)"]
         case let .setVolume(volume): ["set", "volume", "\(min(max(volume, 0), 100))"]
         case .toggleMute: ["cycle", "mute"]
-        case .toggleFullScreen, .close: nil
+        case let .addSubtitle(fileURL): ["sub-add", fileURL.path, "select"]
+        case .removeSubtitles: ["sub-remove"]
+        case let .selectSubtitle(id): ["set", "sid", id.map(String.init) ?? "no"]
+        case let .setSubtitleDelay(seconds): ["set", "sub-delay", "\(seconds)"]
+        case let .adjustSubtitleDelay(delta): ["add", "sub-delay", "\(delta)"]
+        case let .setSubtitleProperty(name, value): ["set", name, value]
+        case .toggleFullScreen, .close, .nextChapter, .previousChapter,
+             .toggleChaptersPanel, .toggleSubtitlesPanel, .toggleMiniPlayer: nil
         }
     }
 
@@ -61,31 +83,37 @@ public struct KeyPress: Equatable, Sendable {
     }
 }
 
-/// IINA-like defaults. Shortcuts with ⌘ (⌘W close, ⌘V paste, ⌃⌘F full screen, ⌘Q quit) live in the main menu, so
-/// bindings only match unmodified keys and leave everything else to the responder chain.
+/// IINA-like defaults. Shortcuts with ⌘ (⌘W close, ⌘V paste, ⌃⌘F full screen, ⌘Q quit) live in the main menu, so a
+/// binding matches a press only when its modifiers are exactly the ones declared.
 public struct KeyBindings: Sendable {
     public static let seekStep = 5.0
     public static let volumeStep = 5.0
+    public static let subtitleDelayStep = 0.1
 
     public static let standard = KeyBindings(bindings: [
-        (.character(" "), .togglePause),
-        (.leftArrow, .seekRelative(seconds: -seekStep)),
-        (.rightArrow, .seekRelative(seconds: seekStep)),
-        (.upArrow, .adjustVolume(by: volumeStep)),
-        (.downArrow, .adjustVolume(by: -volumeStep)),
-        (.character("f"), .toggleFullScreen),
-        (.character("m"), .toggleMute),
+        (.character(" "), [], .togglePause),
+        (.leftArrow, [], .seekRelative(seconds: -seekStep)),
+        (.rightArrow, [], .seekRelative(seconds: seekStep)),
+        (.leftArrow, .option, .previousChapter),
+        (.rightArrow, .option, .nextChapter),
+        (.upArrow, [], .adjustVolume(by: volumeStep)),
+        (.downArrow, [], .adjustVolume(by: -volumeStep)),
+        (.character("f"), [], .toggleFullScreen),
+        (.character("m"), [], .toggleMute),
+        (.character("c"), [], .toggleChaptersPanel),
+        (.character("s"), [], .toggleSubtitlesPanel),
+        (.character("z"), [], .adjustSubtitleDelay(by: -subtitleDelayStep)),
+        (.character("x"), [], .adjustSubtitleDelay(by: subtitleDelayStep)),
     ])
 
-    private let bindings: [(KeyPress.Key, PlayerCommand)]
+    private let bindings: [(KeyPress.Key, KeyPress.Modifiers, PlayerCommand)]
 
-    public init(bindings: [(KeyPress.Key, PlayerCommand)]) {
+    public init(bindings: [(KeyPress.Key, KeyPress.Modifiers, PlayerCommand)]) {
         self.bindings = bindings
     }
 
     public func command(for press: KeyPress) -> PlayerCommand? {
-        guard press.modifiers.isEmpty else { return nil }
         let key: KeyPress.Key = if case let .character(text) = press.key { .character(text.lowercased()) } else { press.key }
-        return bindings.first { $0.0 == key }?.1
+        return bindings.first { $0.0 == key && $0.1 == press.modifiers }?.2
     }
 }
