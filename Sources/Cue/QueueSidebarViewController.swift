@@ -86,7 +86,10 @@ final class QueueSidebarViewController: NSViewController, NSTableViewDataSource,
         NSLayoutConstraint.activate([
             header.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             header.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            header.topAnchor.constraint(equalTo: container.topAnchor),
+            // The window draws its content full size under a transparent title bar, so the plain top anchor puts the
+            // counter under the traffic lights. The safe area is what accounts for the title bar, and it stays right
+            // in full screen and on any title bar height, which a hardcoded inset would not.
+            header.topAnchor.constraint(equalTo: container.safeAreaLayoutGuide.topAnchor),
             scrollView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
             scrollView.topAnchor.constraint(equalTo: header.bottomAnchor),
