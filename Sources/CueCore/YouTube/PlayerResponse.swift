@@ -47,6 +47,24 @@ struct PlayerResponse: Decodable, Sendable {
         let baseUrl: String?
         let languageCode: String?
         let kind: String?
+        let name: Text?
+        let vssId: String?
+    }
+
+    /// InnerTube's text node: either one string or a list of runs.
+    struct Text: Decodable, Sendable {
+        let simpleText: String?
+        let runs: [Run]?
+
+        struct Run: Decodable, Sendable {
+            let text: String?
+        }
+
+        var string: String? {
+            if let simpleText, !simpleText.isEmpty { return simpleText }
+            let joined = (runs ?? []).compactMap(\.text).joined()
+            return joined.isEmpty ? nil : joined
+        }
     }
 
     struct Storyboards: Decodable, Sendable {

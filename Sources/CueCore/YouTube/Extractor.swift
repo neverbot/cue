@@ -12,13 +12,15 @@ public struct Resolution: Sendable {
     /// Playable formats: unciphered formats plus ciphered formats in the selector's acceptable set, with their challenges solved.
     public let formats: [StreamFormat]
     public let hlsManifestURL: URL?
-    public let captionTrackCount: Int
+    public let captionTracks: [CaptionTrack]
     /// The seek-bar preview sheets, when YouTube offers them.
     public let storyboard: StoryboardSpec?
     /// When the stream URLs stop working; re-resolve before then.
     public let expiresAt: Date?
     /// Stream requests must use this User-Agent.
     public let userAgent: String
+
+    public var captionTrackCount: Int { captionTracks.count }
 }
 
 public enum ExtractionError: Error, Equatable, Sendable {
@@ -113,7 +115,7 @@ public struct Extractor: Sendable {
             selection: selection,
             formats: formats,
             hlsManifestURL: player.streamingData?.hlsManifestUrl.flatMap(URL.init(string:)),
-            captionTrackCount: player.captions?.playerCaptionsTracklistRenderer?.captionTracks?.count ?? 0,
+            captionTracks: CaptionTrack.list(in: player.captions),
             storyboard: player.storyboards?.playerStoryboardSpecRenderer?.spec.flatMap(StoryboardSpec.init),
             expiresAt: player.streamingData?.expiresInSeconds.flatMap(TimeInterval.init).map { requestedAt.addingTimeInterval($0) },
             userAgent: client.userAgent

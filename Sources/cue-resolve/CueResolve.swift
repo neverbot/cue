@@ -27,7 +27,9 @@ struct CueResolve {
             print("title:      \(resolution.title)")
             print("author:     \(resolution.author ?? "-")")
             print("duration:   \(resolution.duration.map { "\(Int($0)) s" } ?? "-")")
-            print("formats:    \(resolution.formats.count), hls: \(resolution.hlsManifestURL != nil), captions: \(resolution.captionTrackCount)")
+            let captions = resolution.captionTracks.map(\.id).joined(separator: ", ")
+            print("formats:    \(resolution.formats.count), hls: \(resolution.hlsManifestURL != nil)")
+            print("captions:   \(captions.isEmpty ? "-" : captions)")
             print("expires:    \(resolution.expiresAt.map { "in \(Int($0.timeIntervalSince(Date()) / 60)) min" } ?? "-")")
             let shortSide = [video.width, video.height].compactMap { $0 }.min()
             let softwareSuffix = resolution.selection.decoding == .software ? " | software decoding" : ""
