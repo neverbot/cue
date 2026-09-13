@@ -24,7 +24,11 @@ Cue keeps a personal queue of the YouTube videos you want to watch and plays the
 | Native player (libmpv), keyboard controls, resume position | Available in `Cue.app` (build from source) |
 | Queue sidebar with counter and total pending time; paste, drag & drop, `cue://` links | Planned |
 | Import and export of the queue | Planned |
-| Chapters, subtitles, seek-bar previews, mini player | Planned |
+| Drawn on-screen controls with chapter marks on the seek bar, and a title bar that fades with them | Available in `Cue.app` (manual checks pending) |
+| Thumbnail previews while scrubbing, from YouTube's own storyboard sheets | Available in `Cue.app` (manual checks pending) |
+| A chapters panel built from the video's own markers, or from the timestamps in its description | Available in `Cue.app` (manual checks pending) |
+| A subtitles panel: pick a track, size and colour it, shift its timing, and export it as SRT or VTT | Available in `Cue.app` (manual checks pending) |
+| A mini player: a small always-on-top window that keeps playing, with no reload and no second stream | Available in `Cue.app` (manual checks pending) |
 | Browser extension and bookmarklet ("send this tab to Cue") | Planned |
 | Channel subscriptions with new-video alerts | Planned |
 
@@ -193,6 +197,27 @@ videos already queued are left as they are, and the summary says how many were a
 
   A CSV whose header names none of the video columns is read as a URL list instead, and a file without a header is read
   as ids in the first column. A quoted field keeps its spaces; an unquoted one is trimmed.
+
+## Chapters, subtitles and the mini player
+
+Chapters come from the video itself — the markers YouTube serves with the watch page, or, when there are none, the
+timestamps in the description. Nothing is fetched from anywhere else, and nothing is guessed.
+
+Subtitles are the caption tracks the video offers. Choosing one downloads it, writes it as WebVTT into a private
+temporary directory and hands that file to the player, so a subtitle cannot expire in the middle of a video the way a
+stream URL can. Size, colour, an optional background box and the timing offset (`z` and `x`, or the panel's slider)
+apply immediately. Export writes SubRip (`.srt`) or WebVTT (`.vtt`) from the same text that is on screen.
+
+The mini player (⌘⇧M) moves the video into a small floating window that stays above other apps. It is the same player:
+the stream is not re-resolved, playback does not pause, and closing the small window brings the video back.
+
+| Key | Does |
+|---|---|
+| `c` | Chapters panel |
+| `s` | Subtitles panel |
+| `⌥→` / `⌥←` | Next / previous chapter |
+| `z` / `x` | Subtitle delay −0.1 s / +0.1 s |
+| `⌘⇧M` | Mini player |
 
 ## Contributing
 
