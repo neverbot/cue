@@ -15,6 +15,8 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
 
     private let store: QueueStore
     private let playerView: PlayerView
+    /// The container the player view normally lives in; where it returns when the mini player closes.
+    private let playerContainer: NSView
     private let sidebar: QueueSidebarViewController
     private let sidebarHost: SidebarHost
     private let splitViewController: NSSplitViewController
@@ -50,6 +52,9 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
         return panel
     }()
 
+    private var miniPlayer: MiniPlayerWindowController?
+    private var miniPlayerCorner = MiniPlayerGeometry.Corner.bottomRight
+
     init(
         engine: MPVPlaybackEngine,
         store: QueueStore,
@@ -76,6 +81,7 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
             playerView.topAnchor.constraint(equalTo: playerContainer.topAnchor),
             playerView.bottomAnchor.constraint(equalTo: playerContainer.bottomAnchor),
         ])
+        self.playerContainer = playerContainer
         let playerViewController = NSViewController()
         playerViewController.view = playerContainer
 
@@ -140,8 +146,11 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
 
     func perform(_ command: PlayerCommand) {
         switch command {
-        case .toggleFullScreen: window?.toggleFullScreen(nil)
-        case .close: window?.performClose(nil)
+        case .toggleFullScreen:
+            (miniPlayer == nil ? window : nil)?.toggleFullScreen(nil)
+        case .close:
+            (miniPlayer?.window ?? window)?.performClose(nil)
+        case .toggleMiniPlayer: toggleMiniPlayer(nil)
         case .nextChapter:
             if let target = timeline.nextStart(from: controller.state.position) {
                 controller.perform(.seekAbsolute(seconds: target))
@@ -188,6 +197,46 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
             refreshSubtitlesPanel()
             subtitlesPanel.showWindow(nil)
         }
+    }
+
+    /// Moves the video into a small floating window, or brings it back. The view — and with it mpv's render context —
+    /// is moved, never rebuilt.
+    @objc func toggleMiniPlayer(_ sender: Any?) {
+        if miniPlayer != nil {
+            leaveMiniPlayer()
+        } else {
+            enterMiniPlayer()
+        }
+    }
+
+    private func enterMiniPlayer() {
+        guard miniPlayer == nil, let screen = (window?.screen ?? NSScreen.main)?.visibleFrame else { return }
+        if window?.styleMask.contains(.fullScreen) == true { window?.toggleFullScreen(nil) }
+        let size = MiniPlayerGeometry.size(for: controller.state.videoSize, visibleFrame: screen)
+        let mini = MiniPlayerWindowController(contentSize: size)
+        mini.onClose = { [weak self] in self?.leaveMiniPlayer() }
+        mini.adopt(playerView)
+        mini.window?.setFrame(
+            MiniPlayerGeometry.frame(size: size, corner: miniPlayerCorner, visibleFrame: screen),
+            display: true
+        )
+        miniPlayer = mini
+        mini.showWindow(nil)
+        mini.window?.makeFirstResponder(playerView)
+        window?.orderOut(nil)
+    }
+
+    private func leaveMiniPlayer() {
+        guard let mini = miniPlayer else { return }
+        miniPlayer = nil
+        if let frame = mini.window?.frame, let screen = (mini.window?.screen ?? NSScreen.main)?.visibleFrame {
+            miniPlayerCorner = MiniPlayerGeometry.nearestCorner(of: frame, visibleFrame: screen)
+        }
+        MiniPlayerWindowController.pin(playerView, into: playerContainer)
+        mini.onClose = nil
+        mini.close()
+        window?.makeKeyAndOrderFront(nil)
+        window?.makeFirstResponder(playerView)
     }
 
     private func refreshSubtitlesPanel() {
@@ -430,6 +479,7 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
     func shutdown() {
         guard !isShutDown else { return }
         isShutDown = true
+        leaveMiniPlayer()
         SubtitleSession.removeFiles(in: SubtitleSession.defaultDirectory())
         controller.close()
         playerView.videoView.videoLayer.teardown()

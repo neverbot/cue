@@ -121,7 +121,9 @@ enum MainMenu {
         chapters.keyEquivalentModifierMask = [.control, .command]
         let subtitlesItem = NSMenuItem(title: "Subtitles", action: #selector(PlayerWindowController.toggleSubtitlesPanel(_:)), keyEquivalent: "u")
         subtitlesItem.keyEquivalentModifierMask = [.control, .command]
-        menu.addItem(submenu("View", items: [toggleSidebar, cycleMode, toggleLayout, chapters, subtitlesItem, .separator(), fullScreen]))
+        let mini = NSMenuItem(title: "Mini Player", action: #selector(PlayerWindowController.toggleMiniPlayer(_:)), keyEquivalent: "m")
+        mini.keyEquivalentModifierMask = [.command, .shift]
+        menu.addItem(submenu("View", items: [toggleSidebar, cycleMode, toggleLayout, chapters, subtitlesItem, mini, .separator(), fullScreen]))
 
         let windowMenu = submenu("Window", items: [
             NSMenuItem(title: "Minimize", action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m"),
