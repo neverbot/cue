@@ -4,7 +4,7 @@ import CuePlayer
 
 /// The on-screen controls: play/pause, elapsed time, the seek bar, duration, chapters, subtitles, the mini player,
 /// mute and volume — on one translucent bar.
-final class ControlsView: NSVisualEffectView {
+final class ControlsView: NSView {
     var onCommand: ((PlayerCommand) -> Void)?
     /// Forwarded from the seek bar, in this view's coordinates.
     var onHover: ((Double?, CGFloat) -> Void)?
@@ -23,12 +23,8 @@ final class ControlsView: NSVisualEffectView {
 
     init() {
         super.init(frame: .zero)
-        material = .hudWindow
-        blendingMode = .withinWindow
-        state = .active
-        wantsLayer = true
-        layer?.cornerRadius = 12
-        layer?.cornerCurve = .continuous
+        ChromeStyle.applyPanel(to: self, cornerRadius: ChromeStyle.controlsCornerRadius)
+        ChromeStyle.applyShadow(to: self)
 
         playButton.target = self
         playButton.action = #selector(togglePause)

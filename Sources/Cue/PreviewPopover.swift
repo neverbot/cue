@@ -5,7 +5,7 @@ import CuePlayer
 /// The preview shown while the pointer is over the seek bar: one storyboard tile, the time under it and the chapter
 /// it falls in. A plain view rather than an `NSPopover`: a popover would take focus and animate, and this has to keep
 /// up with a pointer.
-final class PreviewPopover: NSVisualEffectView {
+final class PreviewPopover: NSView {
     static let imageWidth: CGFloat = 168
 
     private let imageView = NSImageView()
@@ -14,12 +14,7 @@ final class PreviewPopover: NSVisualEffectView {
 
     init() {
         super.init(frame: .zero)
-        material = .hudWindow
-        blendingMode = .withinWindow
-        state = .active
-        wantsLayer = true
-        layer?.cornerRadius = 8
-        layer?.cornerCurve = .continuous
+        ChromeStyle.applyPanel(to: self, cornerRadius: ChromeStyle.previewCornerRadius)
         isHidden = true
 
         imageView.imageScaling = .scaleProportionallyUpOrDown
