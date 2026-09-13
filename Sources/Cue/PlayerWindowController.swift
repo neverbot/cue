@@ -22,6 +22,10 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
     private var fittedVideoSize: VideoSize?
     /// The chapters of whatever is playing, rebuilt when the stream changes.
     private var timeline = ChapterTimeline(chapters: [], duration: nil)
+    /// Storyboard sheets for the video playing now. Recreated per video so nothing survives into the next one.
+    private var storyboards: StoryboardStore?
+    /// Rises with every hover, so a sheet that arrives late for a position the pointer has left is dropped.
+    private var previewToken = 0
     private var loggedDecodingFor: URL?
     private var isShutDown = false
     private let logger = Logger(subsystem: "com.neverbot.cue", category: "player")
@@ -96,6 +100,7 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
         window.makeFirstResponder(playerView)
         playerView.onKeyPress = { [weak self] press in self?.handle(press) ?? false }
         playerView.controls.onCommand = { [weak self] command in self?.perform(command) }
+        playerView.controls.onHover = { [weak self] seconds, x in self?.hoverPreview(seconds: seconds, x: x) }
         playerView.onChromeVisibilityChange = { [weak self] visible in self?.setTitleBarVisible(visible) }
         controller.onStateChange = { [weak self] state in self?.render(state) }
         sidebar.onPlay = { [weak self] videoID in self?.coordinator.play(videoID) }
@@ -131,6 +136,38 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
             }
         default: controller.perform(command)
         }
+    }
+
+    /// The pointer moved over the seek bar. The time and the chapter appear immediately; the frame follows when its
+    /// sheet arrives, which is usually instant after the first hover.
+    private func hoverPreview(seconds: Double?, x: CGFloat) {
+        guard let seconds, let stream = controller.state.stream else {
+            playerView.preview.hide()
+            return
+        }
+        previewToken += 1
+        let token = previewToken
+        playerView.placePreview(atX: x)
+        playerView.preview.show(seconds: seconds, chapter: timeline.chapter(at: seconds)?.title, image: nil)
+
+        guard let frame = PreviewFrame.frame(at: seconds, duration: stream.duration, storyboard: stream.storyboard) else { return }
+        let store = storyboardStore(for: stream)
+        Task { [weak self] in
+            guard let data = try? await store.sheet(at: frame.url) else { return }
+            guard let self, token == self.previewToken else { return }
+            self.playerView.preview.show(
+                seconds: seconds,
+                chapter: self.timeline.chapter(at: seconds)?.title,
+                image: PreviewPopover.tile(frame, from: data)
+            )
+        }
+    }
+
+    private func storyboardStore(for stream: PlayableStream) -> StoryboardStore {
+        if let storyboards { return storyboards }
+        let store = StoryboardStore(userAgent: stream.userAgent ?? ClientProfile.visionOS.userAgent)
+        storyboards = store
+        return store
     }
 
     /// Edit ▸ Paste (⌘V): queues every video in the pasteboard, and plays the first one when nothing is playing.
@@ -317,7 +354,11 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
         window?.title = state.windowTitle
         window?.subtitle = state.windowSubtitle
         playerView.update(state)
-        if state.stream != timeline.streamReference { timeline = ChapterTimeline(stream: state.stream) }
+        if state.stream != timeline.streamReference {
+            timeline = ChapterTimeline(stream: state.stream)
+            storyboards = nil
+            playerView.preview.hide()
+        }
         if let size = state.videoSize { fit(to: size) }
         if let stream = state.stream, stream.videoURL != loggedDecodingFor {
             loggedDecodingFor = stream.videoURL

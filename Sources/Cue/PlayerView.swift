@@ -6,6 +6,7 @@ import CuePlayer
 final class PlayerView: NSView {
     let videoView: VideoView
     let controls = ControlsView()
+    let preview = PreviewPopover()
     var onKeyPress: ((KeyPress) -> Bool)?
     /// Called whenever the controls appear or disappear, so the window can fade its title bar with them.
     var onChromeVisibilityChange: ((Bool) -> Void)?
@@ -14,6 +15,7 @@ final class PlayerView: NSView {
     private var playerState = PlayerState()
     private var timeline = ChapterTimeline(chapters: [], duration: nil)
     private var hideTask: Task<Void, Never>?
+    private var previewLeadingConstraint: NSLayoutConstraint!
 
     init(handle: MPVHandle) {
         videoView = VideoView(handle: handle)
@@ -27,7 +29,7 @@ final class PlayerView: NSView {
         messageLabel.maximumNumberOfLines = 3
         messageLabel.lineBreakMode = .byWordWrapping
 
-        for view in [videoView, messageLabel, controls] as [NSView] {
+        for view in [videoView, messageLabel, controls, preview] as [NSView] {
             view.translatesAutoresizingMaskIntoConstraints = false
             addSubview(view)
         }
@@ -42,7 +44,10 @@ final class PlayerView: NSView {
             controls.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
             controls.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
             controls.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -16),
+            preview.bottomAnchor.constraint(equalTo: controls.topAnchor, constant: -8),
         ])
+        previewLeadingConstraint = preview.leadingAnchor.constraint(equalTo: controls.leadingAnchor)
+        previewLeadingConstraint.isActive = true
         update(playerState)
     }
 
@@ -77,6 +82,15 @@ final class PlayerView: NSView {
         if state.phase != .ready || state.isPaused {
             revealControls()
         }
+    }
+
+    /// Places the preview over the seek bar, clamped so it never hangs off either end.
+    func placePreview(atX x: CGFloat) {
+        previewLeadingConstraint.constant = PreviewFrame.popoverX(
+            centredOn: x,
+            popoverWidth: preview.fittingSize.width,
+            barWidth: controls.bounds.width
+        )
     }
 
     private func revealControls() {
