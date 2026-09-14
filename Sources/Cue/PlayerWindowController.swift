@@ -230,14 +230,10 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
         toggleInspector(showing: .chapters)
     }
 
-    /// Opens the inspector on its subtitles page, or closes it when that page is already in front. Unlike chapters,
-    /// this page has nothing useful to say without a video that actually offers caption tracks, so opening it is
-    /// refused rather than shown empty.
+    /// Opens the inspector on its subtitles page, or closes it when that page is already in front. Available with no
+    /// caption tracks at all, exactly like chapters: the page says the video offers none. Refusing here while the
+    /// page's own segment opened it anyway left one page answering two different ways depending on how it was asked.
     @objc func toggleSubtitlesInspector(_ sender: Any?) {
-        guard let stream = controller.state.stream, !stream.captionTracks.isEmpty else {
-            NSSound.beep()
-            return
-        }
         toggleInspector(showing: .subtitles)
     }
 
@@ -939,12 +935,12 @@ extension PlayerWindowController: NSMenuItemValidation {
             menuItem.state = coordinator.playsNextAutomatically ? .on : .off
             return true
         case #selector(toggleSidebar(_:)), #selector(cycleSidebarMode(_:)), #selector(toggleSidebarLayout(_:)),
-             #selector(importQueue(_:)), #selector(exportQueue(_:)), #selector(toggleChaptersInspector(_:)):
+             #selector(importQueue(_:)), #selector(exportQueue(_:)), #selector(toggleChaptersInspector(_:)),
+             #selector(toggleSubtitlesInspector(_:)):
             // Always available: they only open the inspector or flip a display mode, regardless of queue or player
-            // state. The chapters page in particular must stay reachable with no chapters at all, so it can say so.
+            // state. Both inspector pages must stay reachable when they have nothing to show, so they can say so
+            // rather than a shortcut beeping while the page's own segment opens it anyway.
             return true
-        case #selector(toggleSubtitlesInspector(_:)):
-            return !(controller.state.stream?.captionTracks.isEmpty ?? true)
         case #selector(fitWindowToVideo(_:)):
             return canFitWindowToVideo
         default:

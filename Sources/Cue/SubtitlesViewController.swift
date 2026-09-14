@@ -19,6 +19,13 @@ final class SubtitlesViewController: NSViewController, NSTableViewDataSource, NS
     private let delayLabel = NSTextField(labelWithString: "0.0 s")
     private let statusLabel = NSTextField(labelWithString: "")
 
+    /// Shown instead of the whole page when the video offers no caption tracks, the way the chapters page says it
+    /// has no chapters. Leaving the size, colour, delay and export controls on screen with nothing to act on would
+    /// read as a page that works and simply found nothing, which is not the same thing.
+    private let emptyLabel = NSTextField(labelWithString: "This video has no subtitles.")
+    /// Everything except the empty label, hidden together when there is nothing to show.
+    private var column: NSStackView?
+
     private var tracks: [CaptionTrack] = []
     private var style = SubtitleStyle()
 
@@ -75,19 +82,30 @@ final class SubtitlesViewController: NSViewController, NSTableViewDataSource, NS
         let styleRow = NSStackView(views: [NSTextField(labelWithString: "Size"), sizeButton, NSTextField(labelWithString: "Colour"), colourButton])
         styleRow.orientation = .horizontal
 
+        emptyLabel.alignment = .center
+        emptyLabel.textColor = .secondaryLabelColor
+        emptyLabel.translatesAutoresizingMaskIntoConstraints = false
+        emptyLabel.isHidden = true
+
         let content = NSView()
         let column0 = NSStackView(views: [scrollView, styleRow, boxSwitch, delayRow, exports, statusLabel])
         column0.orientation = .vertical
         column0.spacing = 8
         column0.edgeInsets = NSEdgeInsets(top: 10, left: 12, bottom: 10, right: 12)
         column0.translatesAutoresizingMaskIntoConstraints = false
+        column = column0
         content.addSubview(column0)
+        content.addSubview(emptyLabel)
         NSLayoutConstraint.activate([
             column0.leadingAnchor.constraint(equalTo: content.leadingAnchor),
             column0.trailingAnchor.constraint(equalTo: content.trailingAnchor),
             column0.topAnchor.constraint(equalTo: content.topAnchor),
             column0.bottomAnchor.constraint(equalTo: content.bottomAnchor),
             scrollView.heightAnchor.constraint(greaterThanOrEqualToConstant: 180),
+            emptyLabel.centerXAnchor.constraint(equalTo: content.centerXAnchor),
+            emptyLabel.centerYAnchor.constraint(equalTo: content.centerYAnchor),
+            emptyLabel.leadingAnchor.constraint(greaterThanOrEqualTo: content.leadingAnchor, constant: 16),
+            emptyLabel.trailingAnchor.constraint(lessThanOrEqualTo: content.trailingAnchor, constant: -16),
         ])
         view = content
     }
@@ -95,6 +113,10 @@ final class SubtitlesViewController: NSViewController, NSTableViewDataSource, NS
     func setTracks(_ tracks: [CaptionTrack], selected: CaptionTrack?, style: SubtitleStyle, delay: Double) {
         self.tracks = tracks
         self.style = style
+        // "Off" is always row 0, so an empty page still has one row: emptiness has to be read from the tracks
+        // themselves, never from the table's row count.
+        emptyLabel.isHidden = !tracks.isEmpty
+        column?.isHidden = tracks.isEmpty
         tableView.reloadData()
         let row = selected.flatMap { track in tracks.firstIndex { $0.id == track.id }.map { $0 + 1 } } ?? 0
         tableView.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)

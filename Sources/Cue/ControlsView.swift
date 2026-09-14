@@ -109,10 +109,11 @@ final class ControlsView: NSView {
 
         let enabled = playerState.phase == .ready || playerState.phase == .ended
         seekBar.isEnabled = enabled
-        // Enabled with no chapters too, like the menu item: the inspector says the video has none, which beats a
-        // button that refuses silently.
+        // Both stay enabled with nothing to show, like their menu items: the inspector page says the video offers
+        // none, which beats a button that refuses silently. Greying only the subtitles one left the same page
+        // answering differently depending on whether it was opened from here or from the inspector's own segment.
         chaptersButton.isEnabled = enabled
-        subtitlesButton.isEnabled = enabled && !(playerState.stream?.captionTracks.isEmpty ?? true)
+        subtitlesButton.isEnabled = enabled
         miniButton.isEnabled = enabled
         isReady = enabled
         updateFitWindowButton()
