@@ -607,7 +607,10 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
     /// never fades while the window is not key: a window you are about to click must show its buttons.
     private func setTitleBarVisible(_ visible: Bool) {
         guard let window, !window.styleMask.contains(.fullScreen) else { return }
-        let pointerIsInTitleArea = window.mouseLocationOutsideOfEventStream.y > window.frame.height - 28
+        // `contentLayoutRect` is the part of the content view the title bar does not cover, in the same coordinate
+        // space the pointer is reported in. Comparing against its top asks the window where its title bar ends
+        // instead of assuming a height, and it keeps working at any title bar size.
+        let pointerIsInTitleArea = window.mouseLocationOutsideOfEventStream.y > window.contentLayoutRect.maxY
         let shown = visible || pointerIsInTitleArea || !window.isKeyWindow
         NSAnimationContext.runAnimationGroup { context in
             context.duration = 0.2
