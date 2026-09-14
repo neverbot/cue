@@ -109,8 +109,8 @@ final class ControlsView: NSView {
 
         let enabled = playerState.phase == .ready || playerState.phase == .ended
         seekBar.isEnabled = enabled
-        // Enabled with no chapters too, like the menu item: the panel says the video has none, which beats a button
-        // that refuses silently.
+        // Enabled with no chapters too, like the menu item: the inspector says the video has none, which beats a
+        // button that refuses silently.
         chaptersButton.isEnabled = enabled
         subtitlesButton.isEnabled = enabled && !(playerState.stream?.captionTracks.isEmpty ?? true)
         miniButton.isEnabled = enabled
@@ -122,15 +122,15 @@ final class ControlsView: NSView {
         volumeSlider.doubleValue = playerState.volume
     }
 
-    /// Marks the subtitles button when a track is showing, so the state is visible without opening the panel.
+    /// Marks the subtitles button when a track is showing, so the state is visible without opening the inspector.
     func setSubtitlesActive(_ active: Bool) {
         subtitlesButton.contentTintColor = active ? .controlAccentColor : .white
     }
 
     @objc private func togglePause() { onCommand?(.togglePause) }
     @objc private func toggleMute() { onCommand?(.toggleMute) }
-    @objc private func toggleChapters() { onCommand?(.toggleChaptersPanel) }
-    @objc private func toggleSubtitles() { onCommand?(.toggleSubtitlesPanel) }
+    @objc private func toggleChapters() { onCommand?(.toggleChaptersInspector) }
+    @objc private func toggleSubtitles() { onCommand?(.toggleSubtitlesInspector) }
     @objc private func toggleMini() { onCommand?(.toggleMiniPlayer) }
     @objc private func fitWindowToVideo() { onCommand?(.fitWindowToVideo) }
     @objc private func changeVolume(_ sender: NSSlider) { onCommand?(.setVolume(sender.doubleValue)) }

@@ -34,10 +34,10 @@ import Testing
         #expect(PlayerCommand.setSubtitleProperty(name: "sub-scale", value: "1.2").mpvArguments == ["set", "sub-scale", "1.2"])
     }
 
-    /// Chapters and panels are window business: the engine has nothing to do with them.
+    /// Chapters and the inspector are window business: the engine has nothing to do with them.
     @Test func leavesWindowCommandsToTheWindow() {
         for command in [
-            PlayerCommand.nextChapter, .previousChapter, .toggleChaptersPanel, .toggleSubtitlesPanel,
+            PlayerCommand.nextChapter, .previousChapter, .toggleChaptersInspector, .toggleSubtitlesInspector,
             .toggleMiniPlayer, .fitWindowToVideo,
         ] {
             #expect(command.mpvArguments == nil)
@@ -56,9 +56,9 @@ import Testing
         #expect(KeyBindings.standard.command(for: KeyPress(.rightArrow)) == .seekRelative(seconds: KeyBindings.seekStep))
     }
 
-    @Test func bindsThePanelKeys() {
-        #expect(KeyBindings.standard.command(for: KeyPress(.character("c"))) == .toggleChaptersPanel)
-        #expect(KeyBindings.standard.command(for: KeyPress(.character("s"))) == .toggleSubtitlesPanel)
+    @Test func bindsTheInspectorKeys() {
+        #expect(KeyBindings.standard.command(for: KeyPress(.character("c"))) == .toggleChaptersInspector)
+        #expect(KeyBindings.standard.command(for: KeyPress(.character("s"))) == .toggleSubtitlesInspector)
     }
 
     /// ⌘-shortcuts belong to the main menu; a binding must not swallow them.

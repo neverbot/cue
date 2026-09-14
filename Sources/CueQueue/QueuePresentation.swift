@@ -53,6 +53,21 @@ public enum SidebarLayout: String, CaseIterable, Sendable {
     }
 }
 
+/// Which page the trailing inspector shows. The two are exclusive: the inspector is one column, not two.
+public enum InspectorTab: String, CaseIterable, Sendable {
+    /// The chapters of the video playing now.
+    case chapters
+    /// The caption tracks, their styling, their delay and their export.
+    case subtitles
+
+    public var title: String {
+        switch self {
+        case .chapters: "Chapters"
+        case .subtitles: "Subtitles"
+        }
+    }
+}
+
 /// One sidebar row, ready to draw. The view layer adds no logic of its own.
 public struct QueueRow: Equatable, Sendable {
     public var videoID: String

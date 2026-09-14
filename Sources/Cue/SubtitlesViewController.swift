@@ -2,9 +2,9 @@ import AppKit
 import CueCore
 import CuePlayer
 
-/// Picks a caption track, styles it, delays it and exports it. The panel holds no logic: `SubtitleSession` decides
-/// what mpv is told, and `SubtitleWriter` decides what an export contains.
-final class SubtitlesPanelController: NSWindowController, NSTableViewDataSource, NSTableViewDelegate {
+/// Picks a caption track, styles it, delays it and exports it. Holds no logic: `SubtitleSession` decides what mpv is
+/// told, and `SubtitleWriter` decides what an export contains. The other page of the trailing inspector.
+final class SubtitlesViewController: NSViewController, NSTableViewDataSource, NSTableViewDelegate {
     /// Row 0 is "Off"; the rest are tracks.
     var onSelect: ((CaptionTrack?) -> Void)?
     var onStyleChange: ((SubtitleStyle) -> Void)?
@@ -23,18 +23,14 @@ final class SubtitlesPanelController: NSWindowController, NSTableViewDataSource,
     private var style = SubtitleStyle()
 
     init() {
-        let panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 320, height: 460),
-            styleMask: [.titled, .closable, .resizable, .utilityWindow],
-            backing: .buffered,
-            defer: false
-        )
-        panel.title = "Subtitles"
-        panel.isFloatingPanel = true
-        panel.hidesOnDeactivate = false
-        panel.isReleasedWhenClosed = false
-        super.init(window: panel)
+        super.init(nibName: nil, bundle: nil)
+    }
 
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) is not supported")
+    }
+
+    override func loadView() {
         let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("track"))
         column.resizingMask = .autoresizingMask
         tableView.addTableColumn(column)
@@ -79,25 +75,21 @@ final class SubtitlesPanelController: NSWindowController, NSTableViewDataSource,
         let styleRow = NSStackView(views: [NSTextField(labelWithString: "Size"), sizeButton, NSTextField(labelWithString: "Colour"), colourButton])
         styleRow.orientation = .horizontal
 
+        let content = NSView()
         let column0 = NSStackView(views: [scrollView, styleRow, boxSwitch, delayRow, exports, statusLabel])
         column0.orientation = .vertical
         column0.spacing = 8
         column0.edgeInsets = NSEdgeInsets(top: 10, left: 12, bottom: 10, right: 12)
         column0.translatesAutoresizingMaskIntoConstraints = false
-        panel.contentView?.addSubview(column0)
-        if let content = panel.contentView {
-            NSLayoutConstraint.activate([
-                column0.leadingAnchor.constraint(equalTo: content.leadingAnchor),
-                column0.trailingAnchor.constraint(equalTo: content.trailingAnchor),
-                column0.topAnchor.constraint(equalTo: content.topAnchor),
-                column0.bottomAnchor.constraint(equalTo: content.bottomAnchor),
-                scrollView.heightAnchor.constraint(greaterThanOrEqualToConstant: 180),
-            ])
-        }
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) is not supported")
+        content.addSubview(column0)
+        NSLayoutConstraint.activate([
+            column0.leadingAnchor.constraint(equalTo: content.leadingAnchor),
+            column0.trailingAnchor.constraint(equalTo: content.trailingAnchor),
+            column0.topAnchor.constraint(equalTo: content.topAnchor),
+            column0.bottomAnchor.constraint(equalTo: content.bottomAnchor),
+            scrollView.heightAnchor.constraint(greaterThanOrEqualToConstant: 180),
+        ])
+        view = content
     }
 
     func setTracks(_ tracks: [CaptionTrack], selected: CaptionTrack?, style: SubtitleStyle, delay: Double) {

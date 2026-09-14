@@ -31,6 +31,11 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
     private let sidebarHost: SidebarHost
     private let splitViewController: NSSplitViewController
     private let sidebarItem: NSSplitViewItem
+    /// The chapters and subtitles lists, in the trailing inspector rather than in floating windows of their own.
+    private let inspector: InspectorViewController
+    private let inspectorItem: NSSplitViewItem
+    /// The width the inspector last took on screen, remembered for the same reason the sidebar's is.
+    private var lastInspectorWidth: CGFloat = InspectorViewController.width
     private var fittedVideoSize: VideoSize?
     /// The width the pushed sidebar last took on screen. A collapsed split item reports nothing, so the width it is
     /// about to take again has to be remembered from when it was visible.
@@ -50,21 +55,6 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
     private var loadedCues: [String: [CaptionCue]] = [:]
     private let captions = CaptionLoader()
 
-    private lazy var chaptersPanel: ChaptersPanelController = {
-        let panel = ChaptersPanelController()
-        panel.onSelect = { [weak self] seconds in self?.controller.perform(.seekAbsolute(seconds: seconds)) }
-        return panel
-    }()
-
-    private lazy var subtitlesPanel: SubtitlesPanelController = {
-        let panel = SubtitlesPanelController()
-        panel.onSelect = { [weak self] track in self?.chooseSubtitle(track) }
-        panel.onStyleChange = { [weak self] style in self?.send(self?.subtitles.apply(style) ?? []) }
-        panel.onDelayChange = { [weak self] delay in self?.send(self?.subtitles.setDelay(delay) ?? []) }
-        panel.onExport = { [weak self] format in self?.exportSubtitle(as: format) }
-        return panel
-    }()
-
     private var miniPlayer: MiniPlayerWindowController?
     private var miniPlayerCorner = MiniPlayerGeometry.Corner.bottomRight
 
@@ -82,6 +72,7 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
         // Read once, here. Everything after this works from the live sidebar, and each change writes straight back,
         // so nothing has to be polled or re-read.
         let settings = preferences.sidebar
+        let inspectorSettings = preferences.inspector
         controller = PlayerController(engine: engine, resolver: resolver, resumeStore: resumeStore)
         // Only a resolver that also does prefetching (PrefetchingResolver, in production) drives it; a bare
         // resolver leaves the queue's behaviour exactly as it was before prefetching existed.
@@ -111,9 +102,21 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
         sidebarItem.canCollapse = true
         sidebarItem.holdingPriority = .defaultLow
 
+        // The chapters and the subtitles live in a trailing inspector, which is the platform's own construction for a
+        // second column beside the content: it takes no key focus from the player, cannot drift behind the window,
+        // and sits in the same window as the queue's leading sidebar.
+        let inspector = InspectorViewController(tab: inspectorSettings.tab)
+        self.inspector = inspector
+        inspectorItem = NSSplitViewItem(inspectorWithViewController: inspector)
+        inspectorItem.minimumThickness = 240
+        inspectorItem.maximumThickness = 420
+        inspectorItem.canCollapse = true
+        inspectorItem.isCollapsed = !inspectorSettings.isVisible
+
         splitViewController = NSSplitViewController()
         splitViewController.addSplitViewItem(sidebarItem)
         splitViewController.addSplitViewItem(NSSplitViewItem(viewController: playerViewController))
+        splitViewController.addSplitViewItem(inspectorItem)
 
         sidebarHost = SidebarHost(
             sidebar: sidebar,
@@ -157,6 +160,16 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
         sidebar.onFileDrop = { [weak self] url in self?.offerImport(from: url) }
         playerView.onFileDrop = { [weak self] url in self?.offerImport(from: url) }
         coordinator.onQueueChange = { [weak self] in self?.refreshSidebar() }
+        // Every callback the two floating panels had, kept exactly as it was; only where their views hang changed.
+        inspector.chapters.onSelect = { [weak self] seconds in self?.controller.perform(.seekAbsolute(seconds: seconds)) }
+        inspector.subtitles.onSelect = { [weak self] track in self?.chooseSubtitle(track) }
+        inspector.subtitles.onStyleChange = { [weak self] style in self?.send(self?.subtitles.apply(style) ?? []) }
+        inspector.subtitles.onDelayChange = { [weak self] delay in self?.send(self?.subtitles.setDelay(delay) ?? []) }
+        inspector.subtitles.onExport = { [weak self] format in self?.exportSubtitle(as: format) }
+        inspector.onTabChange = { [weak self] _ in
+            self?.refreshInspector()
+            self?.saveInspectorSettings()
+        }
         // The coordinator holds this while the app runs; the store is where it survives a quit.
         coordinator.playsNextAutomatically = preferences.playsNextAutomatically
         // The settings window writes the same keys this class does. Rather than the two knowing about each other,
@@ -201,40 +214,76 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
             } else {
                 NSSound.beep()
             }
-        case .toggleChaptersPanel: toggleChaptersPanel(nil)
-        case .toggleSubtitlesPanel: toggleSubtitlesPanel(nil)
+        case .toggleChaptersInspector: toggleChaptersInspector(nil)
+        case .toggleSubtitlesInspector: toggleSubtitlesInspector(nil)
         case let .adjustSubtitleDelay(delta):
             send(subtitles.setDelay(((subtitles.delay + delta) * 10).rounded() / 10))
-            refreshSubtitlesPanel()
+            refreshSubtitlesInspector()
         default: controller.perform(command)
         }
     }
 
-    /// Shows or hides the chapters panel. Available even when the video has no chapters at all — which is the only
-    /// case this build can ever exercise — so the panel can say so rather than the menu item silently refusing.
-    @objc func toggleChaptersPanel(_ sender: Any?) {
-        if chaptersPanel.window?.isVisible == true {
-            chaptersPanel.close()
-        } else {
-            chaptersPanel.setChapters(timeline.chapters)
-            chaptersPanel.setCurrent(timeline.index(at: controller.state.position))
-            chaptersPanel.showWindow(nil)
-        }
+    /// Opens the inspector on its chapters page, or closes it when that page is already in front. Available even when
+    /// the video has no chapters at all — which is the only case this build can ever exercise — so the page can say
+    /// so rather than the menu item silently refusing.
+    @objc func toggleChaptersInspector(_ sender: Any?) {
+        toggleInspector(showing: .chapters)
     }
 
-    /// Shows or hides the subtitles panel. Unlike the chapters panel, this one has nothing useful to say without a
-    /// video that actually offers caption tracks, so opening it is refused rather than shown empty.
-    @objc func toggleSubtitlesPanel(_ sender: Any?) {
+    /// Opens the inspector on its subtitles page, or closes it when that page is already in front. Unlike chapters,
+    /// this page has nothing useful to say without a video that actually offers caption tracks, so opening it is
+    /// refused rather than shown empty.
+    @objc func toggleSubtitlesInspector(_ sender: Any?) {
         guard let stream = controller.state.stream, !stream.captionTracks.isEmpty else {
             NSSound.beep()
             return
         }
-        if subtitlesPanel.window?.isVisible == true {
-            subtitlesPanel.close()
+        toggleInspector(showing: .subtitles)
+    }
+
+    /// The one way the inspector opens, closes and changes page, whichever control asked. Asking again for the page
+    /// already in front closes it, which is how the two panels behaved when their shortcut was pressed twice.
+    private func toggleInspector(showing tab: InspectorTab) {
+        if isInspectorVisible, inspector.tab == tab {
+            setInspectorVisible(false)
         } else {
-            refreshSubtitlesPanel()
-            subtitlesPanel.showWindow(nil)
+            inspector.setTab(tab)
+            refreshInspector()
+            setInspectorVisible(true)
         }
+        saveInspectorSettings()
+    }
+
+    private var isInspectorVisible: Bool { !inspectorItem.isCollapsed }
+
+    /// Shows or hides the inspector and takes its width out of the window rather than out of the picture, so the
+    /// video area is left the shape it already had.
+    private func setInspectorVisible(_ visible: Bool) {
+        guard visible != isInspectorVisible else { return }
+        let width = inspectorWidth()
+        inspectorItem.animator().isCollapsed = !visible
+        resizeWindow(byWidth: width, appearing: visible)
+    }
+
+    /// The width the inspector takes, read from the item while it is on screen and remembered for when it is not: a
+    /// collapsed split item reports nothing, so the width it is about to take again has to come from somewhere.
+    private func inspectorWidth() -> CGFloat {
+        let current = inspectorItem.viewController.view.frame.width
+        if isInspectorVisible, current > 0 { lastInspectorWidth = current }
+        return lastInspectorWidth
+    }
+
+    /// Writes the inspector's state the moment it changes, assembled from the live objects like the sidebar's is.
+    private func saveInspectorSettings() {
+        preferences.inspector = InspectorSettings(tab: inspector.tab, isVisible: isInspectorVisible)
+    }
+
+    /// Brings both pages to the video playing now. Only ever called while the inspector is on screen, so a hidden
+    /// list is not rebuilt on every state change.
+    private func refreshInspector() {
+        inspector.chapters.setChapters(timeline.chapters)
+        inspector.chapters.setCurrent(timeline.index(at: controller.state.position))
+        refreshSubtitlesInspector()
     }
 
     /// Moves the video into a small floating window, or brings it back. The view — and with it mpv's render context —
@@ -285,8 +334,8 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
         window?.makeFirstResponder(playerView)
     }
 
-    private func refreshSubtitlesPanel() {
-        subtitlesPanel.setTracks(
+    private func refreshSubtitlesInspector() {
+        inspector.subtitles.setTracks(
             controller.state.stream?.captionTracks ?? [],
             selected: subtitles.selected,
             style: subtitles.style,
@@ -301,7 +350,7 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
             playerView.controls.setSubtitlesActive(false)
             return
         }
-        subtitlesPanel.setStatus("Loading \(track.menuTitle)…")
+        inspector.subtitles.setStatus("Loading \(track.menuTitle)…")
         Task { [weak self] in
             guard let self else { return }
             do {
@@ -317,9 +366,9 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
                 )
                 self.send(self.subtitles.select(track, file: file))
                 self.playerView.controls.setSubtitlesActive(true)
-                self.subtitlesPanel.setStatus("\(cues.count) lines")
+                self.inspector.subtitles.setStatus("\(cues.count) lines")
             } catch {
-                self.subtitlesPanel.setStatus("Could not load \(track.menuTitle)")
+                self.inspector.subtitles.setStatus("Could not load \(track.menuTitle)")
                 self.report(error, title: "Cue could not load those subtitles")
             }
         }
@@ -472,6 +521,12 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
             updateSidebarButton()
             resizeWindow(forSidebarWidth: width, appearing: settings.isVisible)
         }
+        let inspectorSettings = preferences.inspector
+        if inspector.tab != inspectorSettings.tab { inspector.setTab(inspectorSettings.tab) }
+        if isInspectorVisible != inspectorSettings.isVisible {
+            if inspectorSettings.isVisible { refreshInspector() }
+            setInspectorVisible(inspectorSettings.isVisible)
+        }
     }
 
     /// The width the pushed sidebar takes, read from the item while it is on screen and remembered for when it is not.
@@ -481,13 +536,19 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
         return lastSidebarWidth
     }
 
-    /// Takes the sidebar's width out of the window rather than out of the picture, so showing or hiding the queue
-    /// leaves the video area the same shape and mpv never adds bars to a video it had already fitted.
-    ///
-    /// Nothing to do in full screen, where the window cannot resize, nor in overlay layout, where the sidebar floats
-    /// over the video and the video area never changed size in the first place.
+    /// The queue sidebar's half of the rule below: nothing to do in overlay layout, where the sidebar floats over the
+    /// video and the video area never changed size in the first place.
     private func resizeWindow(forSidebarWidth width: CGFloat, appearing: Bool) {
-        guard sidebarHost.layout == .push, width > 0, let window,
+        guard sidebarHost.layout == .push else { return }
+        resizeWindow(byWidth: width, appearing: appearing)
+    }
+
+    /// Takes a column's width out of the window rather than out of the picture, so showing or hiding the queue or the
+    /// inspector leaves the video area the same shape and mpv never adds bars to a video it had already fitted.
+    ///
+    /// Nothing to do in full screen, where the window cannot resize.
+    private func resizeWindow(byWidth width: CGFloat, appearing: Bool) {
+        guard width > 0, let window,
               !window.styleMask.contains(.fullScreen),
               let visible = (window.screen ?? NSScreen.main)?.visibleFrame else { return }
         let frame = WindowGeometry.frameAdjustedForSidebar(
@@ -748,8 +809,8 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
         window.titleVisibility = shown ? .visible : .hidden
     }
 
-    /// A panel taking key focus sends no exit event to the seek bar, so without this the preview would be left hanging
-    /// over the video. The player view knows the one way to take it off screen.
+    /// Another window taking key focus sends no exit event to the seek bar, so without this the preview would be left
+    /// hanging over the video. The player view knows the one way to take it off screen.
     func windowDidResignKey(_ notification: Notification) {
         playerView.hidePreview()
     }
@@ -789,12 +850,9 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
             loadedCues.removeAll()
             subtitles = SubtitleSession(keeping: subtitles)
             playerView.controls.setSubtitlesActive(false)
-            if subtitlesPanel.window?.isVisible == true { refreshSubtitlesPanel() }
+            if isInspectorVisible { refreshSubtitlesInspector() }
         }
-        if chaptersPanel.window?.isVisible == true {
-            chaptersPanel.setChapters(timeline.chapters)
-            chaptersPanel.setCurrent(timeline.index(at: state.position))
-        }
+        if isInspectorVisible { refreshInspector() }
         if let size = state.videoSize { fit(to: size) }
         if let stream = state.stream, stream.videoURL != loggedDecodingFor {
             loggedDecodingFor = stream.videoURL
@@ -814,7 +872,7 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
         fittedVideoSize = size
         guard !window.styleMask.contains(.fullScreen),
               let visible = (window.screen ?? NSScreen.main)?.visibleFrame else { return }
-        let sidebarWidth = sidebarHost.layout == .push && sidebarHost.isVisible ? sidebarItem.viewController.view.frame.width : 0
+        let sidebarWidth = widthBesideVideo
         let video = WindowGeometry.contentSize(for: size, visibleScreenSize: CGSize(
             width: max(visible.size.width - sidebarWidth, 1),
             height: visible.size.height
@@ -835,15 +893,21 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
             window: window.frame,
             contentSize: window.contentRect(forFrameRect: window.frame).size,
             aspectRatio: video.aspectRatio,
-            // Only a pushed sidebar takes width away from the picture; an overlaid one floats over it.
-            sidebarWidth: sidebarHost.layout == .push && sidebarHost.isVisible
-                ? sidebarItem.viewController.view.frame.width
-                : 0,
+            sidebarWidth: widthBesideVideo,
             minimumContentSize: window.contentMinSize,
             visibleFrame: visible
         )
         guard frame != window.frame else { return }
         window.setFrame(frame, display: true)
+    }
+
+    /// Every point of window width that is not picture: the queue sidebar when it is pushed rather than overlaid, and
+    /// the inspector when it is open. An overlaid sidebar floats over the video and takes nothing away from it.
+    private var widthBesideVideo: CGFloat {
+        let queue = sidebarHost.layout == .push && sidebarHost.isVisible
+            ? sidebarItem.viewController.view.frame.width
+            : 0
+        return queue + (isInspectorVisible ? inspectorItem.viewController.view.frame.width : 0)
     }
 
     /// There is nothing to fit until a video is loaded, full screen cannot resize the window at all, and while the
@@ -875,11 +939,11 @@ extension PlayerWindowController: NSMenuItemValidation {
             menuItem.state = coordinator.playsNextAutomatically ? .on : .off
             return true
         case #selector(toggleSidebar(_:)), #selector(cycleSidebarMode(_:)), #selector(toggleSidebarLayout(_:)),
-             #selector(importQueue(_:)), #selector(exportQueue(_:)), #selector(toggleChaptersPanel(_:)):
-            // Always available: they only open a panel or flip a display mode, regardless of queue or player state.
-            // The chapters panel in particular must stay reachable with no chapters at all, so it can say so.
+             #selector(importQueue(_:)), #selector(exportQueue(_:)), #selector(toggleChaptersInspector(_:)):
+            // Always available: they only open the inspector or flip a display mode, regardless of queue or player
+            // state. The chapters page in particular must stay reachable with no chapters at all, so it can say so.
             return true
-        case #selector(toggleSubtitlesPanel(_:)):
+        case #selector(toggleSubtitlesInspector(_:)):
             return !(controller.state.stream?.captionTracks.isEmpty ?? true)
         case #selector(fitWindowToVideo(_:)):
             return canFitWindowToVideo

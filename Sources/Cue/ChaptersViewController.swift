@@ -2,9 +2,9 @@ import AppKit
 import CueCore
 import CuePlayer
 
-/// Lists a video's chapters. A utility panel rather than a second sidebar: the queue owns the sidebar, and a 960-point
-/// window cannot afford two columns.
-final class ChaptersPanelController: NSWindowController, NSTableViewDataSource, NSTableViewDelegate {
+/// Lists a video's chapters. One of the two pages of the trailing inspector: it owns a list and an empty state, and
+/// nothing about where it is shown.
+final class ChaptersViewController: NSViewController, NSTableViewDataSource, NSTableViewDelegate {
     var onSelect: ((Double) -> Void)?
 
     private let tableView = NSTableView()
@@ -13,17 +13,14 @@ final class ChaptersPanelController: NSWindowController, NSTableViewDataSource, 
     private var currentIndex: Int?
 
     init() {
-        let panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 280, height: 360),
-            styleMask: [.titled, .closable, .resizable, .utilityWindow],
-            backing: .buffered,
-            defer: false
-        )
-        panel.title = "Chapters"
-        panel.isFloatingPanel = true
-        panel.hidesOnDeactivate = false
-        panel.isReleasedWhenClosed = false
+        super.init(nibName: nil, bundle: nil)
+    }
 
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) is not supported")
+    }
+
+    override func loadView() {
         let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("chapter"))
         column.resizingMask = .autoresizingMask
         tableView.addTableColumn(column)
@@ -31,6 +28,10 @@ final class ChaptersPanelController: NSWindowController, NSTableViewDataSource, 
         tableView.style = .inset
         tableView.rowHeight = 28
         tableView.allowsMultipleSelection = false
+        tableView.dataSource = self
+        tableView.delegate = self
+        tableView.target = self
+        tableView.action = #selector(rowClicked)
 
         let scrollView = NSScrollView()
         scrollView.documentView = tableView
@@ -56,17 +57,7 @@ final class ChaptersPanelController: NSWindowController, NSTableViewDataSource, 
             emptyLabel.leadingAnchor.constraint(greaterThanOrEqualTo: content.leadingAnchor, constant: 16),
             emptyLabel.trailingAnchor.constraint(lessThanOrEqualTo: content.trailingAnchor, constant: -16),
         ])
-        panel.contentView = content
-
-        super.init(window: panel)
-        tableView.dataSource = self
-        tableView.delegate = self
-        tableView.target = self
-        tableView.action = #selector(rowClicked)
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) is not supported")
+        view = content
     }
 
     func setChapters(_ chapters: [Chapter]) {

@@ -22,8 +22,10 @@ public enum PlayerCommand: Equatable, Sendable {
     case setSubtitleProperty(name: String, value: String)
     case nextChapter
     case previousChapter
-    case toggleChaptersPanel
-    case toggleSubtitlesPanel
+    /// Shows the trailing inspector with the chapters page, or hides it when that page is already in front.
+    case toggleChaptersInspector
+    /// Shows the trailing inspector with the subtitles page, or hides it when that page is already in front.
+    case toggleSubtitlesInspector
     case toggleMiniPlayer
     /// Resizes the window so the video area has exactly the video's shape, removing the black bars around it.
     case fitWindowToVideo
@@ -44,7 +46,7 @@ public enum PlayerCommand: Equatable, Sendable {
         case let .adjustSubtitleDelay(delta): ["add", "sub-delay", "\(delta)"]
         case let .setSubtitleProperty(name, value): ["set", name, value]
         case .toggleFullScreen, .close, .nextChapter, .previousChapter,
-             .toggleChaptersPanel, .toggleSubtitlesPanel, .toggleMiniPlayer, .fitWindowToVideo: nil
+             .toggleChaptersInspector, .toggleSubtitlesInspector, .toggleMiniPlayer, .fitWindowToVideo: nil
         }
     }
 
@@ -102,8 +104,8 @@ public struct KeyBindings: Sendable {
         (.downArrow, [], .adjustVolume(by: -volumeStep)),
         (.character("f"), [], .toggleFullScreen),
         (.character("m"), [], .toggleMute),
-        (.character("c"), [], .toggleChaptersPanel),
-        (.character("s"), [], .toggleSubtitlesPanel),
+        (.character("c"), [], .toggleChaptersInspector),
+        (.character("s"), [], .toggleSubtitlesInspector),
         (.character("z"), [], .adjustSubtitleDelay(by: -subtitleDelayStep)),
         (.character("x"), [], .adjustSubtitleDelay(by: subtitleDelayStep)),
     ])

@@ -160,9 +160,9 @@ enum MainMenu {
         toggleLayout.keyEquivalentModifierMask = [.control, .command]
         let fullScreen = NSMenuItem(title: "Toggle Full Screen", action: #selector(NSWindow.toggleFullScreen(_:)), keyEquivalent: "f")
         fullScreen.keyEquivalentModifierMask = [.control, .command]
-        let chapters = NSMenuItem(title: "Chapters", action: #selector(PlayerWindowController.toggleChaptersPanel(_:)), keyEquivalent: "c")
+        let chapters = NSMenuItem(title: "Chapters", action: #selector(PlayerWindowController.toggleChaptersInspector(_:)), keyEquivalent: "c")
         chapters.keyEquivalentModifierMask = [.control, .command]
-        let subtitlesItem = NSMenuItem(title: "Subtitles", action: #selector(PlayerWindowController.toggleSubtitlesPanel(_:)), keyEquivalent: "u")
+        let subtitlesItem = NSMenuItem(title: "Subtitles", action: #selector(PlayerWindowController.toggleSubtitlesInspector(_:)), keyEquivalent: "u")
         subtitlesItem.keyEquivalentModifierMask = [.control, .command]
         let mini = NSMenuItem(title: "Mini Player", action: #selector(PlayerWindowController.toggleMiniPlayer(_:)), keyEquivalent: "m")
         mini.keyEquivalentModifierMask = [.command, .shift]

@@ -20,6 +20,8 @@ public enum PreferenceKey: String, CaseIterable, Sendable {
     case sidebarMode = "sidebar.mode"
     case sidebarLayout = "sidebar.layout"
     case sidebarVisible = "sidebar.visible"
+    case inspectorVisible = "inspector.visible"
+    case inspectorTab = "inspector.tab"
 }
 
 /// How the sidebar looked when the app was last used.
@@ -34,6 +36,21 @@ public struct SidebarSettings: Equatable, Sendable {
     public init(mode: QueueDisplayMode, layout: SidebarLayout, isVisible: Bool) {
         self.mode = mode
         self.layout = layout
+        self.isVisible = isVisible
+    }
+}
+
+/// How the trailing inspector was left when the app was last used.
+public struct InspectorSettings: Equatable, Sendable {
+    public var tab: InspectorTab
+    public var isVisible: Bool
+
+    /// What a first launch gets, and what anything unreadable falls back to. Closed: the picture owns the window
+    /// until the chapters or the subtitles are actually asked for.
+    public static let standard = InspectorSettings(tab: .chapters, isVisible: false)
+
+    public init(tab: InspectorTab, isVisible: Bool) {
+        self.tab = tab
         self.isVisible = isVisible
     }
 }
@@ -96,6 +113,24 @@ public final class Preferences {
             store.set(newValue.mode.rawValue, forKey: PreferenceKey.sidebarMode.rawValue)
             store.set(newValue.layout.rawValue, forKey: PreferenceKey.sidebarLayout.rawValue)
             store.set(newValue.isVisible, forKey: PreferenceKey.sidebarVisible.rawValue)
+            announceChange()
+        }
+    }
+
+    /// The inspector's appearance: whether it is open, and which of its two pages was last in front. Read once at
+    /// startup; written whenever either changes.
+    public var inspector: InspectorSettings {
+        get {
+            InspectorSettings(
+                tab: value(.inspectorTab, fallingBackTo: InspectorSettings.standard.tab),
+                // A bool is stored as a bool: anything else — a string, an array — is not a value this can use.
+                isVisible: store.object(forKey: PreferenceKey.inspectorVisible.rawValue) as? Bool
+                    ?? InspectorSettings.standard.isVisible
+            )
+        }
+        set {
+            store.set(newValue.tab.rawValue, forKey: PreferenceKey.inspectorTab.rawValue)
+            store.set(newValue.isVisible, forKey: PreferenceKey.inspectorVisible.rawValue)
             announceChange()
         }
     }

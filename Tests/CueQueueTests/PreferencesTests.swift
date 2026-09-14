@@ -87,6 +87,47 @@ private final class MemoryPreferenceStore: PreferenceStore {
         #expect(store.values.isEmpty)
     }
 
+    @Test func keepsTheInspectorClosedUntilItIsAskedFor() {
+        let preferences = Preferences(store: MemoryPreferenceStore())
+        #expect(preferences.inspector == InspectorSettings.standard)
+        #expect(preferences.inspector.isVisible == false)
+        #expect(preferences.inspector.tab == .chapters)
+    }
+
+    @Test func restoresTheInspectorPageItWasLeftShowing() {
+        for tab in InspectorTab.allCases {
+            let store = MemoryPreferenceStore()
+            Preferences(store: store).inspector = InspectorSettings(tab: tab, isVisible: true)
+            // A second instance, as if the app had quit and come back: nothing is carried in memory.
+            #expect(Preferences(store: store).inspector == InspectorSettings(tab: tab, isVisible: true))
+        }
+    }
+
+    @Test func fallsBackWhenTheStoredInspectorPageIsNotOneThisBuildKnows() {
+        // What an older or newer version of the app would leave behind.
+        let store = MemoryPreferenceStore()
+        store.values[PreferenceKey.inspectorTab.rawValue] = "comments"
+        store.values[PreferenceKey.inspectorVisible.rawValue] = true
+        let restored = Preferences(store: store).inspector
+        #expect(restored.tab == .chapters)
+        // One unreadable value does not lose the other.
+        #expect(restored.isVisible)
+    }
+
+    @Test func fallsBackWhenTheStoredInspectorValueIsTheWrongTypeAltogether() {
+        let store = MemoryPreferenceStore()
+        store.values[PreferenceKey.inspectorTab.rawValue] = 4
+        store.values[PreferenceKey.inspectorVisible.rawValue] = "yes"
+        #expect(Preferences(store: store).inspector == InspectorSettings.standard)
+    }
+
+    @Test func remembersTheInspectorBeingOpen() {
+        // Worth its own check: `true` is not what an absent key reads as, so only a round trip proves it was stored.
+        let store = MemoryPreferenceStore()
+        Preferences(store: store).inspector = InspectorSettings(tab: .subtitles, isVisible: true)
+        #expect(Preferences(store: store).inspector.isVisible)
+    }
+
     @Test func followsTheSystemAppearanceUntilOneIsChosen() {
         #expect(Preferences(store: MemoryPreferenceStore()).appearance == .system)
         #expect(AppearancePreference.standard == .system)
@@ -145,10 +186,12 @@ private final class MemoryPreferenceStore: PreferenceStore {
         preferences.appearance = .dark
         preferences.playsNextAutomatically = false
         preferences.sidebar = SidebarSettings(mode: .compact, layout: .overlay, isVisible: false)
+        preferences.inspector = InspectorSettings(tab: .subtitles, isVisible: true)
         preferences.reset()
         #expect(preferences.appearance == .system)
         #expect(preferences.playsNextAutomatically)
         #expect(preferences.sidebar == SidebarSettings.standard)
+        #expect(preferences.inspector == InspectorSettings.standard)
         #expect(store.values.isEmpty)
     }
 
