@@ -9,7 +9,7 @@ final class SubtitlesPanelController: NSWindowController, NSTableViewDataSource,
     var onSelect: ((CaptionTrack?) -> Void)?
     var onStyleChange: ((SubtitleStyle) -> Void)?
     var onDelayChange: ((Double) -> Void)?
-    var onExport: ((CaptionTrack.TimedTextFormat) -> Void)?
+    var onExport: ((ExportFormat) -> Void)?
 
     private let tableView = NSTableView()
     private let sizeButton = NSPopUpButton()
@@ -135,7 +135,7 @@ final class SubtitlesPanelController: NSWindowController, NSTableViewDataSource,
         onDelayChange?(rounded)
     }
 
-    @objc private func exportSRT() { onExport?(.json3) }
+    @objc private func exportSRT() { onExport?(.srt) }
     @objc private func exportVTT() { onExport?(.vtt) }
 
     func numberOfRows(in tableView: NSTableView) -> Int { tracks.count + 1 }

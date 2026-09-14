@@ -112,4 +112,17 @@ import Testing
     @Test func separatesCuesWithABlankLine() {
         #expect(SubtitleWriter.srt(Self.cues).contains("[music]\n\n2\n"))
     }
+
+    @Test func namesTheFileExtensionOfEachExportFormat() {
+        #expect(ExportFormat.srt.fileExtension == "srt")
+        #expect(ExportFormat.vtt.fileExtension == "vtt")
+    }
+
+    /// Exporting goes through one entry point, so the caller picks a format instead of picking a writer.
+    @Test func writesEachExportFormatThroughOneEntryPoint() {
+        let srt = SubtitleWriter.srt(Self.cues)
+        let vtt = SubtitleWriter.vtt(Self.cues)
+        #expect(SubtitleWriter.text(Self.cues, as: .srt) == srt)
+        #expect(SubtitleWriter.text(Self.cues, as: .vtt) == vtt)
+    }
 }

@@ -61,8 +61,29 @@ public enum TimedText {
     }
 }
 
+/// What an exported subtitle file is written as.
+///
+/// Separate from `CaptionTrack.TimedTextFormat`, which says what Cue asks YouTube for: the two lists have no reason
+/// to agree. Cue downloads `json3` and writes SubRip from it, so an export format is a property of the file the user
+/// saves and nothing to do with the request that fetched the cues.
+public enum ExportFormat: String, Sendable, CaseIterable {
+    case srt
+    case vtt
+
+    /// The extension the saved file gets, matching the name the format is known by.
+    public var fileExtension: String { rawValue }
+}
+
 /// Writes cues as SubRip or WebVTT. Both are UTF-8 text with `\n` line endings.
 public enum SubtitleWriter {
+    /// The file's text in the format asked for.
+    public static func text(_ cues: [CaptionCue], as format: ExportFormat) -> String {
+        switch format {
+        case .srt: srt(cues)
+        case .vtt: vtt(cues)
+        }
+    }
+
     public static func srt(_ cues: [CaptionCue]) -> String {
         format(cues, decimalSeparator: ",", header: nil)
     }

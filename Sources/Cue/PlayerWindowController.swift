@@ -293,18 +293,17 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
     }
 
     /// Writes the selected track as SRT or VTT wherever the user says.
-    private func exportSubtitle(as format: CaptionTrack.TimedTextFormat) {
+    private func exportSubtitle(as format: ExportFormat) {
         guard let window, let track = subtitles.selected, let cues = loadedCues[track.id], !cues.isEmpty else {
             NSSound.beep()
             return
         }
-        let isSRT = format == .json3
         let panel = NSSavePanel()
-        panel.nameFieldStringValue = "\(controller.state.stream?.videoID?.rawValue ?? "subtitles").\(track.fileNameStem).\(isSRT ? "srt" : "vtt")"
+        panel.nameFieldStringValue = "\(controller.state.stream?.videoID?.rawValue ?? "subtitles").\(track.fileNameStem).\(format.fileExtension)"
         panel.beginSheetModal(for: window) { response in
             guard response == .OK, let url = panel.url else { return }
             do {
-                let text = isSRT ? SubtitleWriter.srt(cues) : SubtitleWriter.vtt(cues)
+                let text = SubtitleWriter.text(cues, as: format)
                 try Data(text.utf8).write(to: url, options: .atomic)
                 // The export is the owner's viewing material: as private as the queue export (0600), not whatever
                 // the umask leaves an atomic write with.
