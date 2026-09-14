@@ -328,20 +328,20 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
     /// sheet arrives, which is usually instant after the first hover.
     private func hoverPreview(seconds: Double?, x: CGFloat) {
         guard let seconds, let stream = controller.state.stream else {
-            playerView.preview.hide()
+            playerView.hidePreview()
             return
         }
         previewToken += 1
         let token = previewToken
         playerView.placePreview(atX: x)
-        playerView.preview.show(seconds: seconds, chapter: timeline.chapter(at: seconds)?.title, image: nil)
+        playerView.showPreview(seconds: seconds, chapter: timeline.chapter(at: seconds)?.title, image: nil)
 
         guard let frame = PreviewFrame.frame(at: seconds, duration: stream.duration, storyboard: stream.storyboard) else { return }
         let store = storyboardStore(for: stream)
         Task { [weak self] in
             guard let data = try? await store.sheet(at: frame.url) else { return }
             guard let self, token == self.previewToken else { return }
-            self.playerView.preview.show(
+            self.playerView.showPreview(
                 seconds: seconds,
                 chapter: self.timeline.chapter(at: seconds)?.title,
                 image: PreviewPopover.tile(frame, from: data)
@@ -614,6 +614,12 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
         window.titleVisibility = shown ? .visible : .hidden
     }
 
+    /// A panel taking key focus sends no exit event to the seek bar, so without this the preview would be left hanging
+    /// over the video. The player view knows the one way to take it off screen.
+    func windowDidResignKey(_ notification: Notification) {
+        playerView.hidePreview()
+    }
+
     /// The traffic lights move with the window's size and with full screen, and the toggle is aligned to them, so
     /// every one of those moments asks the container to measure them again.
     func windowDidResize(_ notification: Notification) {
@@ -646,7 +652,7 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
         if state.stream != timeline.streamReference {
             timeline = ChapterTimeline(stream: state.stream)
             storyboards = nil
-            playerView.preview.hide()
+            playerView.hidePreview()
             loadedCues.removeAll()
             subtitles = SubtitleSession(keeping: subtitles)
             playerView.controls.setSubtitlesActive(false)

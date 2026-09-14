@@ -6,7 +6,8 @@ import CuePlayer
 final class PlayerView: NSView {
     let videoView: VideoView
     let controls = ControlsView()
-    let preview = PreviewPopover()
+    /// Owned rather than handed out: its visibility has exactly one route in, through `showPreview` and `hidePreview`.
+    private let preview = PreviewPopover()
     var onKeyPress: ((KeyPress) -> Bool)?
     /// Called whenever the controls appear or disappear, so the window can fade its title bar with them.
     var onChromeVisibilityChange: ((Bool) -> Void)?
@@ -25,6 +26,10 @@ final class PlayerView: NSView {
     private var timeline = ChapterTimeline(chapters: [], duration: nil)
     private var hideTask: Task<Void, Never>?
     private var previewLeadingConstraint: NSLayoutConstraint!
+    /// Whether the pointer is asking for a preview at all. What is actually on screen is this *and* the chrome being
+    /// visible: the bubble belongs to the bar it hangs over and cannot outlast it.
+    private var previewIsRequested = false
+    private var previewIsShown = false
     /// Where the pointer was pressed, in window coordinates, so a release can tell a click from a window drag.
     private var pressLocation: NSPoint?
 
@@ -78,11 +83,20 @@ final class PlayerView: NSView {
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
         trackingAreas.forEach(removeTrackingArea)
-        addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseMoved, .activeAlways, .inVisibleRect], owner: self))
+        addTrackingArea(NSTrackingArea(
+            rect: .zero,
+            options: [.mouseMoved, .mouseEnteredAndExited, .activeAlways, .inVisibleRect],
+            owner: self
+        ))
     }
 
     override func mouseMoved(with event: NSEvent) {
         revealControls()
+    }
+
+    /// The pointer left the picture entirely, which the seek bar's own exit event does not always cover.
+    override func mouseExited(with event: NSEvent) {
+        hidePreview()
     }
 
     /// How far the pointer may travel between press and release and still count as a click rather than a drag.
@@ -136,6 +150,31 @@ final class PlayerView: NSView {
         )
     }
 
+    /// The pointer is over the seek bar: fill the bubble in and let it appear, if the chrome is on screen at all.
+    func showPreview(seconds: Double, chapter: String?, image: NSImage?) {
+        // A hover that is only starting now must not flash the frame the last one left behind.
+        if !previewIsRequested { preview.clear() }
+        preview.update(seconds: seconds, chapter: chapter, image: image)
+        previewIsRequested = true
+        applyPreviewVisibility()
+    }
+
+    /// The one way the preview leaves the screen. Everything that should take it away — the chrome fading out, the
+    /// window losing key focus to a panel, the pointer leaving the seek bar or the player view altogether — comes
+    /// through here, so no route can leave the bubble floating over a bare picture.
+    func hidePreview() {
+        guard previewIsRequested else { return }
+        previewIsRequested = false
+        applyPreviewVisibility()
+    }
+
+    private func applyPreviewVisibility() {
+        let visible = previewIsRequested && chromeIsVisible
+        guard previewIsShown != visible else { return }
+        previewIsShown = visible
+        fade(preview, to: visible)
+    }
+
     private func revealControls() {
         setControlsVisible(playerState.phase != .idle && playerState.phase != .resolving)
         hideTask?.cancel()
@@ -150,32 +189,30 @@ final class PlayerView: NSView {
     private func setControlsVisible(_ visible: Bool) {
         guard chromeIsVisible != visible else { return }
         chromeIsVisible = visible
-        let fading = [controls, companionChrome].compactMap { $0 }
-        if visible {
-            // Unhidden before the fade, or there would be nothing on screen for it to act on.
-            for view in fading {
-                view.alphaValue = 0
-                view.isHidden = false
-            }
-        }
+        fade(controls, to: visible)
+        if let companion = companionChrome { fade(companion, to: visible) }
+        // The preview follows the chrome rather than the pointer alone: when the bar goes, the bubble over it goes too.
+        applyPreviewVisibility()
+        onChromeVisibilityChange?(visible)
+    }
+
+    /// Fades one chrome view to its target and keeps `isHidden` in step with where the fade actually ended: a view is
+    /// hidden only once it has reached alpha 0, and a fade in that overtakes a fade out leaves it visible and hit
+    /// testing. Nothing else in this view writes `alphaValue` or `isHidden` on chrome.
+    private func fade(_ view: NSView, to visible: Bool) {
+        // Unhidden before the fade in, or there would be nothing on screen for it to act on.
+        if visible { view.isHidden = false }
         NSAnimationContext.runAnimationGroup { context in
             context.duration = ChromeStyle.fadeDuration
             context.timingFunction = CAMediaTimingFunction(name: .easeOut)
-            for view in fading {
-                view.animator().alphaValue = visible ? 1 : 0
-            }
-        } completionHandler: { [weak self] in
+            view.animator().alphaValue = visible ? 1 : 0
+        } completionHandler: {
             // AppKit runs this on the main thread, but the handler itself is `@Sendable`, so the isolation has to be
-            // stated rather than assumed by the compiler. Nothing is captured but `self`.
+            // stated rather than assumed by the compiler.
             MainActor.assumeIsolated {
-                // Hidden only once it has actually faded, so it keeps hit-testing until it is gone — and not at all
-                // if the pointer brought the chrome back while the fade was still running.
-                guard let self, !self.chromeIsVisible else { return }
-                self.controls.isHidden = true
-                self.companionChrome?.isHidden = true
+                view.isHidden = view.alphaValue == 0
             }
         }
-        onChromeVisibilityChange?(visible)
     }
 
     /// What the chrome is doing, which is not the same question as `controls.isHidden`: through a fade out the bar is

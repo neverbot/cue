@@ -15,6 +15,7 @@ final class PreviewPopover: NSView {
     init() {
         super.init(frame: .zero)
         ChromeStyle.applyPanel(to: self, cornerRadius: ChromeStyle.previewCornerRadius)
+        alphaValue = 0
         isHidden = true
 
         imageView.imageScaling = .scaleProportionallyUpOrDown
@@ -49,16 +50,17 @@ final class PreviewPopover: NSView {
         fatalError("init(coder:) is not supported")
     }
 
-    func show(seconds: Double, chapter: String?, image: NSImage?) {
+    /// Fills in what the bubble says. Whether it is on screen at all is not its own decision: the player view owns
+    /// that, together with the rest of the chrome, so the bubble cannot outlive the bar it hangs over.
+    func update(seconds: Double, chapter: String?, image: NSImage?) {
         timeLabel.stringValue = PlaybackTime.format(seconds)
         chapterLabel.stringValue = chapter ?? ""
         chapterLabel.isHidden = chapter == nil
         if let image { imageView.image = image }
-        isHidden = false
     }
 
-    func hide() {
-        isHidden = true
+    /// Drops the frame, so the next hover never flashes the last one before its own sheet arrives.
+    func clear() {
         imageView.image = nil
     }
 
