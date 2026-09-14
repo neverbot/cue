@@ -90,16 +90,15 @@ private final class MemoryPreferenceStore: PreferenceStore {
     @Test func keepsTheInspectorClosedUntilItIsAskedFor() {
         let preferences = Preferences(store: MemoryPreferenceStore())
         #expect(preferences.inspector == InspectorSettings.standard)
-        #expect(preferences.inspector.isVisible == false)
         #expect(preferences.inspector.tab == .chapters)
     }
 
     @Test func restoresTheInspectorPageItWasLeftShowing() {
         for tab in InspectorTab.allCases {
             let store = MemoryPreferenceStore()
-            Preferences(store: store).inspector = InspectorSettings(tab: tab, isVisible: true)
+            Preferences(store: store).inspector = InspectorSettings(tab: tab)
             // A second instance, as if the app had quit and come back: nothing is carried in memory.
-            #expect(Preferences(store: store).inspector == InspectorSettings(tab: tab, isVisible: true))
+            #expect(Preferences(store: store).inspector == InspectorSettings(tab: tab))
         }
     }
 
@@ -107,25 +106,21 @@ private final class MemoryPreferenceStore: PreferenceStore {
         // What an older or newer version of the app would leave behind.
         let store = MemoryPreferenceStore()
         store.values[PreferenceKey.inspectorTab.rawValue] = "comments"
-        store.values[PreferenceKey.inspectorVisible.rawValue] = true
-        let restored = Preferences(store: store).inspector
-        #expect(restored.tab == .chapters)
-        // One unreadable value does not lose the other.
-        #expect(restored.isVisible)
+        #expect(Preferences(store: store).inspector.tab == .chapters)
     }
 
     @Test func fallsBackWhenTheStoredInspectorValueIsTheWrongTypeAltogether() {
         let store = MemoryPreferenceStore()
         store.values[PreferenceKey.inspectorTab.rawValue] = 4
-        store.values[PreferenceKey.inspectorVisible.rawValue] = "yes"
         #expect(Preferences(store: store).inspector == InspectorSettings.standard)
     }
 
-    @Test func remembersTheInspectorBeingOpen() {
-        // Worth its own check: `true` is not what an absent key reads as, so only a round trip proves it was stored.
+    @Test func doesNotRememberWhetherTheInspectorWasOpen() {
+        // It must be hidden at every launch, so its visibility may not reach the store at all. A key that is written
+        // and never read again is exactly what a reset appears to miss, so writing the page leaves one key, not two.
         let store = MemoryPreferenceStore()
-        Preferences(store: store).inspector = InspectorSettings(tab: .subtitles, isVisible: true)
-        #expect(Preferences(store: store).inspector.isVisible)
+        Preferences(store: store).inspector = InspectorSettings(tab: .subtitles)
+        #expect(Array(store.values.keys) == [PreferenceKey.inspectorTab.rawValue])
     }
 
     @Test func followsTheSystemAppearanceUntilOneIsChosen() {
@@ -186,7 +181,7 @@ private final class MemoryPreferenceStore: PreferenceStore {
         preferences.appearance = .dark
         preferences.playsNextAutomatically = false
         preferences.sidebar = SidebarSettings(mode: .compact, layout: .overlay, isVisible: false)
-        preferences.inspector = InspectorSettings(tab: .subtitles, isVisible: true)
+        preferences.inspector = InspectorSettings(tab: .subtitles)
         preferences.reset()
         #expect(preferences.appearance == .system)
         #expect(preferences.playsNextAutomatically)

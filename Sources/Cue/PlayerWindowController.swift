@@ -115,7 +115,9 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
         // opened was split between the two and the picture came back with bars around it. Held high, the inspector
         // keeps the width it has and the video is the only item left to take the difference.
         inspectorItem.holdingPriority = NSLayoutConstraint.Priority(NSLayoutConstraint.Priority.defaultLow.rawValue + 1)
-        inspectorItem.isCollapsed = !inspectorSettings.isVisible
+        // Always closed at launch, however the last session left it: the picture owns the window until the chapters
+        // or the subtitles are actually asked for. Only the page above is restored, so reopening lands where it was.
+        inspectorItem.isCollapsed = true
 
         splitViewController = NSSplitViewController()
         splitViewController.addSplitViewItem(sidebarItem)
@@ -292,9 +294,10 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
         }
     }
 
-    /// Writes the inspector's state the moment it changes, assembled from the live objects like the sidebar's is.
+    /// Writes the inspector's page the moment it changes, assembled from the live objects like the sidebar's is.
+    /// Whether it is open is not written: it starts closed at every launch regardless.
     private func saveInspectorSettings() {
-        preferences.inspector = InspectorSettings(tab: inspector.tab, isVisible: isInspectorVisible)
+        preferences.inspector = InspectorSettings(tab: inspector.tab)
     }
 
     /// Brings both pages to the video playing now. Only ever called while the inspector is on screen, so a hidden
@@ -564,11 +567,9 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
             setSidebarVisible(settings.isVisible)
         }
         let inspectorSettings = preferences.inspector
+        // The page only. Whether the inspector is open belongs to this window for as long as it runs and is never
+        // restored from the store, so a reset cannot open it and the settings window cannot close it.
         if inspector.tab != inspectorSettings.tab { inspector.setTab(inspectorSettings.tab) }
-        if isInspectorVisible != inspectorSettings.isVisible {
-            if inspectorSettings.isVisible { refreshInspector() }
-            setInspectorVisible(inspectorSettings.isVisible)
-        }
     }
 
     /// Takes a column's width out of the window rather than out of the picture, so showing or hiding the queue or the

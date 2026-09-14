@@ -20,7 +20,6 @@ public enum PreferenceKey: String, CaseIterable, Sendable {
     case sidebarMode = "sidebar.mode"
     case sidebarLayout = "sidebar.layout"
     case sidebarVisible = "sidebar.visible"
-    case inspectorVisible = "inspector.visible"
     case inspectorTab = "inspector.tab"
 }
 
@@ -40,18 +39,19 @@ public struct SidebarSettings: Equatable, Sendable {
     }
 }
 
-/// How the trailing inspector was left when the app was last used.
+/// Which page the trailing inspector was left showing when the app was last used.
+///
+/// Whether it was *open* is not here, and is not stored anywhere: the inspector starts closed at every launch, so the
+/// picture owns the window until the chapters or the subtitles are actually asked for. Only the page survives, so
+/// reopening it lands where it was last used.
 public struct InspectorSettings: Equatable, Sendable {
     public var tab: InspectorTab
-    public var isVisible: Bool
 
-    /// What a first launch gets, and what anything unreadable falls back to. Closed: the picture owns the window
-    /// until the chapters or the subtitles are actually asked for.
-    public static let standard = InspectorSettings(tab: .chapters, isVisible: false)
+    /// What a first launch gets, and what anything unreadable falls back to.
+    public static let standard = InspectorSettings(tab: .chapters)
 
-    public init(tab: InspectorTab, isVisible: Bool) {
+    public init(tab: InspectorTab) {
         self.tab = tab
-        self.isVisible = isVisible
     }
 }
 
@@ -117,20 +117,15 @@ public final class Preferences {
         }
     }
 
-    /// The inspector's appearance: whether it is open, and which of its two pages was last in front. Read once at
-    /// startup; written whenever either changes.
+    /// Which of the inspector's two pages was last in front. Read once at startup; written whenever it changes.
+    ///
+    /// Visibility is deliberately absent. The inspector opens closed every time, so a stored `inspector.visible`
+    /// would be a key that is written and never read — which is exactly the kind of dead state a reset appears to
+    /// miss.
     public var inspector: InspectorSettings {
-        get {
-            InspectorSettings(
-                tab: value(.inspectorTab, fallingBackTo: InspectorSettings.standard.tab),
-                // A bool is stored as a bool: anything else — a string, an array — is not a value this can use.
-                isVisible: store.object(forKey: PreferenceKey.inspectorVisible.rawValue) as? Bool
-                    ?? InspectorSettings.standard.isVisible
-            )
-        }
+        get { InspectorSettings(tab: value(.inspectorTab, fallingBackTo: InspectorSettings.standard.tab)) }
         set {
             store.set(newValue.tab.rawValue, forKey: PreferenceKey.inspectorTab.rawValue)
-            store.set(newValue.isVisible, forKey: PreferenceKey.inspectorVisible.rawValue)
             announceChange()
         }
     }
