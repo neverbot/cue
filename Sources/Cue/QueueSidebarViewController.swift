@@ -16,8 +16,10 @@ final class QueueSidebarViewController: NSViewController, NSTableViewDataSource,
     var onPlay: ((VideoID) -> Void)?
     /// Called after the sidebar itself changed the queue, so the rest of the window can catch up.
     var onQueueChange: (() -> Void)?
+    /// Called whenever the mode changes, by the popup here or by the menu, so the window can remember it.
+    var onModeChange: ((QueueDisplayMode) -> Void)?
 
-    private(set) var mode: QueueDisplayMode = .list
+    private(set) var mode: QueueDisplayMode
     private var rows: [QueueRow] = []
     private var currentVideoID: VideoID?
 
@@ -33,9 +35,12 @@ final class QueueSidebarViewController: NSViewController, NSTableViewDataSource,
     private var requestedImages: Set<String> = []
     private let logger = Logger(subsystem: "com.neverbot.cue", category: "queue")
 
-    init(store: QueueStore, thumbnails: ThumbnailStore) {
+    /// The mode is handed in rather than set afterwards, so the restored one is in place before the view is built and
+    /// the popup is never briefly showing a mode the table is not drawing.
+    init(store: QueueStore, thumbnails: ThumbnailStore, mode: QueueDisplayMode = .list) {
         self.store = store
         self.thumbnails = thumbnails
+        self.mode = mode
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -50,6 +55,7 @@ final class QueueSidebarViewController: NSViewController, NSTableViewDataSource,
         counterLabel.textColor = .secondaryLabelColor
 
         modeButton.addItems(withTitles: QueueDisplayMode.allCases.map(\.title))
+        modeButton.selectItem(at: QueueDisplayMode.allCases.firstIndex(of: mode) ?? 0)
         modeButton.target = self
         modeButton.action = #selector(changeMode(_:))
         modeButton.controlSize = .small
@@ -139,6 +145,7 @@ final class QueueSidebarViewController: NSViewController, NSTableViewDataSource,
         mode = newMode
         modeButton.selectItem(at: QueueDisplayMode.allCases.firstIndex(of: newMode) ?? 0)
         reload()
+        onModeChange?(newMode)
     }
 
     @objc private func changeMode(_ sender: NSPopUpButton) {

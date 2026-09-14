@@ -14,6 +14,8 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
     let coordinator: QueueCoordinator
 
     private let store: QueueStore
+    /// Where the sidebar's appearance is remembered between launches.
+    private let preferences: Preferences
     private let playerView: PlayerView
     /// The container the player view normally lives in; where it returns when the mini player closes.
     private let playerContainer: NSView
@@ -71,16 +73,21 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
         store: QueueStore,
         thumbnails: ThumbnailStore,
         resolver: any StreamResolving,
-        resumeStore: any ResumeStore
+        resumeStore: any ResumeStore,
+        preferences: Preferences = Preferences()
     ) {
         self.engine = engine
         self.store = store
+        self.preferences = preferences
+        // Read once, here. Everything after this works from the live sidebar, and each change writes straight back,
+        // so nothing has to be polled or re-read.
+        let settings = preferences.sidebar
         controller = PlayerController(engine: engine, resolver: resolver, resumeStore: resumeStore)
         // Only a resolver that also does prefetching (PrefetchingResolver, in production) drives it; a bare
         // resolver leaves the queue's behaviour exactly as it was before prefetching existed.
         coordinator = QueueCoordinator(store: store, player: controller, prefetcher: resolver as? any StreamPrefetching)
         playerView = PlayerView(handle: engine.handle)
-        sidebar = QueueSidebarViewController(store: store, thumbnails: thumbnails)
+        sidebar = QueueSidebarViewController(store: store, thumbnails: thumbnails, mode: settings.mode)
 
         // The video fills its own view controller; the overlay sidebar floats in the same view, above it.
         let playerContainer = NSView(frame: NSRect(origin: .zero, size: WindowGeometry.defaultContentSize))
@@ -112,7 +119,9 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
             sidebar: sidebar,
             splitItem: sidebarItem,
             overlayContainer: playerContainer,
-            parent: playerViewController
+            parent: playerViewController,
+            layout: settings.layout,
+            isVisible: settings.isVisible
         )
 
         let window = NSWindow(
@@ -141,6 +150,8 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
         playerView.onChromeVisibilityChange = { [weak self] visible in self?.setTitleBarVisible(visible) }
         controller.onStateChange = { [weak self] state in self?.render(state) }
         sidebar.onPlay = { [weak self] videoID in self?.coordinator.play(videoID) }
+        // Covers the popup in the sidebar's own header and the View menu alike: both go through `setMode`.
+        sidebar.onModeChange = { [weak self] _ in self?.saveSidebarSettings() }
         coordinator.onQueueChange = { [weak self] in self?.refreshSidebar() }
         installSidebarButton()
         refreshSidebar()
@@ -412,6 +423,17 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
         sidebarHost.toggleVisible()
         updateSidebarButton()
         resizeWindow(forSidebarWidth: width, appearing: appearing)
+        saveSidebarSettings()
+    }
+
+    /// Writes the sidebar's appearance the moment it changes, assembled from the live objects rather than from
+    /// anything this class keeps in step by hand.
+    private func saveSidebarSettings() {
+        preferences.sidebar = SidebarSettings(
+            mode: sidebar.mode,
+            layout: sidebarHost.layout,
+            isVisible: sidebarHost.isVisible
+        )
     }
 
     /// The width the pushed sidebar takes, read from the item while it is on screen and remembered for when it is not.
@@ -448,6 +470,7 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
     @objc func toggleSidebarLayout(_ sender: Any?) {
         sidebarHost.setLayout(sidebarHost.layout == .push ? .overlay : .push)
         updateSidebarButton()
+        saveSidebarSettings()
     }
 
     /// Puts the toggle in the title bar, as a leading accessory. That is where Finder, Safari and Mail keep theirs,
