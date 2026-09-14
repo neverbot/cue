@@ -203,13 +203,13 @@ final class QueueSidebarViewController: NSViewController, NSTableViewDataSource,
     // MARK: - Actions
 
     @objc private func playSelectedRow() {
-        guard let videoID = selectedVideoIDs().first else { return }
+        guard let videoID = targetVideoIDs().first else { return }
         onPlay?(videoID)
     }
 
     @objc private func removeSelectedRows() {
         change { store in
-            for videoID in selectedVideoIDs() {
+            for videoID in targetVideoIDs() {
                 try store.remove(videoID)
             }
         }
@@ -217,7 +217,7 @@ final class QueueSidebarViewController: NSViewController, NSTableViewDataSource,
 
     @objc private func markSelectedWatched() {
         change { store in
-            for videoID in selectedVideoIDs() {
+            for videoID in targetVideoIDs() {
                 try store.markWatched(videoID)
             }
         }
@@ -225,17 +225,25 @@ final class QueueSidebarViewController: NSViewController, NSTableViewDataSource,
 
     @objc private func markSelectedUnwatched() {
         change { store in
-            for videoID in selectedVideoIDs() {
+            for videoID in targetVideoIDs() {
                 try store.markUnwatched(videoID)
             }
         }
     }
 
     @objc private func copySelectedLinks() {
-        let links = selectedVideoIDs().map { AddRequest.watchURL(for: $0).absoluteString }
+        let links = targetVideoIDs().map { AddRequest.watchURL(for: $0).absoluteString }
         guard !links.isEmpty else { return }
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(links.joined(separator: "\n"), forType: .string)
+    }
+
+    /// Opens the video on YouTube in whatever browser the system prefers. Cue plays it without the browser, but the
+    /// page is still where the description, the comments and the channel live.
+    @objc private func openSelectedInBrowser() {
+        for videoID in targetVideoIDs() {
+            NSWorkspace.shared.open(AddRequest.watchURL(for: videoID))
+        }
     }
 
     override func keyDown(with event: NSEvent) {
@@ -251,6 +259,21 @@ final class QueueSidebarViewController: NSViewController, NSTableViewDataSource,
         tableView.selectedRowIndexes.compactMap { index in
             rows.indices.contains(index) ? VideoID(rows[index].videoID) : nil
         }
+    }
+
+    /// What a context menu item acts on: the row that was right-clicked, unless it is part of the selection, in which
+    /// case the whole selection.
+    ///
+    /// Reading the selection alone was wrong in both directions. With nothing selected it returned nothing, so every
+    /// item did nothing at all and said nothing about it — which is how "Copy Link" appeared to be broken. With a
+    /// different row selected it acted on that one instead of the row under the pointer, which is worse: the wrong
+    /// video quietly removed or copied. `clickedRow` is -1 outside a menu, so the keyboard paths still mean the
+    /// selection.
+    private func targetVideoIDs() -> [VideoID] {
+        let clicked = tableView.clickedRow
+        guard rows.indices.contains(clicked) else { return selectedVideoIDs() }
+        if tableView.selectedRowIndexes.contains(clicked) { return selectedVideoIDs() }
+        return VideoID(rows[clicked].videoID).map { [$0] } ?? []
     }
 
     private func change(_ work: (QueueStore) throws -> Void) {
@@ -270,6 +293,7 @@ final class QueueSidebarViewController: NSViewController, NSTableViewDataSource,
         menu.addItem(NSMenuItem(title: "Mark as Watched", action: #selector(markSelectedWatched), keyEquivalent: ""))
         menu.addItem(NSMenuItem(title: "Mark as Unwatched", action: #selector(markSelectedUnwatched), keyEquivalent: ""))
         menu.addItem(NSMenuItem(title: "Copy Link", action: #selector(copySelectedLinks), keyEquivalent: ""))
+        menu.addItem(NSMenuItem(title: "Open in Browser", action: #selector(openSelectedInBrowser), keyEquivalent: ""))
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Remove from Queue", action: #selector(removeSelectedRows), keyEquivalent: ""))
         for item in menu.items {
