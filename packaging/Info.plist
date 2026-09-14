@@ -43,6 +43,8 @@
 	</array>
 	<key>LSMinimumSystemVersion</key>
 	<string>14.0</string>
+	<key>NSHumanReadableCopyright</key>
+	<string>© 2026 Iván Alonso. MIT licensed.</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>NSPrincipalClass</key>

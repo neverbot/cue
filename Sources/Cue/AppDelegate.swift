@@ -17,6 +17,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let preferences = Preferences()
     /// Built the first time the menu item is chosen, and kept afterwards.
     private var settingsWindowController: SettingsWindowController?
+    private var aboutWindowController: AboutWindowController?
     /// The queue and the thumbnail cache the player window is using. Held here so the settings window works on the
     /// same two objects rather than opening its own, which is what lets a change made there reach the sidebar now.
     private var store: QueueStore?
@@ -110,6 +111,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate()
     }
 
+    /// Cue ▸ About Cue. Kept alive between openings like the settings window, so reopening it does not rebuild the
+    /// licence document, and so a second choice of the menu item brings the existing window forward rather than
+    /// stacking another one behind it.
+    @objc func showAbout(_ sender: Any?) {
+        let controller = aboutWindowController ?? AboutWindowController()
+        aboutWindowController = controller
+        controller.showWindow(nil)
+        controller.window?.makeKeyAndOrderFront(nil)
+        NSApp.activate()
+    }
+
     @objc private func preferencesChanged() {
         applyAppearance()
     }
@@ -146,6 +158,11 @@ enum MainMenu {
     static func make() -> NSMenu {
         let menu = NSMenu()
         menu.addItem(submenu("Cue", items: [
+            // ⌘, is where macOS keeps settings in every app. Nothing else here claims a comma: every other shortcut
+            // in Cue is a letter, plus ⌘0 for fitting the window.
+            // First item of the application menu, where macOS has kept it since before Aqua.
+            NSMenuItem(title: "About Cue", action: #selector(AppDelegate.showAbout(_:)), keyEquivalent: ""),
+            .separator(),
             // ⌘, is where macOS keeps settings in every app. Nothing else here claims a comma: every other shortcut
             // in Cue is a letter, plus ⌘0 for fitting the window.
             NSMenuItem(title: "Settings…", action: #selector(AppDelegate.showSettings(_:)), keyEquivalent: ","),
