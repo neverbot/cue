@@ -113,8 +113,8 @@ public struct QueuedVideo: Codable, Equatable, Sendable, FetchableRecord {
     public var video: VideoID? { VideoID(videoID) }
 
     /// Seconds left to watch: the duration minus a resume position inside it. A position at or past the duration is
-    /// not a half-watched video but a bogus position, so the whole duration is still to watch. `QueueStore.summary()`
-    /// applies the same rule, in SQL. Nil when the duration is unknown.
+    /// not a half-watched video but a bogus position, so the whole duration is still to watch. Nil when the duration
+    /// is unknown.
     public var remainingDuration: Double? {
         guard let duration, duration > 0 else { return nil }
         guard let resumePosition, resumePosition > 0, resumePosition < duration else { return duration }

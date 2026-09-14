@@ -198,51 +198,34 @@ import Testing
         #expect(try store.nextPending() == nil)
     }
 
-    @Test func countsPendingTimeMinusResumePositions() throws {
+    @Test func countsPendingAndWatchedVideos() throws {
         let store = try TestQueue.store()
         try store.add(TestQueue.first, duration: 213, addedAt: TestQueue.date)
         try store.add(TestQueue.second, duration: 19, addedAt: TestQueue.date)
         try store.add(TestQueue.third, duration: 100, addedAt: TestQueue.date)
-        try store.saveResumeEntry(ResumeEntry(position: 13, duration: 213, updatedAt: TestQueue.date), for: TestQueue.first)
         try store.markWatched(TestQueue.third, at: TestQueue.date)
 
         let summary = try store.summary()
         #expect(summary.pendingCount == 2)
         #expect(summary.watchedCount == 1)
-        #expect(summary.pendingDuration == 219)
-        #expect(summary.unknownDurationCount == 0)
-    }
-
-    @Test func reportsPendingVideosWithoutAKnownDuration() throws {
-        let store = try TestQueue.store()
-        try store.add(TestQueue.first, duration: 213, addedAt: TestQueue.date)
-        try store.add(TestQueue.second, addedAt: TestQueue.date)
-
-        let summary = try store.summary()
-        #expect(summary.pendingDuration == 213)
-        #expect(summary.unknownDurationCount == 1)
     }
 
     /// A position at or past the duration is not a half-watched video, it is a bogus position: the whole video is
-    /// still to watch. The pending total and the row agree on that.
+    /// still to watch, and the row says so.
     @Test func treatsAResumePositionPastTheDurationAsUnstarted() throws {
         let store = try TestQueue.store()
         try store.add(TestQueue.first, duration: 213, addedAt: TestQueue.date)
         try store.saveResumeEntry(ResumeEntry(position: 500, duration: 213, updatedAt: TestQueue.date), for: TestQueue.first)
 
-        #expect(try store.summary().pendingDuration == 213)
         #expect(try store.video(for: TestQueue.first)?.remainingDuration == 213)
     }
 
-    /// A duration of zero (a live stream, a bogus CSV column) is unknown, not "nothing left to watch": the header's
-    /// `unknownDurationCount` and the row's `remainingDuration` must agree on that too.
+    /// A duration of zero (a live stream, a bogus CSV column) is unknown, not "nothing left to watch": the row has no
+    /// remaining time to show.
     @Test func treatsAZeroDurationAsUnknown() throws {
         let store = try TestQueue.store()
         try store.add(TestQueue.first, duration: 0, addedAt: TestQueue.date)
 
-        let summary = try store.summary()
-        #expect(summary.pendingDuration == 0)
-        #expect(summary.unknownDurationCount == 1)
         #expect(try store.video(for: TestQueue.first)?.remainingDuration == nil)
     }
 

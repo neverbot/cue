@@ -19,7 +19,6 @@ enum QueueSmoke {
             lines.append("queue: migrations = \(QueueDatabase.migrationNames.joined(separator: ","))")
             lines.append("queue: pending = \(summary.pendingCount)")
             lines.append("queue: watched = \(summary.watchedCount)")
-            lines.append("queue: unknown durations = \(summary.unknownDurationCount)")
             lines.append("queue: counter = \(QueuePresentation.counterText(for: summary))")
             lines.append("queue: passed")
         } catch {

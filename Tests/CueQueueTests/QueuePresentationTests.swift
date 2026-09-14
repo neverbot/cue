@@ -4,23 +4,6 @@ import CuePlayer
 import Foundation
 import Testing
 
-@Suite struct PendingTimeTests {
-    @Test func formatsTheUnitsAQueueIsJudgedBy() {
-        #expect(PendingTime.format(0) == "0 min")
-        #expect(PendingTime.format(59) == "0 min")
-        #expect(PendingTime.format(219) == "3 min")
-        #expect(PendingTime.format(2880) == "48 min")
-        #expect(PendingTime.format(12_060) == "3 h 21 min")
-        #expect(PendingTime.format(187_200) == "2 d 4 h")
-    }
-
-    @Test func readsNegativeAndNonFiniteValuesAsNothingPending() {
-        #expect(PendingTime.format(-10) == "0 min")
-        #expect(PendingTime.format(.infinity) == "0 min")
-        #expect(PendingTime.format(.nan) == "0 min")
-    }
-}
-
 @Suite struct QueuePresentationTests {
     private func videos() throws -> [QueuedVideo] {
         let store = try TestQueue.store()
@@ -68,21 +51,11 @@ import Testing
         #expect(rows[0].progress == nil)
     }
 
-    @Test func countsVideosAndPendingTimeInTheHeader() {
+    @Test func countsPendingVideosInTheHeader() {
         #expect(QueuePresentation.counterText(for: QueueSummary()) == "Queue empty")
         #expect(QueuePresentation.counterText(for: QueueSummary(watchedCount: 3)) == "Nothing left to watch")
-        #expect(QueuePresentation.counterText(for: QueueSummary(pendingCount: 1, pendingDuration: 213)) == "1 video · 3 min")
-        #expect(QueuePresentation.counterText(for: QueueSummary(pendingCount: 12, pendingDuration: 12_060)) == "12 videos · 3 h 21 min")
-    }
-
-    @Test func marksThePendingTimeAsAFloorWhenADurationIsMissing() {
-        let summary = QueueSummary(pendingCount: 3, pendingDuration: 12_060, unknownDurationCount: 1)
-        #expect(QueuePresentation.counterText(for: summary) == "3 videos · 3 h 21 min+")
-    }
-
-    @Test func saysTheTimeIsUnknownWhenNoDurationIsKnownAtAll() {
-        let summary = QueueSummary(pendingCount: 2, pendingDuration: 0, unknownDurationCount: 2)
-        #expect(QueuePresentation.counterText(for: summary) == "2 videos · time unknown")
+        #expect(QueuePresentation.counterText(for: QueueSummary(pendingCount: 1)) == "1 video")
+        #expect(QueuePresentation.counterText(for: QueueSummary(pendingCount: 12, watchedCount: 4)) == "12 videos")
     }
 
     @Test func cyclesThroughTheDisplayModes() {

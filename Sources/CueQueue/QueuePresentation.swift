@@ -104,18 +104,12 @@ public enum QueuePresentation {
         }
     }
 
-    /// The sidebar header: how many videos are left and how long they take.
+    /// The sidebar header: how many videos are left.
     public static func counterText(for summary: QueueSummary) -> String {
         guard summary.pendingCount > 0 else {
             return summary.watchedCount > 0 ? "Nothing left to watch" : "Queue empty"
         }
-        let videos = "\(summary.pendingCount) \(summary.pendingCount == 1 ? "video" : "videos")"
-        guard summary.pendingDuration > 0 || summary.unknownDurationCount == 0 else {
-            return "\(videos) · time unknown"
-        }
-        let time = PendingTime.format(summary.pendingDuration)
-        // Videos whose duration is not known yet are missing from the total, so mark it as a floor.
-        return "\(videos) · \(time)\(summary.unknownDurationCount > 0 ? "+" : "")"
+        return "\(summary.pendingCount) \(summary.pendingCount == 1 ? "video" : "videos")"
     }
 
     private static func secondaryText(for video: QueuedVideo, mode: QueueDisplayMode) -> String {
@@ -130,21 +124,5 @@ public enum QueuePresentation {
               let position = video.resumePosition, position > 0, position < duration
         else { return nil }
         return position / duration
-    }
-}
-
-/// Total pending time, in the coarse units a queue is judged by.
-public enum PendingTime {
-    /// `0 min`, `48 min`, `3 h 21 min`, `2 d 4 h`. Rounded down to the unit shown; negative and non-finite values
-    /// read as `0 min`.
-    public static func format(_ seconds: Double) -> String {
-        guard seconds.isFinite, seconds > 0 else { return "0 min" }
-        let total = Int(seconds.rounded(.down))
-        let days = total / 86_400
-        let hours = (total % 86_400) / 3600
-        let minutes = (total % 3600) / 60
-        if days > 0 { return "\(days) d \(hours) h" }
-        if hours > 0 { return "\(hours) h \(minutes) min" }
-        return "\(minutes) min"
     }
 }

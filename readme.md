@@ -29,7 +29,7 @@ tracks — comes from YouTube straight to your Mac, and nothing about what you w
 | Hardware-first format selection (AV1, H.264 or VP9 in hardware; software VP9/AV1 only as a fallback; AAC audio) | Available in `CueCore` |
 | `cue-resolve` command-line tool | Available |
 | Native player (libmpv), keyboard controls, resume position | Available in `Cue.app` (build from source) |
-| Queue sidebar with counter and total pending time; paste, drag & drop, `cue://` links | Available in `Cue.app` (manual checks pending) |
+| Queue sidebar with a counter; paste, drag & drop, `cue://` links | Available in `Cue.app` (manual checks pending) |
 | Import and export of the queue | Available in `Cue.app` (manual checks pending) |
 | Drawn on-screen controls with chapter marks on the seek bar, and a title bar that fades with them | Available in `Cue.app` (manual checks pending) |
 | Thumbnail previews while scrubbing, from YouTube's own storyboard sheets | Available in `Cue.app` (manual checks pending) |
@@ -158,7 +158,7 @@ scripts/                   test runner, libmpv fetch, app bundle and fixture scr
 
 1. **Foundation and native extraction.** Done: `CueCore` and `cue-resolve`.
 2. **Player core.** Available: `Cue.app` plays with libmpv and hardware decoding, with on-screen controls, keyboard shortcuts and resume positions (manual checks pending).
-3. **Queue.** Available: a persistent SQLite queue with list, thumbnail and compact views, a counter and the pending time, adding by paste, drag and drop or `cue://add` links, import and export, and watched state (manual checks pending).
+3. **Queue.** Available: a persistent SQLite queue with list, thumbnail and compact views, a counter, adding by paste, drag and drop or `cue://add` links, import and export, and watched state (manual checks pending).
 4. **Polish.** Available: restyled on-screen controls with a title bar that fades with them, thumbnail previews while scrubbing, a chapters panel, a subtitles panel with SRT/VTT export, and an always-on-top mini player (manual checks pending).
 5. **Browser integration.** Bookmarklet and extensions for Firefox and Chrome.
 6. **Subscriptions.** Channel feeds and new-video notifications.
@@ -172,8 +172,8 @@ player's own data. The file is created readable only by you. Resume positions li
 `resume-positions.json` left by an earlier version is imported once at launch and then left alone.
 
 The sidebar (⌃⌘S to show or hide it, ⌃⌘M to cycle its density, ⌃⌘O to float it over the video instead of pushing it
-aside) lists what is left to watch with a counter and the total pending time. Videos whose length is not known yet are
-not in that total, which is why it can read `3 h 21 min+`.
+aside) lists what is left to watch with a counter of the videos still pending. Each row shows its own length once that
+is known.
 
 Add videos by pasting links (⌘V takes as many as the clipboard holds), by dropping links onto the sidebar, or with a
 `cue://add?url=<video URL>` link from a browser or a script. Adding the same video twice never duplicates it. ⇧⌘N

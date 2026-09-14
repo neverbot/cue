@@ -11,20 +11,14 @@ public enum QueuePosition: Sendable, Equatable {
     case front
 }
 
-/// Counts and pending time for the sidebar's header.
+/// Counts for the sidebar's header.
 public struct QueueSummary: Equatable, Sendable {
     public var pendingCount: Int
     public var watchedCount: Int
-    /// Seconds left across pending videos, resume positions subtracted.
-    public var pendingDuration: Double
-    /// Pending videos whose duration is not known yet, so `pendingDuration` understates the real total.
-    public var unknownDurationCount: Int
 
-    public init(pendingCount: Int = 0, watchedCount: Int = 0, pendingDuration: Double = 0, unknownDurationCount: Int = 0) {
+    public init(pendingCount: Int = 0, watchedCount: Int = 0) {
         self.pendingCount = pendingCount
         self.watchedCount = watchedCount
-        self.pendingDuration = pendingDuration
-        self.unknownDurationCount = unknownDurationCount
     }
 }
 
@@ -76,30 +70,17 @@ public struct QueueStore: Sendable {
         }
     }
 
-    /// Counts and the pending total. A resume position at or past the duration is treated as unstarted, exactly as
-    /// `QueuedVideo.remainingDuration` does: the two must never disagree about the same row. Likewise, a duration of
-    /// zero or less (a live stream, a bogus value from an import) counts as unknown here exactly as it does there.
+    /// How many videos are still pending and how many are already watched.
     public func summary() throws -> QueueSummary {
         try database.writer.read { db in
             let row = try Row.fetchOne(db, sql: """
             SELECT
-              SUM(q.watchedAt IS NULL) AS pending,
-              SUM(q.watchedAt IS NOT NULL) AS watched,
-              SUM(CASE WHEN q.watchedAt IS NULL AND q.duration > 0
-                       THEN CASE WHEN r.position > 0 AND r.position < q.duration
-                                 THEN q.duration - r.position
-                                 ELSE q.duration END
-                       ELSE 0 END) AS remaining,
-              SUM(q.watchedAt IS NULL AND (q.duration IS NULL OR q.duration <= 0)) AS unknown
-            FROM queueItem q LEFT JOIN resumePosition r ON r.videoID = q.videoID
+              SUM(watchedAt IS NULL) AS pending,
+              SUM(watchedAt IS NOT NULL) AS watched
+            FROM queueItem
             """)
             guard let row else { return QueueSummary() }
-            return QueueSummary(
-                pendingCount: row["pending"] ?? 0,
-                watchedCount: row["watched"] ?? 0,
-                pendingDuration: row["remaining"] ?? 0,
-                unknownDurationCount: row["unknown"] ?? 0
-            )
+            return QueueSummary(pendingCount: row["pending"] ?? 0, watchedCount: row["watched"] ?? 0)
         }
     }
 
