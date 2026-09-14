@@ -10,7 +10,13 @@ import CueQueue
 /// The licence text is read from the bundle rather than compiled in, so the document that ships and the document on
 /// screen cannot disagree: they are the same file. `AboutPresentation` decides every string, including what to say
 /// when that file cannot be read.
-final class AboutWindowController: NSWindowController {
+final class AboutWindowController: NSWindowController, NSWindowDelegate {
+    /// Escape closes this window. A local monitor rather than `cancelOperation(_:)` for the same reason the player
+    /// window monitors its own keys: the licence text view is a first responder that handles keys itself, and a
+    /// responder-chain override only fires if every responder below it declines to act. Watching the event is not an
+    /// assumption about who holds focus.
+    private var escapeMonitor: Any?
+
     init() {
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 460, height: 520),
@@ -25,6 +31,29 @@ final class AboutWindowController: NSWindowController {
         super.init(window: window)
         window.contentView = makeContent()
         window.center()
+        window.delegate = self
+    }
+
+    /// The monitor lives exactly as long as the window is on screen. It is installed here rather than in `init`
+    /// because this controller is kept between openings, and taken down again in `windowWillClose`: a monitor left
+    /// running while the window is closed would be watching every key press in the app to answer none of them.
+    override func showWindow(_ sender: Any?) {
+        super.showWindow(sender)
+        guard escapeMonitor == nil else { return }
+        // Scoped to this window: Escape anywhere else in Cue — the player, settings, a sheet — is none of its
+        // business, and a monitor that closed this window from another one would be a bug with no symptom until
+        // someone pressed Escape while watching a video.
+        escapeMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self, event.window === self.window, event.keyCode == 53 else { return event }
+            self.close()
+            return nil
+        }
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        guard let escapeMonitor else { return }
+        NSEvent.removeMonitor(escapeMonitor)
+        self.escapeMonitor = nil
     }
 
     required init?(coder: NSCoder) {
