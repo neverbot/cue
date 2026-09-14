@@ -87,16 +87,4 @@ import Testing
 
         #expect(http.recorded.count == 2)
     }
-
-    /// Nothing cached survives a new video: its sheets are another video's memory.
-    @Test func forgetsEverythingOnReset() async throws {
-        let http = stub()
-        let store = store(http)
-
-        _ = try await store.sheet(at: first)
-        await store.reset()
-        _ = try await store.sheet(at: first)
-
-        #expect(http.recorded.count == 2)
-    }
 }

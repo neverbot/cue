@@ -49,12 +49,6 @@ public actor StoryboardStore {
         return data
     }
 
-    /// Forgets everything. Called when the player opens another video.
-    public func reset() {
-        sheets.removeAll()
-        order.removeAll()
-    }
-
     private func store(_ data: Data, for url: URL) {
         sheets[url] = data
         touch(url)
