@@ -42,6 +42,8 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
     /// Rises with every hover, so a sheet that arrives late for a position the pointer has left is dropped.
     private var previewToken = 0
     private var loggedDecodingFor: URL?
+    /// Catches the bare keys before any view can consume them. See `installKeyMonitor()`.
+    private var keyMonitor: Any?
     private var isShutDown = false
     private let logger = Logger(subsystem: "com.neverbot.cue", category: "player")
 
@@ -153,6 +155,7 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
 
         window.delegate = self
         window.makeFirstResponder(playerView)
+        installKeyMonitor()
         playerView.onKeyPress = { [weak self] press in self?.handle(press) ?? false }
         playerView.controls.onCommand = { [weak self] command in self?.perform(command) }
         playerView.controls.onHover = { [weak self] seconds, x in self?.hoverPreview(seconds: seconds, x: x) }
@@ -793,6 +796,11 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
     func shutdown() {
         guard !isShutDown else { return }
         isShutDown = true
+        // Before anything else: a monitor outliving its window would keep swallowing keys for the whole application.
+        if let keyMonitor {
+            NSEvent.removeMonitor(keyMonitor)
+            self.keyMonitor = nil
+        }
         leaveMiniPlayer()
         SubtitleSession.removeFiles(in: SubtitleSession.defaultDirectory())
         controller.close()
@@ -913,10 +921,22 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
     ///
     /// Never while text is being edited: a field editor keeps its own keys, or typing a space into a text field
     /// would pause the video.
-    override func keyDown(with event: NSEvent) {
-        guard !(window?.firstResponder is NSText), let press = KeyPress(event: event), handle(press) else {
-            super.keyDown(with: event)
-            return
+    /// Bare keys, caught before any view sees them.
+    ///
+    /// Handling them on the responder chain does not work here, and the first attempt at this proved it: `NSTableView`
+    /// takes the space bar for its own type-select and does not pass it on, so with the queue or either inspector list
+    /// focused the key was consumed before it could reach anything. That is why the previous fix — a `keyDown` on this
+    /// controller, at the end of every chain — could never fire for the one key that was reported broken.
+    ///
+    /// A local monitor sees the event first, so no view can swallow it. Two guards keep it honest: only this window's
+    /// events, and never while text is being edited, or a space typed into the add-a-video field would pause playback.
+    private func installKeyMonitor() {
+        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self, event.window === self.window,
+                  !(self.window?.firstResponder is NSText),
+                  let press = KeyPress(event: event), self.handle(press)
+            else { return event }
+            return nil
         }
     }
 
