@@ -8,12 +8,17 @@ final class QueueRowView: NSTableCellView {
     static let thumbnailWidth: CGFloat = 106
 
     private let thumbnail = NSImageView()
+    /// Marks a video already watched. A glyph rather than a colour: dimming was the only signal this list had, and it
+    /// was already spoken for by a title that is not known yet, so the two states were drawn identically. Two facts
+    /// that vary independently need two channels, and a symbol also says it without relying on colour at all.
+    private let watchedMark = NSImageView()
     private let titleLabel = NSTextField(labelWithString: "")
     private let secondaryLabel = NSTextField(labelWithString: "")
     private let progressBar = NSView()
     private let progressFill = NSView()
     private var thumbnailWidthConstraint: NSLayoutConstraint!
     private var progressWidthConstraint: NSLayoutConstraint!
+    private var watchedMarkWidthConstraint: NSLayoutConstraint!
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -22,6 +27,11 @@ final class QueueRowView: NSTableCellView {
         thumbnail.wantsLayer = true
         thumbnail.layer?.cornerRadius = 4
         thumbnail.layer?.backgroundColor = NSColor.quaternaryLabelColor.cgColor
+
+        watchedMark.image = NSImage(systemSymbolName: "checkmark.circle.fill", accessibilityDescription: "Watched")?
+            .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: 11, weight: .regular))
+        watchedMark.contentTintColor = .secondaryLabelColor
+        watchedMark.imageScaling = .scaleNone
 
         titleLabel.font = .systemFont(ofSize: 12)
         titleLabel.lineBreakMode = .byTruncatingTail
@@ -36,23 +46,31 @@ final class QueueRowView: NSTableCellView {
         progressFill.layer?.backgroundColor = NSColor.controlAccentColor.cgColor
         progressBar.addSubview(progressFill)
 
-        for view in [thumbnail, titleLabel, secondaryLabel, progressBar, progressFill] {
+        for view in [thumbnail, watchedMark, titleLabel, secondaryLabel, progressBar, progressFill] {
             view.translatesAutoresizingMaskIntoConstraints = false
         }
         addSubview(thumbnail)
+        addSubview(watchedMark)
         addSubview(titleLabel)
         addSubview(secondaryLabel)
         addSubview(progressBar)
 
         thumbnailWidthConstraint = thumbnail.widthAnchor.constraint(equalToConstant: Self.thumbnailWidth)
         progressWidthConstraint = progressFill.widthAnchor.constraint(equalToConstant: 0)
+        // Collapses to nothing on a row that is not watched, so an unwatched row's title starts exactly where it
+        // always did and the mark costs no space it is not using.
+        watchedMarkWidthConstraint = watchedMark.widthAnchor.constraint(equalToConstant: 0)
         NSLayoutConstraint.activate([
             thumbnail.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8),
             thumbnail.centerYAnchor.constraint(equalTo: centerYAnchor),
             thumbnailWidthConstraint,
             thumbnail.heightAnchor.constraint(equalTo: thumbnail.widthAnchor, multiplier: 9.0 / 16.0),
 
-            titleLabel.leadingAnchor.constraint(equalTo: thumbnail.trailingAnchor, constant: 8),
+            watchedMark.leadingAnchor.constraint(equalTo: thumbnail.trailingAnchor, constant: 8),
+            watchedMark.firstBaselineAnchor.constraint(equalTo: titleLabel.firstBaselineAnchor),
+            watchedMarkWidthConstraint,
+
+            titleLabel.leadingAnchor.constraint(equalTo: watchedMark.trailingAnchor, constant: 0),
             titleLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
             titleLabel.topAnchor.constraint(equalTo: topAnchor, constant: 4),
 
@@ -88,10 +106,13 @@ final class QueueRowView: NSTableCellView {
         titleLabel.stringValue = row.title
         titleLabel.maximumNumberOfLines = mode == .compact ? 1 : 2
         titleLabel.font = row.isCurrent ? .boldSystemFont(ofSize: 12) : .systemFont(ofSize: 12)
-        // A title that is not known yet is the video's id standing in for one, and it is drawn in the secondary
-        // label colour so it reads as provisional rather than as the video's name - the same colour a watched row's
-        // title takes, which is the one dimmed treatment this list has.
-        titleLabel.textColor = row.isTitleKnown && !row.isWatched ? .labelColor : .secondaryLabelColor
+        // Dimming now says one thing only: this title is not known yet, so what you are reading is the video's id
+        // standing in for a name. Watched is the mark to the left. Folding both into this one colour made a watched
+        // row with an unknown title, a watched row with a title, and a pending row with an unknown title all look
+        // the same.
+        titleLabel.textColor = row.isTitleKnown ? .labelColor : .secondaryLabelColor
+        watchedMark.isHidden = !row.isWatched
+        watchedMarkWidthConstraint.constant = row.isWatched ? 15 : 0
         secondaryLabel.stringValue = row.secondaryText
         secondaryLabel.isHidden = mode == .compact || row.secondaryText.isEmpty
         thumbnail.isHidden = !row.showsThumbnail
