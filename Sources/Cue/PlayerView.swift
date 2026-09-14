@@ -62,9 +62,9 @@ final class PlayerView: NSView {
             messageLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
             messageLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
             messageLabel.widthAnchor.constraint(lessThanOrEqualTo: widthAnchor, constant: -40),
-            controls.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
-            controls.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
-            controls.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -16),
+            controls.leadingAnchor.constraint(equalTo: leadingAnchor, constant: Self.controlsInset),
+            controls.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -Self.controlsInset),
+            controls.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -Self.controlsInset),
             preview.bottomAnchor.constraint(equalTo: controls.topAnchor, constant: -8),
         ])
         previewLeadingConstraint = preview.leadingAnchor.constraint(equalTo: controls.leadingAnchor)
@@ -79,6 +79,20 @@ final class PlayerView: NSView {
     }
 
     override var acceptsFirstResponder: Bool { true }
+
+    /// How far the controls bar floats in from the edges of the picture. One number, used by the constraints that
+    /// place the bar and by the measurement below, so the two cannot disagree about where its bottom edge is.
+    static let controlsInset: CGFloat = 16
+
+    /// How much of the bottom of the picture the controls bar covers: the bar's own height plus the inset it floats
+    /// above the bottom edge. Measured from the laid-out bar rather than assumed, so changing what the bar contains
+    /// carries through to the subtitles without a second number to keep in step.
+    ///
+    /// Before the first layout the frame is empty, and the bar's fitting size stands in for it.
+    var controlsOccludedHeight: CGFloat {
+        let height = controls.frame.height > 0 ? controls.frame.height : controls.fittingSize.height
+        return height + Self.controlsInset
+    }
 
     override func keyDown(with event: NSEvent) {
         if let press = KeyPress(event: event), onKeyPress?(press) == true { return }

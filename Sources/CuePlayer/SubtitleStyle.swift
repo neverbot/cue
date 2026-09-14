@@ -74,7 +74,7 @@ public struct SubtitleStyle: Equatable, Sendable {
             // `background-box` fills one rectangle behind the whole line in `sub-back-color`, and
             // `outline-and-shadow` is mpv's own default, the outlined text the checkbox returns to.
             MPVOption("sub-border-style", hasBackgroundBox ? "background-box" : "outline-and-shadow"),
-            MPVOption("sub-pos", String(Int(position.rounded()))),
+            MPVOption(SubtitleLift.positionProperty, String(Int(position.rounded()))),
         ]
     }
 

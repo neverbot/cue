@@ -156,7 +156,7 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
         playerView.onKeyPress = { [weak self] press in self?.handle(press) ?? false }
         playerView.controls.onCommand = { [weak self] command in self?.perform(command) }
         playerView.controls.onHover = { [weak self] seconds, x in self?.hoverPreview(seconds: seconds, x: x) }
-        playerView.onChromeVisibilityChange = { [weak self] visible in self?.setTitleBarVisible(visible) }
+        playerView.onChromeVisibilityChange = { [weak self] visible in self?.chromeVisibilityChanged(visible) }
         controller.onStateChange = { [weak self] state in self?.render(state) }
         sidebar.onPlay = { [weak self] videoID in self?.coordinator.play(videoID) }
         // Covers the popup in the sidebar's own header and the View menu alike: both go through `setMode`.
@@ -169,7 +169,13 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
         // Every callback the two floating panels had, kept exactly as it was; only where their views hang changed.
         inspector.chapters.onSelect = { [weak self] seconds in self?.controller.perform(.seekAbsolute(seconds: seconds)) }
         inspector.subtitles.onSelect = { [weak self] track in self?.chooseSubtitle(track) }
-        inspector.subtitles.onStyleChange = { [weak self] style in self?.send(self?.subtitles.apply(style) ?? []) }
+        inspector.subtitles.onStyleChange = { [weak self] style in
+            guard let self else { return }
+            self.send(self.subtitles.apply(style))
+            // The style carries the resting position with it, so applying one while the bar is on screen would drop
+            // the subtitles straight back underneath it. The lift goes back on top of the new baseline.
+            self.applySubtitlePosition()
+        }
         inspector.subtitles.onDelayChange = { [weak self] delay in self?.send(self?.subtitles.setDelay(delay) ?? []) }
         inspector.subtitles.onExport = { [weak self] format in self?.exportSubtitle(as: format) }
         inspector.onTabChange = { [weak self] _ in
@@ -396,6 +402,8 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
                     cues: cues, for: track, videoID: videoID, in: SubtitleSession.defaultDirectory()
                 )
                 self.send(self.subtitles.select(track, file: file))
+                // Loading a track re-sends the whole style, resting position included, so the lift goes back on.
+                self.applySubtitlePosition()
                 self.playerView.controls.setSubtitlesActive(true)
                 self.inspector.subtitles.setStatus("\(cues.count) lines")
             } catch {
@@ -798,6 +806,30 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
 
     func windowWillClose(_ notification: Notification) {
         shutdown()
+    }
+
+    /// The controls appeared or disappeared. Two things follow them: the title bar fades with the chrome, and the
+    /// subtitles move up out from under the bar for as long as it is on screen.
+    private func chromeVisibilityChanged(_ visible: Bool) {
+        setTitleBarVisible(visible)
+        applySubtitlePosition()
+    }
+
+    /// Keeps the subtitles clear of the controls bar.
+    ///
+    /// `sub-pos` is a percentage of the picture's height, so the lift is worked out from what the bar actually covers
+    /// — its laid-out height plus the inset it floats above the bottom edge — measured against the picture it covers.
+    /// Nothing here is a number chosen by eye, and a change to the bar's contents carries through on its own.
+    ///
+    /// The user's own position stays the baseline: `SubtitleLift` takes the lift off it rather than replacing it, so
+    /// whatever they chose is still where the subtitles rest once the bar fades. Harmless with no subtitle showing —
+    /// mpv keeps `sub-pos` whether or not anything is being drawn with it.
+    private func applySubtitlePosition() {
+        controller.perform(SubtitleLift.command(
+            baseline: subtitles.style.position,
+            occludedHeight: chromeIsVisible ? playerView.controlsOccludedHeight : 0,
+            pictureHeight: playerView.bounds.height
+        ))
     }
 
     /// Fades the title bar with the controls.
