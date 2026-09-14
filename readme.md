@@ -129,7 +129,7 @@ YouTube does not offer a public API for playable streams. Cue follows the same p
 1. **Parse the input.** `VideoID` accepts video ids and the common URL forms (`watch`, `youtu.be`, `shorts`, `embed`, `live`).
 2. **Ask YouTube for the player response.** `WatchPage` reads a visitor token from the watch page. `InnerTube` then requests `/youtubei/v1/player` with a client profile that currently returns directly playable formats.
 3. **Solve playback challenges when needed.** Some stream URLs carry obfuscated parameters (`n` and signature) that must be transformed by YouTube's own player JavaScript. `PlayerScript` locates the current player. `ChallengeSolver` runs yt-dlp's EJS solver scripts in macOS's JavaScriptCore and caches the preprocessed player.
-4. **Pick the streams.** `FormatSelector` chooses the best video your Mac decodes in hardware (up to 1080p by default) and the best AAC audio track. Only when a video offers no hardware-friendly stream does it fall back to software decoding (VP9 up to 1080p, then AV1 up to 720p), and it reports which way it went.
+4. **Pick the streams.** `FormatSelector` chooses the best video your Mac decodes in hardware (up to 1080p by default) and the best AAC audio, in the language YouTube marks as the video's original when it offers dubs. Only when a video offers no hardware-friendly stream does it fall back to software decoding (VP9 up to 1080p, then AV1 up to 720p), and it reports which way it went.
 
 The result is a `Resolution`: title, author, duration, the selected video and audio streams, and the user agent the streams must be requested with.
 
@@ -207,7 +207,7 @@ videos already queued are left as they are, and the summary says how many were a
   A CSV whose header names none of the video columns is read as a URL list instead, and a file without a header is read
   as ids in the first column. A quoted field keeps its spaces; an unquoted one is trimmed.
 
-## Chapters, subtitles and the mini player
+## Chapters, subtitles, audio tracks and the mini player
 
 Chapters come from the video itself — the markers YouTube serves with the watch page, or, when there are none, the
 timestamps in the description. Nothing is fetched from anywhere else, and nothing is guessed.
@@ -216,6 +216,12 @@ Subtitles are the caption tracks the video offers. Choosing one downloads it, wr
 temporary directory and hands that file to the player, so a subtitle cannot expire in the middle of a video the way a
 stream URL can. Size, colour, an optional background box and the timing offset (`z` and `x`, or the panel's slider)
 apply immediately. Export writes SubRip (`.srt`) or WebVTT (`.vtt`) from the same text that is on screen.
+
+Audio tracks are the languages a dubbed video offers. Cue plays the one YouTube marks as the video's original, rather
+than whichever dub happens to be encoded at the highest bitrate, and the inspector's Audio page (`a`, or ⌃⌘A) lists the
+rest. Switching is immediate: every language arrives in the same response as the video, so nothing is downloaded or
+resolved again, and the picture keeps playing from exactly where it was. A video with a single soundtrack says so
+instead of showing a list of one.
 
 The mini player (⌘⇧M) moves the video into a small floating window that stays above other apps. It is the same player:
 the stream is not re-resolved, playback does not pause, and closing the small window brings the video back.
@@ -230,8 +236,10 @@ bring the bars back.
 |---|---|
 | `c` | Chapters panel |
 | `s` | Subtitles panel |
+| `a` | Audio tracks panel |
 | `⌃⌘C` | Chapters panel (menu) |
 | `⌃⌘U` | Subtitles panel (menu) |
+| `⌃⌘A` | Audio tracks panel (menu) |
 | `⌥→` / `⌥←` | Next / previous chapter |
 | `z` / `x` | Subtitle delay −0.1 s / +0.1 s |
 | `⌘⇧M` | Mini player |

@@ -258,6 +258,38 @@ import Testing
         #expect(selection.audio.audioTrack == nil)
     }
 
+    /// One option per language, in the order YouTube listed them, each on the stream the selector would play it
+    /// from. All of them come from the one response, which is what makes a switch free of a re-resolve.
+    @Test func listsOneOptionPerLanguageInYouTubesOrder() {
+        let formats = [
+            stream(137, .video, "avc1", width: 1920, height: 1080, bitrate: 4_000_000),
+            stream(140, .audio, "mp4a", audioTrack: Self.original, bitrate: 130_000),
+            stream(141, .audio, "mp4a", audioTrack: Self.dub, bitrate: 190_000),
+        ]
+        let options = FormatSelector(maxShortSide: 1080).audioTrackOptions(from: formats)
+        #expect(options.map(\.id) == ["en.4", "es-ES.3"])
+        #expect(options.map(\.menuTitle) == ["English original", "Spanish (Spain)"])
+        #expect(options.first?.isDefault == true)
+    }
+
+    /// Inside one language the old rule still chooses: AAC before Opus, then bitrate.
+    @Test func picksTheBestStreamWithinEachLanguage() throws {
+        let formats = [
+            stream(137, .video, "avc1", width: 1920, height: 1080, bitrate: 4_000_000),
+            stream(139, .audio, "mp4a", audioTrack: Self.original, bitrate: 49_000),
+            stream(140, .audio, "mp4a", audioTrack: Self.original, bitrate: 130_000),
+            stream(251, .audio, "opus", audioTrack: Self.original, bitrate: 160_000),
+        ]
+        let options = FormatSelector(maxShortSide: 1080).audioTrackOptions(from: formats)
+        #expect(options.count == 1)
+        #expect(try #require(options.first).url.absoluteString.hasSuffix("itag=140"))
+    }
+
+    /// A video with one soundtrack declares no language at all, so there is nothing to list and nothing to switch.
+    @Test func listsNoOptionsForASingleLanguageVideo() {
+        #expect(FormatSelector(maxShortSide: 1080).audioTrackOptions(from: catalogue).isEmpty)
+    }
+
     @Test func hardwareSelectionsReportHardware() throws {
         let selection = try #require(FormatSelector(maxShortSide: 1080, av1HardwareDecoding: false, vp9HardwareDecoding: false).select(from: catalogue))
         #expect(selection.decoding == .hardware)

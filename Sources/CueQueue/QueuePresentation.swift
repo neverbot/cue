@@ -53,17 +53,21 @@ public enum SidebarLayout: String, CaseIterable, Sendable {
     }
 }
 
-/// Which page the trailing inspector shows. The two are exclusive: the inspector is one column, not two.
+/// Which page the trailing inspector shows. They are exclusive: the inspector is one column, not three.
 public enum InspectorTab: String, CaseIterable, Sendable {
     /// The chapters of the video playing now.
     case chapters
     /// The caption tracks, their styling, their delay and their export.
     case subtitles
+    /// The audio languages a dubbed video offers. Appended last, so a stored page from an older version still
+    /// names the page it named before.
+    case audio
 
     public var title: String {
         switch self {
         case .chapters: "Chapters"
         case .subtitles: "Subtitles"
+        case .audio: "Audio"
         }
     }
 }

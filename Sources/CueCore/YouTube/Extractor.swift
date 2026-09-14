@@ -13,6 +13,9 @@ public struct Resolution: Sendable {
     public let selection: FormatSelection
     /// Playable formats: unciphered formats plus ciphered formats in the selector's acceptable set, with their challenges solved.
     public let formats: [StreamFormat]
+    /// The audio languages this video offers, with the stream each plays from. Empty for a video with one
+    /// soundtrack. All of them come from this one response, so switching between them costs no further request.
+    public let audioTracks: [AudioTrackOption]
     public let hlsManifestURL: URL?
     public let captionTracks: [CaptionTrack]
     /// The seek-bar preview sheets, when YouTube offers them.
@@ -126,6 +129,7 @@ public struct Extractor: Sendable {
             chapters: chapters,
             selection: selection,
             formats: formats,
+            audioTracks: selector.audioTrackOptions(from: formats),
             hlsManifestURL: player.streamingData?.hlsManifestUrl.flatMap(URL.init(string:)),
             captionTracks: CaptionTrack.list(in: player.captions),
             storyboard: player.storyboards?.playerStoryboardSpecRenderer?.spec.flatMap(StoryboardSpec.init),

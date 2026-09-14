@@ -48,6 +48,9 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
     private let logger = Logger(subsystem: "com.neverbot.cue", category: "player")
 
     private var subtitles = SubtitleSession()
+    /// Which audio language is playing, and what the video offers instead. Replaced for every video: the languages
+    /// belong to the video, not to the user.
+    private var audio = AudioTrackSession()
     /// Cues already downloaded for the video playing now, by track id.
     private var loadedCues: [String: [CaptionCue]] = [:]
     private let captions = CaptionLoader()
@@ -181,6 +184,7 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
         }
         inspector.subtitles.onDelayChange = { [weak self] delay in self?.send(self?.subtitles.setDelay(delay) ?? []) }
         inspector.subtitles.onExport = { [weak self] format in self?.exportSubtitle(as: format) }
+        inspector.audio.onSelect = { [weak self] id in self?.chooseAudioTrack(id) }
         inspector.onTabChange = { [weak self] _ in
             self?.refreshInspector()
             self?.saveInspectorSettings()
@@ -231,6 +235,7 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
             }
         case .toggleChaptersInspector: toggleChaptersInspector(nil)
         case .toggleSubtitlesInspector: toggleSubtitlesInspector(nil)
+        case .toggleAudioInspector: toggleAudioInspector(nil)
         case let .adjustSubtitleDelay(delta):
             send(subtitles.setDelay(((subtitles.delay + delta) * 10).rounded() / 10))
             refreshSubtitlesInspector()
@@ -250,6 +255,12 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
     /// page's own segment opened it anyway left one page answering two different ways depending on how it was asked.
     @objc func toggleSubtitlesInspector(_ sender: Any?) {
         toggleInspector(showing: .subtitles)
+    }
+
+    /// Opens the inspector on its audio page, or closes it when that page is already in front. Available on a video
+    /// with one soundtrack, like the other two: the page says so plainly, which beats a shortcut that beeps.
+    @objc func toggleAudioInspector(_ sender: Any?) {
+        toggleInspector(showing: .audio)
     }
 
     /// The one way the inspector opens, closes and changes page, whichever control asked. Asking again for the page
@@ -315,6 +326,7 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
         inspector.chapters.setChapters(timeline.chapters)
         inspector.chapters.setCurrent(timeline.index(at: controller.state.position))
         refreshSubtitlesInspector()
+        refreshAudioInspector()
     }
 
     /// What actually changes as a video plays: which chapter the playhead is in. Nothing else here follows the
@@ -381,6 +393,21 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
             style: subtitles.style,
             delay: subtitles.delay
         )
+    }
+
+    private func refreshAudioInspector() {
+        inspector.audio.setRows(AudioTrackPresentation.rows(for: audio.tracks, selected: audio.selectedID))
+    }
+
+    /// Switches the video's soundtrack to another language.
+    ///
+    /// Nothing is fetched and nothing is re-resolved: every language came from the same `/player` response, so its
+    /// URL is already in hand. The external audio track is swapped on the file that is playing, which leaves the
+    /// position and the pause state exactly where they were.
+    private func chooseAudioTrack(_ id: String) {
+        guard let option = audio.option(id: id) else { return }
+        send(audio.select(option))
+        refreshAudioInspector()
     }
 
     /// Downloads the track if it is new, writes it as a file and tells mpv to use it.
@@ -956,6 +983,9 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
             playerView.hidePreview()
             loadedCues.removeAll()
             subtitles = SubtitleSession(keeping: subtitles)
+            // The languages are the video's own, so nothing carries over: the new stream says what it offers and
+            // which one it was loaded with.
+            audio = AudioTrackSession(stream: state.stream)
             playerView.controls.setSubtitlesActive(false)
             // The whole inspector, not just the subtitles: a new video brings new chapters too, and the position
             // update below deliberately no longer rebuilds either list.
@@ -1049,7 +1079,7 @@ extension PlayerWindowController: NSMenuItemValidation {
             return true
         case #selector(toggleSidebar(_:)), #selector(cycleSidebarMode(_:)), #selector(toggleSidebarLayout(_:)),
              #selector(importQueue(_:)), #selector(exportQueue(_:)), #selector(toggleChaptersInspector(_:)),
-             #selector(toggleSubtitlesInspector(_:)):
+             #selector(toggleSubtitlesInspector(_:)), #selector(toggleAudioInspector(_:)):
             // Always available: they only open the inspector or flip a display mode, regardless of queue or player
             // state. Both inspector pages must stay reachable when they have nothing to show, so they can say so
             // rather than a shortcut beeping while the page's own segment opens it anyway.

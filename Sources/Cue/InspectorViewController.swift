@@ -1,9 +1,9 @@
 import AppKit
 import CueQueue
 
-/// The window's trailing inspector: the chapters list and the subtitles controls, one at a time, chosen with a
-/// segmented control at the top. Both pages exist from the start and only their visibility changes, so switching
-/// tabs never rebuilds a list or loses a scroll position.
+/// The window's trailing inspector: the chapters list, the subtitles controls and the audio languages, one at a
+/// time, chosen with a segmented control at the top. Every page exists from the start and only its visibility
+/// changes, so switching tabs never rebuilds a list or loses a scroll position.
 ///
 /// It replaces the two floating utility panels the two lists used to live in: a panel takes key focus away from the
 /// player, drifts behind the window and is easy to lose, and this sits in the same window as the queue's leading
@@ -14,6 +14,7 @@ final class InspectorViewController: NSViewController {
 
     let chapters = ChaptersViewController()
     let subtitles = SubtitlesViewController()
+    let audio = AudioTracksViewController()
 
     private(set) var tab: InspectorTab
     private let tabs = NSSegmentedControl(
@@ -63,6 +64,7 @@ final class InspectorViewController: NSViewController {
 
         addChild(chapters)
         addChild(subtitles)
+        addChild(audio)
         var constraints = [
             // The safe area, never a hardcoded inset: this column runs under a title bar the window draws over its
             // content, and only the window knows how tall that is.
@@ -72,7 +74,7 @@ final class InspectorViewController: NSViewController {
             tabs.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 10),
             tabs.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -10),
         ]
-        for page in [chapters.view, subtitles.view] {
+        for page in [chapters.view, subtitles.view, audio.view] {
             page.translatesAutoresizingMaskIntoConstraints = false
             container.addSubview(page)
             constraints += [
@@ -106,6 +108,7 @@ final class InspectorViewController: NSViewController {
         guard isViewLoaded else { return }
         chapters.view.isHidden = tab != .chapters
         subtitles.view.isHidden = tab != .subtitles
+        audio.view.isHidden = tab != .audio
     }
 }
 

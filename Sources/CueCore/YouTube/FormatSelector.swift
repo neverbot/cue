@@ -71,6 +71,31 @@ public struct FormatSelector: Sendable {
         return video + audio
     }
 
+    /// The audio languages a video offers, each paired with the stream Cue would play it from — chosen inside one
+    /// language by the same codec and bitrate rule `select(from:)` uses.
+    ///
+    /// Empty for a video with a single soundtrack, which declares no language at all: there is nothing to choose
+    /// between. Every option comes from the formats handed in, so passing the resolved set (challenges already
+    /// solved) yields URLs that play, and all of them come from one `/player` response.
+    public func audioTrackOptions(from formats: [StreamFormat]) -> [AudioTrackOption] {
+        var best: [String: StreamFormat] = [:]
+        /// YouTube's own order, kept rather than sorted: it lists the original first.
+        var order: [String] = []
+        for format in formats where format.kind == .audio && Self.audioCodecs.contains(format.codec) {
+            guard let track = format.audioTrack else { continue }
+            guard let current = best[track.id] else {
+                best[track.id] = format
+                order.append(track.id)
+                continue
+            }
+            if audioRank(current) < audioRank(format) { best[track.id] = format }
+        }
+        return order.compactMap { id in
+            guard let format = best[id], let track = format.audioTrack else { return nil }
+            return AudioTrackOption(track: track, url: format.url)
+        }
+    }
+
     public func select(from formats: [StreamFormat]) -> FormatSelection? {
         guard let tier = tier(for: formats) else { return nil }
         let codecs = videoCodecs(for: tier)

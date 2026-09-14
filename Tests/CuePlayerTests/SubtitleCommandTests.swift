@@ -38,7 +38,7 @@ import Testing
     @Test func leavesWindowCommandsToTheWindow() {
         for command in [
             PlayerCommand.nextChapter, .previousChapter, .toggleChaptersInspector, .toggleSubtitlesInspector,
-            .toggleMiniPlayer, .fitWindowToVideo,
+            .toggleAudioInspector, .toggleMiniPlayer, .fitWindowToVideo,
         ] {
             #expect(command.mpvArguments == nil)
         }

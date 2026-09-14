@@ -188,6 +188,8 @@ enum MainMenu {
         chapters.keyEquivalentModifierMask = [.control, .command]
         let subtitlesItem = NSMenuItem(title: "Subtitles", action: #selector(PlayerWindowController.toggleSubtitlesInspector(_:)), keyEquivalent: "u")
         subtitlesItem.keyEquivalentModifierMask = [.control, .command]
+        let audioItem = NSMenuItem(title: "Audio Track", action: #selector(PlayerWindowController.toggleAudioInspector(_:)), keyEquivalent: "a")
+        audioItem.keyEquivalentModifierMask = [.control, .command]
         let mini = NSMenuItem(title: "Mini Player", action: #selector(PlayerWindowController.toggleMiniPlayer(_:)), keyEquivalent: "m")
         mini.keyEquivalentModifierMask = [.command, .shift]
         // ⌘0 is the only shortcut here without ⌃ or ⇧ because no other menu item and no bare key binding uses a digit.
@@ -198,7 +200,8 @@ enum MainMenu {
         )
         fitWindow.keyEquivalentModifierMask = [.command]
         menu.addItem(submenu("View", items: [
-            toggleSidebar, cycleMode, toggleLayout, chapters, subtitlesItem, mini, fitWindow, .separator(), fullScreen,
+            toggleSidebar, cycleMode, toggleLayout, chapters, subtitlesItem, audioItem, mini, fitWindow,
+            .separator(), fullScreen,
         ]))
 
         let windowMenu = submenu("Window", items: [

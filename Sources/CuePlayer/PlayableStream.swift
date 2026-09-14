@@ -29,6 +29,11 @@ public struct PlayableStream: Equatable, Sendable {
     public var captionTracks: [CaptionTrack] = []
     /// Seek-bar preview sheets, when YouTube offers them.
     public var storyboard: StoryboardSpec?
+    /// The audio languages this video offers, with the stream each plays from. Empty when it has one soundtrack,
+    /// which is every video that declares no language at all.
+    public var audioTracks: [AudioTrackOption] = []
+    /// The language the stream was loaded with, so a switch knows what it is replacing.
+    public var selectedAudioTrackID: String?
 
     public init(
         videoID: VideoID?,
@@ -43,7 +48,9 @@ public struct PlayableStream: Equatable, Sendable {
         decoding: Decoding = .hardware,
         chapters: [Chapter] = [],
         captionTracks: [CaptionTrack] = [],
-        storyboard: StoryboardSpec? = nil
+        storyboard: StoryboardSpec? = nil,
+        audioTracks: [AudioTrackOption] = [],
+        selectedAudioTrackID: String? = nil
     ) {
         self.videoID = videoID
         self.title = title
@@ -58,6 +65,8 @@ public struct PlayableStream: Equatable, Sendable {
         self.chapters = chapters
         self.captionTracks = captionTracks
         self.storyboard = storyboard
+        self.audioTracks = audioTracks
+        self.selectedAudioTrackID = selectedAudioTrackID
     }
 }
 
@@ -77,7 +86,9 @@ extension PlayableStream {
             decoding: resolution.selection.decoding == .software ? .software : .hardware,
             chapters: resolution.chapters,
             captionTracks: resolution.captionTracks,
-            storyboard: resolution.storyboard
+            storyboard: resolution.storyboard,
+            audioTracks: resolution.audioTracks,
+            selectedAudioTrackID: resolution.selection.audio.audioTrack?.id
         )
     }
 

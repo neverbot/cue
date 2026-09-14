@@ -16,6 +16,12 @@ public enum PlayerCommand: Equatable, Sendable {
     case removeSubtitles
     /// Selects a subtitle track, or none.
     case selectSubtitle(id: Int?)
+    /// Loads one of the video's other audio languages as an external track and selects it.
+    case addAudioTrack(url: URL)
+    /// Removes the external audio track currently loaded.
+    case removeAudioTracks
+    /// Selects an audio track by id.
+    case selectAudioTrack(id: Int)
     case setSubtitleDelay(seconds: Double)
     case adjustSubtitleDelay(by: Double)
     /// One `sub-*` property, as `SubtitleStyle` produces them.
@@ -26,6 +32,8 @@ public enum PlayerCommand: Equatable, Sendable {
     case toggleChaptersInspector
     /// Shows the trailing inspector with the subtitles page, or hides it when that page is already in front.
     case toggleSubtitlesInspector
+    /// Shows the trailing inspector with the audio page, or hides it when that page is already in front.
+    case toggleAudioInspector
     case toggleMiniPlayer
     /// Resizes the window so the video area has exactly the video's shape, removing the black bars around it.
     case fitWindowToVideo
@@ -42,11 +50,17 @@ public enum PlayerCommand: Equatable, Sendable {
         case let .addSubtitle(fileURL): ["sub-add", fileURL.path, "select"]
         case .removeSubtitles: ["sub-remove"]
         case let .selectSubtitle(id): ["set", "sid", id.map(String.init) ?? "no"]
+        // The URL is a signed stream URL with the requester's address in it. It goes to mpv and nowhere else: it is
+        // never logged, and never put in a message something else prints.
+        case let .addAudioTrack(url): ["audio-add", url.absoluteString, "select"]
+        case .removeAudioTracks: ["audio-remove"]
+        case let .selectAudioTrack(id): ["set", "aid", String(id)]
         case let .setSubtitleDelay(seconds): ["set", "sub-delay", "\(seconds)"]
         case let .adjustSubtitleDelay(delta): ["add", "sub-delay", "\(delta)"]
         case let .setSubtitleProperty(name, value): ["set", name, value]
         case .toggleFullScreen, .close, .nextChapter, .previousChapter,
-             .toggleChaptersInspector, .toggleSubtitlesInspector, .toggleMiniPlayer, .fitWindowToVideo: nil
+             .toggleChaptersInspector, .toggleSubtitlesInspector, .toggleAudioInspector,
+             .toggleMiniPlayer, .fitWindowToVideo: nil
         }
     }
 
@@ -106,6 +120,7 @@ public struct KeyBindings: Sendable {
         (.character("m"), [], .toggleMute),
         (.character("c"), [], .toggleChaptersInspector),
         (.character("s"), [], .toggleSubtitlesInspector),
+        (.character("a"), [], .toggleAudioInspector),
         (.character("z"), [], .adjustSubtitleDelay(by: -subtitleDelayStep)),
         (.character("x"), [], .adjustSubtitleDelay(by: subtitleDelayStep)),
     ])
