@@ -59,6 +59,28 @@ public enum WindowGeometry {
         return CGRect(x: x, y: window.minY, width: width, height: max(window.height, minimumSize.height))
     }
 
+    /// How much width the window has to gain or lose for the video area to be exactly the width it was before a
+    /// column beside it appeared or went away, and which way.
+    ///
+    /// Showing or hiding a split view item is a constraint change the split view settles against every item's holding
+    /// priority, its minimum and maximum thickness and wherever the divider was last dragged to, so the width an item
+    /// takes is not always the width it was asked for. Predicting that number and adjusting the window by it leaves
+    /// the picture a few points short, which is a bar drawn around a video that had already been fitted. Measuring the
+    /// picture cannot drift that way: both figures are read off the screen.
+    ///
+    /// `appearing` says the window must grow, because the picture is narrower than it was. Nil means the picture is
+    /// already the width it was, within `tolerance`: layout arithmetic lands fractions of a point out, and a window
+    /// nudged by a hundredth of a point would be nudged again on the next pass and never settle.
+    public static func videoWidthCorrection(
+        before: CGFloat,
+        now: CGFloat,
+        tolerance: CGFloat = 0.5
+    ) -> (width: CGFloat, appearing: Bool)? {
+        let difference = before - now
+        guard abs(difference) >= tolerance else { return nil }
+        return (width: abs(difference), appearing: difference > 0)
+    }
+
     /// The window frame whose video area has exactly the video's shape, so mpv draws neither letterbox nor pillarbox
     /// bars. Once the window has been resized by hand there is no way to land on that shape with the mouse, and this
     /// is the arithmetic that lands on it.

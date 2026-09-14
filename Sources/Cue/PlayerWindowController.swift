@@ -34,8 +34,6 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
     /// The chapters and subtitles lists, in the trailing inspector rather than in floating windows of their own.
     private let inspector: InspectorViewController
     private let inspectorItem: NSSplitViewItem
-    /// The width the inspector last took on screen, remembered for the same reason the sidebar's is.
-    private var lastInspectorWidth: CGFloat = InspectorViewController.width
     private var fittedVideoSize: VideoSize?
     /// The width the pushed sidebar last took on screen. A collapsed split item reports nothing, so the width it is
     /// about to take again has to be remembered from when it was visible.
@@ -111,6 +109,11 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
         inspectorItem.minimumThickness = 240
         inspectorItem.maximumThickness = 420
         inspectorItem.canCollapse = true
+        // A split view hands width to its items in order of holding priority, lowest first. Left at the default the
+        // inspector was as willing to grow as the video beside it, so the width the window gained when the inspector
+        // opened was split between the two and the picture came back with bars around it. Held high, the inspector
+        // keeps the width it has and the video is the only item left to take the difference.
+        inspectorItem.holdingPriority = .defaultHigh
         inspectorItem.isCollapsed = !inspectorSettings.isVisible
 
         splitViewController = NSSplitViewController()
@@ -254,19 +257,38 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
 
     /// Shows or hides the inspector and takes its width out of the window rather than out of the picture, so the
     /// video area is left the shape it already had.
+    ///
+    /// That width is measured, never predicted. A split view settles a collapse against both items' holding
+    /// priorities, their minimum and maximum thicknesses and wherever the divider was last dragged to, so the width
+    /// the inspector takes is not always the width it was asked for — and adjusting the window by a number the item
+    /// then ignores is what left the picture pillarboxed. The picture is read before and after instead, and the
+    /// window is given back exactly what it lost.
     private func setInspectorVisible(_ visible: Bool) {
         guard visible != isInspectorVisible else { return }
-        let width = inspectorWidth()
-        inspectorItem.animator().isCollapsed = !visible
-        resizeWindow(byWidth: width, appearing: visible)
+        let videoWidth = playerContainer.frame.width
+        inspectorItem.isCollapsed = !visible
+        // Collapsing only changes constraints, so nothing has moved yet: without this the measurement below would
+        // read the geometry the window had before the inspector was asked for at all.
+        splitViewController.view.layoutSubtreeIfNeeded()
+        restoreVideoWidth(to: videoWidth)
     }
 
-    /// The width the inspector takes, read from the item while it is on screen and remembered for when it is not: a
-    /// collapsed split item reports nothing, so the width it is about to take again has to come from somewhere.
-    private func inspectorWidth() -> CGFloat {
-        let current = inspectorItem.viewController.view.frame.width
-        if isInspectorVisible, current > 0 { lastInspectorWidth = current }
-        return lastInspectorWidth
+    /// Gives the window back the width the picture just lost, or takes back the width it just gained, then reads the
+    /// picture again rather than trusting the first pass: a window can run into the edge of the screen or into its
+    /// own minimum size, and a split view under a resize need not hand every new point to the video. A second pass
+    /// settles what the first could not, and a window that cannot move any further is left alone rather than nudged
+    /// forever.
+    private func restoreVideoWidth(to width: CGFloat) {
+        for _ in 0..<2 {
+            guard let correction = WindowGeometry.videoWidthCorrection(
+                before: width,
+                now: playerContainer.frame.width
+            ) else { return }
+            let before = window?.frame
+            resizeWindow(byWidth: correction.width, appearing: correction.appearing)
+            guard window?.frame != before else { return }
+            splitViewController.view.layoutSubtreeIfNeeded()
+        }
     }
 
     /// Writes the inspector's state the moment it changes, assembled from the live objects like the sidebar's is.

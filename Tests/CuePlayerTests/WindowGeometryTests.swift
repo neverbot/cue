@@ -71,6 +71,24 @@ import Testing
             == CGRect(x: 0, y: 100, width: 320, height: 208))
     }
 
+    @Test func asksForNoResizeWhenThePictureKeptItsWidth() {
+        #expect(WindowGeometry.videoWidthCorrection(before: 960, now: 960) == nil)
+        // Fractions of a point are layout arithmetic, not a column: a window nudged by those would never settle.
+        #expect(WindowGeometry.videoWidthCorrection(before: 960, now: 959.75) == nil)
+    }
+
+    @Test func growsTheWindowByWhatTheColumnTookFromThePicture() {
+        let correction = WindowGeometry.videoWidthCorrection(before: 960, now: 680)
+        #expect(correction?.width == 280)
+        #expect(correction?.appearing == true)
+    }
+
+    @Test func shrinksTheWindowByWhatThePictureGainedWhenAColumnClosed() {
+        let correction = WindowGeometry.videoWidthCorrection(before: 680, now: 960)
+        #expect(correction?.width == 280)
+        #expect(correction?.appearing == false)
+    }
+
     /// The window's smallest content size, as the player window sets it.
     let minimumContent = CGSize(width: 320, height: 180)
 
