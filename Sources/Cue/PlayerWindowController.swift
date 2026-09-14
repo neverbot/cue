@@ -460,7 +460,7 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
         NSLayoutConstraint.activate([sidebarButtonLeading, sidebarButtonCentreY])
         updateSidebarButton()
         alignSidebarButtonWithTrafficLights()
-        playerView.companionChrome = sidebarButton
+        playerView.registerChrome(sidebarButton)
     }
 
     /// The container's left edge is not always the same edge. Beside a visible sidebar it starts well inside the
@@ -472,6 +472,9 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
         let label = showing ? "Hide Sidebar" : "Show Sidebar"
         sidebarButton.toolTip = label
         sidebarButton.setAccessibilityLabel(label)
+        // The button just moved. Its visibility belongs to the player view, and asking again here is what stops a
+        // move from leaving it at an alpha the rest of the chrome has moved on from.
+        playerView.refreshChrome()
     }
 
     /// Puts the toggle on the same line as the traffic lights, by asking the window where its close button actually
@@ -491,6 +494,7 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
         let distance = min(max(belowTop, half), max(height / 2, half))
         guard sidebarButtonCentreY.constant != distance else { return }
         sidebarButtonCentreY.constant = distance
+        playerView.refreshChrome()
     }
 
     private static func sidebarToggleButton() -> NSButton {

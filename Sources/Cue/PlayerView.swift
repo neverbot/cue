@@ -11,14 +11,13 @@ final class PlayerView: NSView {
     var onKeyPress: ((KeyPress) -> Bool)?
     /// Called whenever the controls appear or disappear, so the window can fade its title bar with them.
     var onChromeVisibilityChange: ((Bool) -> Void)?
-    /// Chrome that belongs to the window rather than to this view — the sidebar button, which sits in the container
-    /// around the video — and has to come and go with the controls instead of lingering over a bare picture.
-    weak var companionChrome: NSView? {
-        didSet {
-            companionChrome?.alphaValue = chromeIsVisible ? 1 : 0
-            companionChrome?.isHidden = !chromeIsVisible
-        }
-    }
+    /// Everything that comes and goes as one unit: the controls bar, the seek preview, and chrome that belongs to the
+    /// window rather than to this view — the sidebar toggle, which sits in the container around the video.
+    ///
+    /// This list is the single source of truth for chrome visibility, and `fade(_:to:)` is the only code in the app
+    /// that writes `alphaValue` or `isHidden` on any view in it. Holding the toggle strongly is not a cycle: the
+    /// container owns it, and it points back here only through its action, which AppKit does not retain.
+    private var chromeViews: [NSView] = []
 
     private let messageLabel = NSTextField(labelWithString: "")
     private let pausedIndicator = PausedIndicator()
@@ -29,7 +28,6 @@ final class PlayerView: NSView {
     /// Whether the pointer is asking for a preview at all. What is actually on screen is this *and* the chrome being
     /// visible: the bubble belongs to the bar it hangs over and cannot outlast it.
     private var previewIsRequested = false
-    private var previewIsShown = false
     /// Where the pointer was pressed, in window coordinates, so a release can tell a click from a window drag.
     private var pressLocation: NSPoint?
 
@@ -66,6 +64,8 @@ final class PlayerView: NSView {
         ])
         previewLeadingConstraint = preview.leadingAnchor.constraint(equalTo: controls.leadingAnchor)
         previewLeadingConstraint.isActive = true
+        registerChrome(controls)
+        registerChrome(preview)
         update(playerState)
     }
 
@@ -156,7 +156,7 @@ final class PlayerView: NSView {
         if !previewIsRequested { preview.clear() }
         preview.update(seconds: seconds, chapter: chapter, image: image)
         previewIsRequested = true
-        applyPreviewVisibility()
+        applyChrome()
     }
 
     /// The one way the preview leaves the screen. Everything that should take it away — the chrome fading out, the
@@ -165,14 +165,7 @@ final class PlayerView: NSView {
     func hidePreview() {
         guard previewIsRequested else { return }
         previewIsRequested = false
-        applyPreviewVisibility()
-    }
-
-    private func applyPreviewVisibility() {
-        let visible = previewIsRequested && chromeIsVisible
-        guard previewIsShown != visible else { return }
-        previewIsShown = visible
-        fade(preview, to: visible)
+        applyChrome()
     }
 
     private func revealControls() {
@@ -189,17 +182,44 @@ final class PlayerView: NSView {
     private func setControlsVisible(_ visible: Bool) {
         guard chromeIsVisible != visible else { return }
         chromeIsVisible = visible
-        fade(controls, to: visible)
-        if let companion = companionChrome { fade(companion, to: visible) }
-        // The preview follows the chrome rather than the pointer alone: when the bar goes, the bubble over it goes too.
-        applyPreviewVisibility()
+        applyChrome()
         onChromeVisibilityChange?(visible)
     }
 
+    /// Adds a view to the chrome and brings it straight to whatever the chrome is doing right now, so a view that
+    /// joins late cannot start out contradicting the others.
+    func registerChrome(_ view: NSView) {
+        guard !chromeViews.contains(where: { $0 === view }) else { return }
+        chromeViews.append(view)
+        applyChrome()
+    }
+
+    /// Re-applies the current state to every chrome view. Anything that moves or rebuilds one of them calls this, so
+    /// none can be left behind at an alpha that does not match what the chrome is doing.
+    func refreshChrome() {
+        applyChrome()
+    }
+
+    /// Brings every chrome view to what it should be right now. One pass over one list: there is no other way for any
+    /// of them to change, so they cannot disagree with each other or with `chromeIsVisible`.
+    private func applyChrome() {
+        for view in chromeViews { fade(view, to: chromeTarget(for: view)) }
+    }
+
+    /// What a chrome view should be doing. All of it follows `chromeIsVisible`; the preview also has to have been
+    /// asked for by the pointer, so the bubble follows the bar rather than only the pointer that summoned it.
+    private func chromeTarget(for view: NSView) -> Bool {
+        chromeIsVisible && (view !== preview || previewIsRequested)
+    }
+
     /// Fades one chrome view to its target and keeps `isHidden` in step with where the fade actually ended: a view is
-    /// hidden only once it has reached alpha 0, and a fade in that overtakes a fade out leaves it visible and hit
-    /// testing. Nothing else in this view writes `alphaValue` or `isHidden` on chrome.
+    /// hidden once it has reached alpha 0, and a fade in that overtakes a fade out leaves it visible and hit testing.
+    /// This is the only code that writes `alphaValue` or `isHidden` on chrome, and it never writes one without the
+    /// other — which is what makes an invisible view that still takes clicks unreachable.
     private func fade(_ view: NSView, to visible: Bool) {
+        let target: CGFloat = visible ? 1 : 0
+        // Already there, or already on its way there: re-animating would only restart the fade under the pointer.
+        guard view.alphaValue != target || view.isHidden == visible else { return }
         // Unhidden before the fade in, or there would be nothing on screen for it to act on.
         if visible { view.isHidden = false }
         NSAnimationContext.runAnimationGroup { context in
