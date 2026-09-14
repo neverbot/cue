@@ -7,10 +7,16 @@ final class QueueRowView: NSTableCellView {
     static let reuseIdentifier = NSUserInterfaceItemIdentifier("QueueRow")
     static let thumbnailWidth: CGFloat = 106
 
+    /// The ground under the video playing right now. Bold type alone only showed while comparing one row against
+    /// another; a tinted ground says it at a glance. The accent is the right colour by the system's own rule — it
+    /// marks what is active and nothing else — and it is drawn rather than set on a layer, so it re-resolves when
+    /// the appearance or the chosen accent changes instead of freezing whatever was current at build time.
+    private let nowPlayingFill = NowPlayingFill()
     private let thumbnail = NSImageView()
-    /// Marks a video already watched. A glyph rather than a colour: dimming was the only signal this list had, and it
-    /// was already spoken for by a title that is not known yet, so the two states were drawn identically. Two facts
-    /// that vary independently need two channels, and a symbol also says it without relying on colour at all.
+    /// Marks a video already watched, or the one playing now. A glyph rather than a colour: dimming was the only
+    /// signal this list had, and it was already spoken for by a title that is not known yet, so the two states were
+    /// drawn identically. Two facts that vary independently need two channels, and a symbol also says it without
+    /// relying on colour at all.
     private let watchedMark = NSImageView()
     private let titleLabel = NSTextField(labelWithString: "")
     private let secondaryLabel = NSTextField(labelWithString: "")
@@ -46,9 +52,11 @@ final class QueueRowView: NSTableCellView {
         progressFill.layer?.backgroundColor = NSColor.controlAccentColor.cgColor
         progressBar.addSubview(progressFill)
 
-        for view in [thumbnail, watchedMark, titleLabel, secondaryLabel, progressBar, progressFill] {
+        for view in [nowPlayingFill, thumbnail, watchedMark, titleLabel, secondaryLabel, progressBar, progressFill] {
             view.translatesAutoresizingMaskIntoConstraints = false
         }
+        // First, so the whole row draws on top of it.
+        addSubview(nowPlayingFill)
         addSubview(thumbnail)
         addSubview(watchedMark)
         addSubview(titleLabel)
@@ -61,6 +69,13 @@ final class QueueRowView: NSTableCellView {
         // always did and the mark costs no space it is not using.
         watchedMarkWidthConstraint = watchedMark.widthAnchor.constraint(equalToConstant: 0)
         NSLayoutConstraint.activate([
+            // Inset a little, so the rounded ground sits inside the row rather than running edge to edge into the
+            // selection highlight an inset-style table draws around it.
+            nowPlayingFill.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 4),
+            nowPlayingFill.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4),
+            nowPlayingFill.topAnchor.constraint(equalTo: topAnchor, constant: 1),
+            nowPlayingFill.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -1),
+
             thumbnail.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8),
             thumbnail.centerYAnchor.constraint(equalTo: centerYAnchor),
             thumbnailWidthConstraint,
@@ -111,8 +126,13 @@ final class QueueRowView: NSTableCellView {
         // row with an unknown title, a watched row with a title, and a pending row with an unknown title all look
         // the same.
         titleLabel.textColor = row.isTitleKnown ? .labelColor : .secondaryLabelColor
-        watchedMark.isHidden = !row.isWatched
-        watchedMarkWidthConstraint.constant = row.isWatched ? 15 : 0
+        nowPlayingFill.isHidden = !row.isCurrent
+        // A video can be both watched and playing again, and which one it is right now matters more than what it
+        // once was, so the mark says "playing" whenever both are true.
+        watchedMark.isHidden = !(row.isCurrent || row.isWatched)
+        watchedMark.image = Self.mark(isCurrent: row.isCurrent)
+        watchedMark.contentTintColor = row.isCurrent ? .controlAccentColor : .secondaryLabelColor
+        watchedMarkWidthConstraint.constant = watchedMark.isHidden ? 0 : 15
         secondaryLabel.stringValue = row.secondaryText
         secondaryLabel.isHidden = mode == .compact || row.secondaryText.isEmpty
         thumbnail.isHidden = !row.showsThumbnail
@@ -125,5 +145,25 @@ final class QueueRowView: NSTableCellView {
 
     private func applyProgressWidth() {
         progressWidthConstraint.constant = progressBar.bounds.width * CGFloat(progress ?? 0)
+    }
+
+    private static func mark(isCurrent: Bool) -> NSImage? {
+        let name = isCurrent ? "speaker.wave.2.fill" : "checkmark.circle.fill"
+        let label = isCurrent ? "Playing now" : "Watched"
+        return NSImage(systemSymbolName: name, accessibilityDescription: label)?
+            .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: 11, weight: .regular))
+    }
+}
+
+/// The ground under the row playing right now: the system accent, kept faint enough to read behind text.
+///
+/// Drawn rather than assigned to a layer's `backgroundColor`, for the same reason the sidebar's own floating ground
+/// is: a `cgColor` is resolved once and then frozen, so it would keep the appearance and the accent colour that were
+/// in force when the row was built instead of following the ones in force now.
+final class NowPlayingFill: NSView {
+    override func draw(_ dirtyRect: NSRect) {
+        let rounded = NSBezierPath(roundedRect: bounds, xRadius: 5, yRadius: 5)
+        NSColor.controlAccentColor.withAlphaComponent(0.16).setFill()
+        rounded.fill()
     }
 }
