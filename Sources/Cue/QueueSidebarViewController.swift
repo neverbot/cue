@@ -18,6 +18,9 @@ final class QueueSidebarViewController: NSViewController, NSTableViewDataSource,
     var onQueueChange: (() -> Void)?
     /// Called whenever the mode changes, by the popup here or by the menu, so the window can remember it.
     var onModeChange: ((QueueDisplayMode) -> Void)?
+    /// Called with a file dropped on the queue. The sidebar does not import it itself: a file is a question for the
+    /// window to ask before anything changes.
+    var onFileDrop: ((URL) -> Void)?
 
     private(set) var mode: QueueDisplayMode
     private var rows: [QueueRow] = []
@@ -74,7 +77,7 @@ final class QueueSidebarViewController: NSViewController, NSTableViewDataSource,
         tableView.doubleAction = #selector(playSelectedRow)
         tableView.allowsMultipleSelection = true
         tableView.menu = makeContextMenu()
-        tableView.registerForDraggedTypes([Self.rowType, .string, .URL])
+        tableView.registerForDraggedTypes([Self.rowType, .string, .URL, .fileURL])
         tableView.setDraggingSourceOperationMask(.move, forLocal: true)
 
         scrollView.documentView = tableView
@@ -299,6 +302,12 @@ final class QueueSidebarViewController: NSViewController, NSTableViewDataSource,
         proposedRow row: Int,
         proposedDropOperation dropOperation: NSTableView.DropOperation
     ) -> NSDragOperation {
+        // A file is not dropped at a position: it is offered to the queue as a whole, so the table highlights itself
+        // rather than a gap between two rows, and lands the same way wherever the pointer was.
+        if DroppedFile.url(in: info) != nil {
+            tableView.setDropRow(-1, dropOperation: .on)
+            return .copy
+        }
         guard dropOperation == .above else { return [] }
         return info.draggingSource as? NSTableView === tableView ? .move : .copy
     }
@@ -309,6 +318,10 @@ final class QueueSidebarViewController: NSViewController, NSTableViewDataSource,
         row: Int,
         dropOperation: NSTableView.DropOperation
     ) -> Bool {
+        if let file = DroppedFile.url(in: info) {
+            onFileDrop?(file)
+            return true
+        }
         let pasteboard = info.draggingPasteboard
         if let moved = pasteboard.string(forType: Self.rowType), let videoID = VideoID(moved) {
             change { store in try store.move(videoID, to: row) }

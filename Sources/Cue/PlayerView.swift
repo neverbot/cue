@@ -9,6 +9,8 @@ final class PlayerView: NSView {
     /// Owned rather than handed out: its visibility has exactly one route in, through `showPreview` and `hidePreview`.
     private let preview = PreviewPopover()
     var onKeyPress: ((KeyPress) -> Bool)?
+    /// Called with a file dropped on the picture, so either half of the window can start an import.
+    var onFileDrop: ((URL) -> Void)?
     /// Called whenever the controls appear or disappear, so the window can fade its title bar with them.
     var onChromeVisibilityChange: ((Bool) -> Void)?
     /// Everything that comes and goes as one unit over the picture: the controls bar and the seek preview.
@@ -36,6 +38,9 @@ final class PlayerView: NSView {
         super.init(frame: NSRect(origin: .zero, size: WindowGeometry.defaultContentSize))
         wantsLayer = true
         layer?.backgroundColor = NSColor.black.cgColor
+        // Files only. Links and text belong to the sidebar, which is where the queue is, and registering for them
+        // here would take them away from it.
+        registerForDraggedTypes([.fileURL])
 
         messageLabel.textColor = .secondaryLabelColor
         messageLabel.font = .systemFont(ofSize: 15)
@@ -125,6 +130,20 @@ final class PlayerView: NSView {
     /// The second reason: a press that travelled was aimed at moving the window, not at the video under it.
     private static func isClick(from start: NSPoint, to end: NSPoint) -> Bool {
         abs(end.x - start.x) < dragSlop && abs(end.y - start.y) < dragSlop
+    }
+
+    // MARK: - Dropped files
+
+    /// A list of links dropped on the picture is offered to the queue, exactly as one dropped on the sidebar is: the
+    /// window is one target, not two, and the sidebar may well be hidden when the file arrives.
+    override func draggingEntered(_ sender: any NSDraggingInfo) -> NSDragOperation {
+        DroppedFile.url(in: sender) == nil ? [] : .copy
+    }
+
+    override func performDragOperation(_ sender: any NSDraggingInfo) -> Bool {
+        guard let url = DroppedFile.url(in: sender) else { return false }
+        onFileDrop?(url)
+        return true
     }
 
     func update(_ state: PlayerState) {

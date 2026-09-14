@@ -152,6 +152,10 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
         sidebar.onPlay = { [weak self] videoID in self?.coordinator.play(videoID) }
         // Covers the popup in the sidebar's own header and the View menu alike: both go through `setMode`.
         sidebar.onModeChange = { [weak self] _ in self?.saveSidebarSettings() }
+        // Both halves of the window take a dropped file, because the sidebar may well be hidden when one arrives, and
+        // both go to the same place: one question, then the same import the menu item runs.
+        sidebar.onFileDrop = { [weak self] url in self?.offerImport(from: url) }
+        playerView.onFileDrop = { [weak self] url in self?.offerImport(from: url) }
         coordinator.onQueueChange = { [weak self] in self?.refreshSidebar() }
         installSidebarButton()
         refreshSidebar()
@@ -548,19 +552,59 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
         }
     }
 
+    /// The file the Import menu item chose. Read, then applied: the panel was the question, so nothing else is asked.
     private func runImport(from url: URL) {
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                self.applyImport(try await ImportFileReader.read(url), asSheet: false)
+            } catch {
+                self.report(error, title: "Cue could not import that file")
+            }
+        }
+    }
+
+    /// A file dropped on the sidebar or on the picture. The same reading and the same report as the menu item, with
+    /// one thing in between: a drop is easy to do by accident, so the queue is not touched until the count on screen
+    /// has been agreed to.
+    func offerImport(from url: URL) {
+        guard let window else { return }
+        Task { [weak self] in
+            guard let self else { return }
+            let file: ParsedImportFile
+            do {
+                file = try await ImportFileReader.read(url)
+            } catch {
+                self.report(error, title: "Cue could not read that file", asSheet: true)
+                return
+            }
+            let prompt = QueueImportPresentation.prompt(
+                candidates: file.candidates.count,
+                unreadable: file.unreadable.count
+            )
+            let alert = NSAlert()
+            alert.messageText = prompt.message
+            if let detail = prompt.detail { alert.informativeText = detail }
+            // A file with nothing to add gets an acknowledgement, not a question with no answer.
+            alert.addButton(withTitle: prompt.canAdd ? "Add" : "OK")
+            if prompt.canAdd { alert.addButton(withTitle: "Cancel") }
+            let response = await alert.beginSheetModal(for: window)
+            guard prompt.canAdd, response == .alertFirstButtonReturn else { return }
+            self.applyImport(file, asSheet: true)
+        }
+    }
+
+    /// The one place an import reaches the queue, whichever way the file arrived.
+    private func applyImport(_ file: ParsedImportFile, asSheet: Bool) {
         do {
-            let contents = try String(contentsOf: url, encoding: .utf8)
-            let format = QueueFormat.detect(fileExtension: url.pathExtension, contents: contents)
-            let parsed = try QueueImport.candidates(in: contents, format: format)
-            let report = try QueueImport.apply(parsed.candidates, unreadable: parsed.unreadable, to: store)
+            let report = try QueueImport.apply(file.candidates, unreadable: file.unreadable, to: store)
             refreshSidebar()
             let alert = NSAlert()
-            alert.messageText = "Imported \(format.title)"
+            alert.messageText = "Imported \(file.format.title)"
             alert.informativeText = report.summary
-            alert.runModal()
+            present(alert, asSheet: asSheet)
         } catch {
-            report(error, title: "Cue could not import that file")
+            report(error, title: "Cue could not import that file", asSheet: asSheet)
         }
     }
 
@@ -585,12 +629,22 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
 
     /// Alerts go through the same redaction as the log: an error carrying a signed stream URL must not put the
     /// user's IP address on screen, where it ends up in screenshots.
-    private func report(_ error: any Error, title: String) {
+    private func report(_ error: any Error, title: String, asSheet: Bool = false) {
         let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         let alert = NSAlert()
         alert.messageText = title
         alert.informativeText = LogRedactor.redact(message)
-        alert.runModal()
+        present(alert, asSheet: asSheet)
+    }
+
+    /// A dropped file is answered on the window it was dropped on; a menu item that opened a panel keeps the modal it
+    /// already had.
+    private func present(_ alert: NSAlert, asSheet: Bool) {
+        if asSheet, let window {
+            alert.beginSheetModal(for: window, completionHandler: nil)
+        } else {
+            alert.runModal()
+        }
     }
 
     // MARK: - Window
