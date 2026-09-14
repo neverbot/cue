@@ -16,6 +16,12 @@ public enum SeekBarGeometry {
         guard let duration, duration > 0 else { return 0 }
         return width * CGFloat(min(max(seconds / duration, 0), 1))
     }
+
+    /// Where a fraction of the way through the video sits on a track drawn `inset` from the view's leading edge.
+    /// Chapter ticks arrive already divided by the duration, and the knob has to fit at both ends, hence the inset.
+    public static func x(forFraction fraction: Double, width: CGFloat, inset: CGFloat) -> CGFloat {
+        inset + width * CGFloat(min(max(fraction, 0), 1))
+    }
 }
 
 /// Which storyboard frame a hover wants, and where the bubble showing it goes.

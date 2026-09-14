@@ -29,6 +29,23 @@ import Testing
         #expect(SeekBarGeometry.x(forSeconds: 500, width: 100, duration: 200) == 100)
     }
 
+    @Test func mapsAFractionToAnXOnTheInsetTrack() {
+        #expect(SeekBarGeometry.x(forFraction: 0, width: 100, inset: 6) == 6)
+        #expect(SeekBarGeometry.x(forFraction: 0.5, width: 100, inset: 6) == 56)
+        #expect(SeekBarGeometry.x(forFraction: 1, width: 100, inset: 6) == 106)
+    }
+
+    @Test func clampsAFractionOutsideTheTrack() {
+        #expect(SeekBarGeometry.x(forFraction: -0.5, width: 100, inset: 6) == 6)
+        #expect(SeekBarGeometry.x(forFraction: 1.5, width: 100, inset: 6) == 106)
+    }
+
+    /// A bar narrower than its own knob has nowhere to put a tick but the inset.
+    @Test func putsEveryFractionAtTheInsetOnAZeroWidthTrack() {
+        #expect(SeekBarGeometry.x(forFraction: 0.5, width: 0, inset: 6) == 6)
+        #expect(SeekBarGeometry.x(forFraction: 1, width: 0, inset: 6) == 6)
+    }
+
     @Test func picksTheFrameForTheHoveredSecond() throws {
         let frame = try #require(PreviewFrame.frame(at: 61, duration: 213, storyboard: Self.spec))
         #expect(frame.width == 160)

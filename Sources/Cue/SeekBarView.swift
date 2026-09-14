@@ -64,7 +64,7 @@ final class SeekBarView: NSView {
 
         NSColor.black.withAlphaComponent(0.6).setFill()
         for fraction in chapterFractions {
-            let x = inset + trackWidth * CGFloat(fraction)
+            let x = SeekBarGeometry.x(forFraction: fraction, width: trackWidth, inset: inset)
             NSBezierPath(rect: NSRect(x: x - 1, y: y - 2, width: 2, height: Self.trackHeight + 4)).fill()
         }
 
