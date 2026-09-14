@@ -84,6 +84,8 @@ final class SubtitlesViewController: NSViewController, NSTableViewDataSource, NS
         styleRow.orientation = .horizontal
 
         emptyLabel.alignment = .center
+        // The size the queue's rows are set in, so the two columns state things in the same voice.
+        emptyLabel.font = .systemFont(ofSize: 12)
         emptyLabel.textColor = .secondaryLabelColor
         emptyLabel.translatesAutoresizingMaskIntoConstraints = false
         emptyLabel.isHidden = true
@@ -92,7 +94,9 @@ final class SubtitlesViewController: NSViewController, NSTableViewDataSource, NS
         let column0 = NSStackView(views: [scrollView, styleRow, boxSwitch, delayRow, exports, statusLabel])
         column0.orientation = .vertical
         column0.spacing = 8
-        column0.edgeInsets = NSEdgeInsets(top: 10, left: 12, bottom: 10, right: 12)
+        // 10 points at the sides is what the queue's header is inset by and what the page control above is inset by,
+        // so the two columns line their contents up on the same margin instead of each choosing its own.
+        column0.edgeInsets = NSEdgeInsets(top: 10, left: 10, bottom: 10, right: 10)
         column0.translatesAutoresizingMaskIntoConstraints = false
         pageStack = column0
         content.addSubview(column0)

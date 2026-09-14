@@ -48,6 +48,10 @@ final class InspectorViewController: NSViewController {
         tabs.target = self
         tabs.action = #selector(tabClicked)
         tabs.segmentDistribution = .fillEqually
+        // The size and weight the queue's own header controls are set in, so the two columns read as one surface
+        // rather than as one app beside another.
+        tabs.controlSize = .small
+        tabs.font = .systemFont(ofSize: 11)
         tabs.selectedSegment = InspectorTab.allCases.firstIndex(of: tab) ?? 0
         tabs.setAccessibilityLabel("Inspector page")
         tabs.translatesAutoresizingMaskIntoConstraints = false
@@ -58,9 +62,11 @@ final class InspectorViewController: NSViewController {
         var constraints = [
             // The safe area, never a hardcoded inset: this column runs under a title bar the window draws over its
             // content, and only the window knows how tall that is.
-            tabs.topAnchor.constraint(equalTo: container.safeAreaLayoutGuide.topAnchor, constant: 8),
-            tabs.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 12),
-            tabs.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -12),
+            tabs.topAnchor.constraint(equalTo: container.safeAreaLayoutGuide.topAnchor, constant: 6),
+            // 10 points at the sides, the margin the queue's header keeps, so both columns hang their contents on the
+            // same line down the window.
+            tabs.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 10),
+            tabs.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -10),
         ]
         for page in [chapters.view, subtitles.view] {
             page.translatesAutoresizingMaskIntoConstraints = false

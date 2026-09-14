@@ -39,6 +39,8 @@ final class ChaptersViewController: NSViewController, NSTableViewDataSource, NST
         scrollView.drawsBackground = false
 
         emptyLabel.alignment = .center
+        // The size the queue's rows are set in, so the two columns state things in the same voice.
+        emptyLabel.font = .systemFont(ofSize: 12)
         emptyLabel.textColor = .secondaryLabelColor
         emptyLabel.translatesAutoresizingMaskIntoConstraints = false
         emptyLabel.isHidden = true
