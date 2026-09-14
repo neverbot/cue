@@ -20,6 +20,12 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     private let store: QueueStore
     private let thumbnails: ThumbnailStore
 
+    /// Called after this window changed the queue, so the sidebar re-reads it at once rather than at the next launch.
+    var onQueueChange: (() -> Void)?
+    /// Hands a chosen file to the player window's own import: one reader, one parser and one report, whichever menu
+    /// item or button started it.
+    var onImportFile: ((URL) -> Void)?
+
     private let appearanceButton = NSPopUpButton(frame: .zero, pullsDown: false)
     private let automaticButton = NSButton(checkboxWithTitle: "Play the next video automatically", target: nil, action: nil)
     private let sidebarModeButton = NSPopUpButton(frame: .zero, pullsDown: false)
@@ -37,6 +43,14 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     private var measureTask: Task<Void, Never>?
     /// The running re-fetch, or nil. Also the flag that says one is running: there is never more than one.
     private var refetchTask: Task<Void, Never>?
+
+    // MARK: - Queue
+
+    private let emptyQueueButton = NSButton(title: "Empty Queue…", target: nil, action: nil)
+    private let importButton = NSButton(title: "Import File…", target: nil, action: nil)
+    private let addField = NSTextField(string: "")
+    private let addButton = NSButton(title: "Add", target: nil, action: nil)
+    private let queueStatusLabel = NSTextField(labelWithString: "")
 
     init(preferences: Preferences, store: QueueStore, thumbnails: ThumbnailStore) {
         self.preferences = preferences
@@ -102,6 +116,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
             section("Playback", [row([automaticButton])]),
             section("Sidebar", [row([sidebarModeButton, sidebarLayoutButton])]),
             cacheSection(),
+            queueSection(),
             row([reset]),
         ])
         form.orientation = .vertical
@@ -149,6 +164,32 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
             row([NSTextField(labelWithString: "Thumbnails:"), cacheSizeLabel]),
             row([emptyCacheButton, refetchButton, stopRefetchButton]),
             statusLabel(cacheStatusLabel),
+        ])
+    }
+
+    private func queueSection() -> NSView {
+        emptyQueueButton.target = self
+        emptyQueueButton.action = #selector(emptyQueue(_:))
+        emptyQueueButton.bezelStyle = .rounded
+
+        importButton.target = self
+        importButton.action = #selector(importFile(_:))
+        importButton.bezelStyle = .rounded
+
+        addField.placeholderString = "Video id or link"
+        // Return in the field does what the button does, which is what a Mac user will try first.
+        addField.target = self
+        addField.action = #selector(addTypedVideo(_:))
+        addField.widthAnchor.constraint(equalToConstant: 240).isActive = true
+
+        addButton.target = self
+        addButton.action = #selector(addTypedVideo(_:))
+        addButton.bezelStyle = .rounded
+
+        return section("Queue", [
+            row([emptyQueueButton, importButton]),
+            row([addField, addButton]),
+            statusLabel(queueStatusLabel),
         ])
     }
 
@@ -326,6 +367,77 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         refetchButton.isEnabled = !running
         emptyCacheButton.isEnabled = !running
         stopRefetchButton.isEnabled = running
+    }
+
+    // MARK: - Queue
+
+    /// Asks first, and says the whole truth in the asking. Emptying the queue is not recoverable, and it takes the
+    /// resume positions with it: removing a video deletes where you had got to in it, which is deliberate — a
+    /// position left behind would be a permanent trace of a video the owner removed on purpose.
+    @objc private func emptyQueue(_ sender: Any?) {
+        guard let window else { return }
+        let alert = NSAlert()
+        alert.messageText = "Empty the queue?"
+        alert.informativeText = """
+            Every video is removed, and Cue forgets where you had got to in each of them: \
+            removing a video deletes its resume position. This cannot be undone.
+            """
+        alert.addButton(withTitle: "Empty Queue")
+        alert.addButton(withTitle: "Cancel")
+        alert.buttons.first?.hasDestructiveAction = true
+        // Escape cancels, which is the answer a sheet opened by accident should be one keystroke away from.
+        alert.buttons.last?.keyEquivalent = "\u{1b}"
+        alert.beginSheetModal(for: window) { [weak self] response in
+            guard response == .alertFirstButtonReturn, let self else { return }
+            do {
+                try self.store.removeAll()
+            } catch {
+                self.queueStatusLabel.stringValue = "Cue could not empty the queue."
+                return
+            }
+            self.queueStatusLabel.stringValue = "The queue is empty."
+            self.onQueueChange?()
+        }
+    }
+
+    /// Chooses a file here and hands it to the player window, which already knows how to read one off the main
+    /// thread, apply it and report what it did. Nothing about a file is parsed or reported twice.
+    @objc private func importFile(_ sender: Any?) {
+        guard let window else { return }
+        let panel = NSOpenPanel()
+        panel.allowsOtherFileTypes = true
+        panel.canChooseDirectories = false
+        panel.message = "Choose a URL list, a Cue JSON file or a CSV export."
+        panel.beginSheetModal(for: window) { [weak self] response in
+            guard response == .OK, let url = panel.url else { return }
+            self?.onImportFile?(url)
+        }
+    }
+
+    /// Adds whatever was typed or pasted: a bare id, or any YouTube link `VideoID` understands.
+    ///
+    /// The field's contents are never logged and never quoted back on screen — it is a line of the owner's own watch
+    /// list. An empty field is not an error, just nothing to do.
+    @objc private func addTypedVideo(_ sender: Any?) {
+        let text = addField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+        let videoID = VideoID(url: text)
+        var wasAdded = false
+        if let videoID {
+            do {
+                wasAdded = try store.add(videoID)
+            } catch {
+                queueStatusLabel.stringValue = "Cue could not add that video to the queue."
+                return
+            }
+        }
+        let outcome = QueueAddPresentation.outcome(videoID: videoID, wasAdded: wasAdded)
+        queueStatusLabel.stringValue = QueueAddPresentation.message(for: outcome)
+        // Only a video that actually landed clears the field. Text that was not recognised stays put to be corrected,
+        // and a duplicate stays visible so it is clear which one was already there.
+        guard outcome == .added else { return }
+        addField.stringValue = ""
+        onQueueChange?()
     }
 
     // MARK: - Reset

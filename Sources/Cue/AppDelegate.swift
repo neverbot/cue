@@ -93,9 +93,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// to terminating, and a settings window with no queue behind it could only lie about the cache.
     @objc func showSettings(_ sender: Any?) {
         guard let store, let thumbnails else { return }
-        let controller = settingsWindowController
-            ?? SettingsWindowController(preferences: preferences, store: store, thumbnails: thumbnails)
-        settingsWindowController = controller
+        let controller: SettingsWindowController
+        if let existing = settingsWindowController {
+            controller = existing
+        } else {
+            controller = SettingsWindowController(preferences: preferences, store: store, thumbnails: thumbnails)
+            // The settings window changes the queue the player window is drawing, so the sidebar is told to re-read
+            // it rather than being left to catch up at the next launch. An import goes back to the player window's
+            // own reading-and-reporting path: one parser and one report, whichever button started it.
+            controller.onQueueChange = { [weak self] in self?.windowController?.refreshQueue() }
+            controller.onImportFile = { [weak self] url in self?.windowController?.runImport(from: url) }
+            settingsWindowController = controller
+        }
         controller.showWindow(nil)
         controller.window?.makeKeyAndOrderFront(nil)
         NSApp.activate()

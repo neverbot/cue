@@ -635,6 +635,13 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
         return button
     }
 
+    /// Re-reads the queue into the sidebar, for a change made somewhere other than this window — the settings
+    /// window's Queue section. The sidebar is the only copy of the queue on screen, so it catches up now rather than
+    /// at the next launch.
+    func refreshQueue() {
+        refreshSidebar()
+    }
+
     private func refreshSidebar() {
         sidebar.setCurrentVideo(coordinator.currentVideoID)
     }
@@ -665,8 +672,9 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
         }
     }
 
-    /// The file the Import menu item chose. Read, then applied: the panel was the question, so nothing else is asked.
-    private func runImport(from url: URL) {
+    /// The file the Import menu item chose, or the one the settings window's Queue section chose. Read, then applied:
+    /// the panel was the question, so nothing else is asked.
+    func runImport(from url: URL) {
         Task { [weak self] in
             guard let self else { return }
             do {
