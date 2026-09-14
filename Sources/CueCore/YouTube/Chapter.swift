@@ -16,10 +16,6 @@ public struct Chapter: Equatable, Sendable, Identifiable {
 
     public var id: Double { start }
 
-    public func contains(_ position: Double) -> Bool {
-        position >= start && (end.map { position < $0 } ?? true)
-    }
-
     /// Closes an ordered list of open-ended chapters: each ends where the next starts, the last at the duration.
     /// Chapters that start at or past the duration are dropped, as are ones that go backwards.
     static func closing(_ chapters: [Chapter], duration: Double?) -> [Chapter] {

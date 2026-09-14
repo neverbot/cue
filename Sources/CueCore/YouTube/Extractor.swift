@@ -21,8 +21,6 @@ public struct Resolution: Sendable {
     public let expiresAt: Date?
     /// Stream requests must use this User-Agent.
     public let userAgent: String
-
-    public var captionTrackCount: Int { captionTracks.count }
 }
 
 public enum ExtractionError: Error, Equatable, Sendable {

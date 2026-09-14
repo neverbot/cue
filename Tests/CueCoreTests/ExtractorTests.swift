@@ -29,7 +29,7 @@ import Testing
         #expect(resolution.selection.video.height == 1080)
         #expect(resolution.selection.audio.itag == 140)
         #expect(resolution.hlsManifestURL != nil)
-        #expect(resolution.captionTrackCount == 6)
+        #expect(resolution.captionTracks.count == 6)
         #expect(resolution.expiresAt == Date(timeIntervalSince1970: 1_021_540))
         #expect(resolution.userAgent == ClientProfile.visionOS.userAgent)
     }

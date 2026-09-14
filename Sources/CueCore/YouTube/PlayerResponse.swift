@@ -48,7 +48,6 @@ struct PlayerResponse: Decodable, Sendable {
         let languageCode: String?
         let kind: String?
         let name: Text?
-        let vssId: String?
     }
 
     /// InnerTube's text node: either one string or a list of runs.
