@@ -16,11 +16,13 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
     private let store: QueueStore
     private let playerView: PlayerView
     /// The container the player view normally lives in; where it returns when the mini player closes.
-    private let playerContainer: NSView
+    private let playerContainer: VideoAreaView
     /// Shows and hides the sidebar from the video area, so the menu is not the only way.
     private let sidebarButton = PlayerWindowController.sidebarToggleButton()
     /// How far the button sits from the container's left edge. The edge moves with the sidebar, so the inset has to.
     private var sidebarButtonLeading: NSLayoutConstraint!
+    /// How far the button's centre sits below the container's top edge, measured from the traffic lights.
+    private var sidebarButtonCentreY: NSLayoutConstraint!
     private let sidebar: QueueSidebarViewController
     private let sidebarHost: SidebarHost
     private let splitViewController: NSSplitViewController
@@ -76,7 +78,7 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
         sidebar = QueueSidebarViewController(store: store, thumbnails: thumbnails)
 
         // The video fills its own view controller; the overlay sidebar floats in the same view, above it.
-        let playerContainer = NSView(frame: NSRect(origin: .zero, size: WindowGeometry.defaultContentSize))
+        let playerContainer = VideoAreaView(frame: NSRect(origin: .zero, size: WindowGeometry.defaultContentSize))
         playerView.translatesAutoresizingMaskIntoConstraints = false
         playerContainer.addSubview(playerView)
         NSLayoutConstraint.activate([
@@ -136,6 +138,7 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
         sidebar.onPlay = { [weak self] videoID in self?.coordinator.play(videoID) }
         coordinator.onQueueChange = { [weak self] in self?.refreshSidebar() }
         installSidebarButton()
+        playerContainer.onLayout = { [weak self] in self?.alignSidebarButtonWithTrafficLights() }
         refreshSidebar()
     }
 
@@ -420,11 +423,10 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
         sidebarButton.translatesAutoresizingMaskIntoConstraints = false
         playerContainer.addSubview(sidebarButton)
         sidebarButtonLeading = sidebarButton.leadingAnchor.constraint(equalTo: playerContainer.leadingAnchor)
-        NSLayoutConstraint.activate([
-            sidebarButtonLeading,
-            sidebarButton.topAnchor.constraint(equalTo: playerContainer.safeAreaLayoutGuide.topAnchor, constant: 8),
-        ])
+        sidebarButtonCentreY = sidebarButton.centerYAnchor.constraint(equalTo: playerContainer.topAnchor)
+        NSLayoutConstraint.activate([sidebarButtonLeading, sidebarButtonCentreY])
         updateSidebarButton()
+        alignSidebarButtonWithTrafficLights()
         playerView.companionChrome = sidebarButton
     }
 
@@ -437,6 +439,25 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
         let label = showing ? "Hide Sidebar" : "Show Sidebar"
         sidebarButton.toolTip = label
         sidebarButton.setAccessibilityLabel(label)
+    }
+
+    /// Puts the toggle on the same line as the traffic lights, by asking the window where its close button actually
+    /// is rather than assuming a title bar height: that height is not a constant, and the safe area the button used
+    /// to hang from starts *below* the title bar, which is what left it sitting too low. The close button's centre is
+    /// converted into the container's own coordinates, so it stays right whether the sidebar pushes the video aside
+    /// or not. Measured again on every layout pass, so a resize or a trip through full screen cannot stale it.
+    private func alignSidebarButtonWithTrafficLights() {
+        let half = max(sidebarButton.frame.height, sidebarButton.fittingSize.height) / 2
+        let height = playerContainer.bounds.height
+        var belowTop = playerContainer.safeAreaInsets.top / 2
+        if let close = window?.standardWindowButton(.closeButton), close.window === window {
+            let inContainer = playerContainer.convert(close.convert(close.bounds, to: nil), from: nil)
+            belowTop = height - inContainer.midY
+        }
+        // Never above the container's top edge, and never so far down that a wrong reading pushes it off screen.
+        let distance = min(max(belowTop, half), max(height / 2, half))
+        guard sidebarButtonCentreY.constant != distance else { return }
+        sidebarButtonCentreY.constant = distance
     }
 
     private static func sidebarToggleButton() -> NSButton {
@@ -560,6 +581,20 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
         window.titleVisibility = shown ? .visible : .hidden
     }
 
+    /// The traffic lights move with the window's size and with full screen, and the toggle is aligned to them, so
+    /// every one of those moments asks the container to measure them again.
+    func windowDidResize(_ notification: Notification) {
+        playerContainer.needsLayout = true
+    }
+
+    func windowDidEnterFullScreen(_ notification: Notification) {
+        playerContainer.needsLayout = true
+    }
+
+    func windowDidExitFullScreen(_ notification: Notification) {
+        playerContainer.needsLayout = true
+    }
+
     func windowDidChangeOcclusionState(_ notification: Notification) {
         guard let window else { return }
         playerView.videoView.videoLayer.setVisible(window.occlusionState.contains(.visible))
@@ -649,5 +684,17 @@ extension PlayerWindowController: NSMenuItemValidation {
             // unrecognized selector — one this object was never meant to validate — is allowed rather than guessed at.
             return true
         }
+    }
+}
+
+/// The view the video and its overlays live in. It is a plain container except for one thing: it reports every layout
+/// pass, which is when anything pinned to a moving part of the window — the sidebar toggle, which follows the traffic
+/// lights — gets the chance to measure that part again.
+final class VideoAreaView: NSView {
+    var onLayout: (() -> Void)?
+
+    override func layout() {
+        super.layout()
+        onLayout?()
     }
 }
