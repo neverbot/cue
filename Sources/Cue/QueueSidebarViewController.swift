@@ -28,6 +28,7 @@ final class QueueSidebarViewController: NSViewController, NSTableViewDataSource,
 
     private let store: QueueStore
     private let thumbnails: ThumbnailStore
+    private let summaries: any VideoSummarising
     private let counterLabel = NSTextField(labelWithString: "Queue empty")
     private let modeButton = NSPopUpButton(frame: .zero, pullsDown: false)
     private let tableView = NSTableView()
@@ -43,14 +44,26 @@ final class QueueSidebarViewController: NSViewController, NSTableViewDataSource,
     private var images: [String: NSImage] = [:]
     private var imageOrder: [String] = []
     private var requestedImages: Set<String> = []
+    /// Videos already asked about, whatever the answer was. One question per video per session.
+    private var requestedTitles: Set<String> = []
+    /// Videos still waiting to be named, in the order they came on screen.
+    private var pendingTitles: [VideoID] = []
+    /// The one task draining `pendingTitles`. Nil when nothing is being fetched.
+    private var titleTask: Task<Void, Never>?
     private let logger = Logger(subsystem: "com.neverbot.cue", category: "queue")
 
     /// The mode is handed in rather than set afterwards, so the restored one is in place before the view is built and
     /// the popup is never briefly showing a mode the table is not drawing.
-    init(store: QueueStore, thumbnails: ThumbnailStore, mode: QueueDisplayMode = .list) {
+    init(
+        store: QueueStore,
+        thumbnails: ThumbnailStore,
+        mode: QueueDisplayMode = .list,
+        summaries: any VideoSummarising = OEmbedSummaries()
+    ) {
         self.store = store
         self.thumbnails = thumbnails
         self.mode = mode
+        self.summaries = summaries
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -165,10 +178,12 @@ final class QueueSidebarViewController: NSViewController, NSTableViewDataSource,
     override func viewDidLayout() {
         super.viewDidLayout()
         loadVisibleThumbnails()
+        loadVisibleTitles()
     }
 
     @objc private func visibleRowsChanged() {
         loadVisibleThumbnails()
+        loadVisibleTitles()
     }
 
     // MARK: - Contents
@@ -181,6 +196,7 @@ final class QueueSidebarViewController: NSViewController, NSTableViewDataSource,
         tableView.rowHeight = mode.rowHeight
         tableView.reloadData()
         if mode.showsThumbnail { loadVisibleThumbnails() }
+        loadVisibleTitles()
     }
 
     func setCurrentVideo(_ videoID: VideoID?) {
@@ -334,6 +350,75 @@ final class QueueSidebarViewController: NSViewController, NSTableViewDataSource,
         }
         guard let row = rows.firstIndex(where: { $0.videoID == identifier }) else { return }
         tableView.reloadData(forRowIndexes: IndexSet(integer: row), columnIndexes: IndexSet(integer: 0))
+    }
+
+    // MARK: - Titles
+
+    /// Names the videos on screen, the way thumbnails are fetched and for the same reason: a queue of hundreds must
+    /// not ask about hundreds of videos because the sidebar was scrolled. A row whose title is already known, or
+    /// already asked about, is skipped, so repeating this on every scroll and every layout costs nothing.
+    ///
+    /// Unlike thumbnails this runs in every display mode: a title is what the row says in all three.
+    private func loadVisibleTitles() {
+        let visible = tableView.rows(in: tableView.visibleRect)
+        guard visible.length > 0 else { return }
+        for row in visible.location..<(visible.location + visible.length) where rows.indices.contains(row) {
+            let identifier = rows[row].videoID
+            guard !rows[row].isTitleKnown, !requestedTitles.contains(identifier),
+                  let videoID = VideoID(identifier) else { continue }
+            requestedTitles.insert(identifier)
+            pendingTitles.append(videoID)
+        }
+        fetchPendingTitles()
+    }
+
+    /// Drains `pendingTitles` one video at a time.
+    ///
+    /// Strictly sequential: one task, each answer awaited to the end before the next question is asked, so a sidebar
+    /// scrolled through a long queue spreads its requests out instead of firing them all at once. A video that
+    /// cannot be named is left as it is and the next one carries on: it was marked as asked about before the request
+    /// went out, so a failure is never retried and one dead video cannot hold up the rest of the queue.
+    private func fetchPendingTitles() {
+        guard titleTask == nil, !pendingTitles.isEmpty else { return }
+        titleTask = Task { [weak self, summaries] in
+            while !Task.isCancelled, let videoID = self?.takeNextPendingTitle() {
+                guard let summary = try? await summaries.summary(for: videoID) else { continue }
+                self?.apply(summary)
+            }
+            self?.titleTask = nil
+        }
+    }
+
+    private func takeNextPendingTitle() -> VideoID? {
+        pendingTitles.isEmpty ? nil : pendingTitles.removeFirst()
+    }
+
+    /// Writes one answer through the store, so the title survives a relaunch, and redraws the row it belongs to.
+    /// The store keeps whatever title is already there, so an answer that arrives for a video the owner has since
+    /// played, or imported a title for, cannot overwrite it.
+    private func apply(_ summary: VideoSummary) {
+        do {
+            // No duration: the oEmbed endpoint does not report one, and a video's duration is filled in by the
+            // extractor when it is played.
+            try store.updateMetadata(for: summary.videoID, title: summary.title, author: summary.author, duration: nil)
+        } catch {
+            // Never the id, the title or the URL, at any level: this is the owner's private queue.
+            logger.error("Queue database error: \(String(describing: error), privacy: .private)")
+            return
+        }
+        redrawRow(for: summary.videoID.rawValue)
+    }
+
+    /// Re-reads one video and redraws its row alone. Reloading the whole table on every answer would flicker through
+    /// a long queue and fight the scroll the owner is in the middle of.
+    private func redrawRow(for identifier: String) {
+        guard let index = rows.firstIndex(where: { $0.videoID == identifier }),
+              let videoID = VideoID(identifier),
+              let video = (try? store.video(for: videoID)) ?? nil,
+              let row = QueuePresentation.rows(for: [video], mode: mode, current: currentVideoID).first
+        else { return }
+        rows[index] = row
+        tableView.reloadData(forRowIndexes: IndexSet(integer: index), columnIndexes: IndexSet(integer: 0))
     }
 
     // MARK: - NSTableViewDataSource
