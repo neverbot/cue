@@ -1040,9 +1040,11 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
               let visible = (window.screen ?? NSScreen.main)?.visibleFrame else { return }
         let frame = WindowGeometry.frameFittedToVideo(
             window: window.frame,
-            contentSize: window.contentRect(forFrameRect: window.frame).size,
+            // The picture's own view, measured. Not the content minus the sidebar: a split view also spends width on
+            // its dividers, so the subtraction came out a few points wide and the fit left the very bar it removes.
+            // An overlaid sidebar needs no special case here either — it floats inside this view rather than beside it.
+            videoAreaSize: playerContainer.frame.size,
             aspectRatio: video.aspectRatio,
-            sidebarWidth: widthBesideVideo,
             minimumContentSize: window.contentMinSize,
             visibleFrame: visible
         )

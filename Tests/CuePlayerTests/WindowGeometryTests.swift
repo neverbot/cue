@@ -92,17 +92,17 @@ import Testing
     /// The window's smallest content size, as the player window sets it.
     let minimumContent = CGSize(width: 320, height: 180)
 
+    /// `videoAreaSize` defaults to the whole window: a player with no column beside it and its title bar drawn over
+    /// the picture, which is the plain case.
     private func fitted(
         _ window: CGRect,
-        contentSize: CGSize? = nil,
-        aspectRatio: Double = 16.0 / 9.0,
-        sidebarWidth: CGFloat = 0
+        videoAreaSize: CGSize? = nil,
+        aspectRatio: Double = 16.0 / 9.0
     ) -> CGRect {
         WindowGeometry.frameFittedToVideo(
             window: window,
-            contentSize: contentSize ?? window.size,
+            videoAreaSize: videoAreaSize ?? window.size,
             aspectRatio: aspectRatio,
-            sidebarWidth: sidebarWidth,
             minimumContentSize: minimumContent,
             visibleFrame: visibleFrame
         )
@@ -132,13 +132,22 @@ import Testing
     }
 
     @Test func fitsTheVideoBesideTheSidebarRatherThanTheWholeWindow() {
-        // 1240 of content less a 280-point sidebar is a 960-wide video area, which wants 540 of height; the sidebar's
-        // width and the 28 points of title bar are added back afterwards.
+        // A 960-wide picture measured inside a 1240-wide window: 280 points of sidebar and 28 of title bar. The
+        // picture wants 540 of height, and both are added back afterwards.
         #expect(fitted(
             CGRect(x: 100, y: 100, width: 1240, height: 700),
-            contentSize: CGSize(width: 1240, height: 672),
-            sidebarWidth: 280
+            videoAreaSize: CGSize(width: 960, height: 672)
         ) == CGRect(x: 100, y: 232, width: 1240, height: 568))
+    }
+
+    @Test func countsTheDividersASplitViewSpendsBesideThePicture() {
+        // The defect this signature exists to prevent: the picture is 958 wide inside a 1240-wide window, because a
+        // sidebar and an inspector each cost a divider on top of their 280 and 0 points. Deriving the video area as
+        // content-minus-sidebar would call it 960 and leave two points of bar; measuring it lands exactly.
+        #expect(fitted(
+            CGRect(x: 0, y: 100, width: 1240, height: 700),
+            videoAreaSize: CGSize(width: 958, height: 700)
+        ) == CGRect(x: 0, y: 261, width: 1240, height: 539))
     }
 
     @Test func pushesAFittedFrameBackInsideTheScreen() {

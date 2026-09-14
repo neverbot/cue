@@ -85,44 +85,50 @@ public enum WindowGeometry {
     /// bars. Once the window has been resized by hand there is no way to land on that shape with the mouse, and this
     /// is the arithmetic that lands on it.
     ///
-    /// The video area is the content minus `sidebarWidth`, which is zero when the sidebar is hidden or floats over the
-    /// picture. The area's current width is kept and its height follows the aspect ratio; only when that would make the
-    /// window taller than the screen is the height kept and the width made to follow instead. The result never falls
-    /// below `minimumContentSize`, keeps the window's top-left corner — the corner macOS resizes around — and is pushed
-    /// back inside `visibleFrame` if it spills off an edge.
+    /// `videoAreaSize` is the picture's own view, **measured**, not the content minus a column's expected width.
+    /// Deriving it was the bug this signature exists to make impossible: a window holding a split view also spends
+    /// width on dividers and on whatever insets the platform adds around a sidebar item, so content-minus-sidebar was
+    /// a few points wider than the picture really was, and fitting to it left exactly the hairline bar the command is
+    /// supposed to remove. It went unnoticed while the window held two items and appeared when a third arrived.
+    /// Everything that is not picture — title bar, sidebar, inspector, dividers, insets — is whatever is left over
+    /// between this size and the window, and is added back untouched.
+    ///
+    /// The area's current width is kept and its height follows the aspect ratio; only when that would make the window
+    /// taller than the screen is the height kept and the width made to follow instead. The result never falls below
+    /// `minimumContentSize`, keeps the window's top-left corner — the corner macOS resizes around — and is pushed back
+    /// inside `visibleFrame` if it spills off an edge.
     ///
     /// Sizes are whole points: a video area half a point out leaves a hairline bar, which is the defect being fixed, so
     /// the dimension being kept is rounded first and the other derived from it.
     public static func frameFittedToVideo(
         window: CGRect,
-        contentSize: CGSize,
+        videoAreaSize: CGSize,
         aspectRatio: Double,
-        sidebarWidth: CGFloat,
         minimumContentSize: CGSize,
         visibleFrame: CGRect
     ) -> CGRect {
         let aspect = CGFloat(aspectRatio)
-        guard aspect > 0, contentSize.width > 0, contentSize.height > 0 else { return window }
-        // What the window adds around its content: the title bar, when it is not drawn over the content.
-        let chromeWidth = window.width - contentSize.width
-        let chromeHeight = window.height - contentSize.height
-        let sidebar = min(max(sidebarWidth, 0), contentSize.width)
-        let minimumVideoWidth = max(minimumContentSize.width - sidebar, 1)
-        let minimumVideoHeight = max(minimumContentSize.height, 1)
+        guard aspect > 0, videoAreaSize.width > 0, videoAreaSize.height > 0 else { return window }
+        // Everything the window spends on something other than the picture, in each axis. One measured number, so a
+        // divider nobody remembered is already inside it.
+        let chromeWidth = max(window.width - videoAreaSize.width, 0)
+        let chromeHeight = max(window.height - videoAreaSize.height, 0)
+        let minimumVideoWidth = max(minimumContentSize.width - chromeWidth, 1)
+        let minimumVideoHeight = max(minimumContentSize.height - chromeHeight, 1)
 
         // Candidate A keeps the width the video area already has; candidate B keeps its height, and is used only when
         // A would not fit on the screen vertically.
-        let keptWidth = max(contentSize.width - sidebar, 1)
+        let keptWidth = max(videoAreaSize.width, 1)
         let video: CGSize
         if keptWidth / aspect + chromeHeight > visibleFrame.height {
-            let height = max(contentSize.height, minimumVideoHeight, minimumVideoWidth / aspect).rounded()
+            let height = max(videoAreaSize.height, minimumVideoHeight, minimumVideoWidth / aspect).rounded()
             video = CGSize(width: (height * aspect).rounded(), height: height)
         } else {
             let width = max(keptWidth, minimumVideoWidth, minimumVideoHeight * aspect).rounded()
             video = CGSize(width: width, height: (width / aspect).rounded())
         }
 
-        let width = video.width + sidebar + chromeWidth
+        let width = video.width + chromeWidth
         let height = video.height + chromeHeight
         var x = window.minX
         var y = window.maxY - height
