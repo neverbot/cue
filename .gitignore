@@ -9,6 +9,9 @@
 # Throwaway artefacts (spikes, screenshots, probe dumps)
 /.scratch/
 
+# Design context for the interface work
+/.impeccable/
+
 # Local test data
 *.txt
 !/packaging/licenses/*.txt
