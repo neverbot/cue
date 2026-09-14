@@ -220,6 +220,12 @@ apply immediately. Export writes SubRip (`.srt`) or WebVTT (`.vtt`) from the sam
 The mini player (⌘⇧M) moves the video into a small floating window that stays above other apps. It is the same player:
 the stream is not re-resolved, playback does not pause, and closing the small window brings the video back.
 
+Fit the window to the video (⌘0, or the button in the controls) resizes the window until the picture fills it exactly,
+with no black bars on any side. Dragging a corner cannot land on that shape by hand, so once a window has been resized
+there is otherwise no way back to an exact fit. It keeps the width you gave the window and moves the height, unless
+that would run off the screen, and it measures the video area rather than the whole window, so an open sidebar does not
+bring the bars back.
+
 | Key | Does |
 |---|---|
 | `c` | Chapters panel |
@@ -229,6 +235,7 @@ the stream is not re-resolved, playback does not pause, and closing the small wi
 | `⌥→` / `⌥←` | Next / previous chapter |
 | `z` / `x` | Subtitle delay −0.1 s / +0.1 s |
 | `⌘⇧M` | Mini player |
+| `⌘0` | Fit the window to the video |
 
 ## Contributing
 
