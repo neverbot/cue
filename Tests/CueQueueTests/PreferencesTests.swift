@@ -1,3 +1,4 @@
+import AppKit
 @testable import CueQueue
 import Foundation
 import Testing
@@ -83,6 +84,71 @@ private final class MemoryPreferenceStore: PreferenceStore {
         preferences.reset()
         #expect(preferences.sidebar == SidebarSettings.standard)
         // Nothing of ours is left behind: a settings window's "restore defaults" has to clear the domain, not mask it.
+        #expect(store.values.isEmpty)
+    }
+
+    @Test func followsTheSystemAppearanceUntilOneIsChosen() {
+        #expect(Preferences(store: MemoryPreferenceStore()).appearance == .system)
+        #expect(AppearancePreference.standard == .system)
+    }
+
+    @Test func restoresEveryAppearanceItCouldHaveBeenLeftIn() {
+        for appearance in AppearancePreference.allCases {
+            let store = MemoryPreferenceStore()
+            Preferences(store: store).appearance = appearance
+            // A second instance, as if the app had quit and come back.
+            #expect(Preferences(store: store).appearance == appearance)
+        }
+    }
+
+    @Test func fallsBackToTheSystemAppearanceWhenTheStoredNameIsNotOneThisBuildKnows() {
+        let store = MemoryPreferenceStore()
+        store.values[PreferenceKey.appearance.rawValue] = "sepia"
+        #expect(Preferences(store: store).appearance == .system)
+    }
+
+    @Test func fallsBackToTheSystemAppearanceWhenTheStoredValueIsTheWrongTypeAltogether() {
+        let store = MemoryPreferenceStore()
+        store.values[PreferenceKey.appearance.rawValue] = 3
+        #expect(Preferences(store: store).appearance == .system)
+    }
+
+    @Test func mapsEachAppearanceToTheOneTheSystemKnowsByThatName() {
+        // Following the system is an absent appearance, not the light one: an app that names `aqua` stops following a
+        // switch to dark that happens while it runs.
+        #expect(AppearancePreference.system.appearanceName == nil)
+        #expect(AppearancePreference.light.appearanceName == .aqua)
+        #expect(AppearancePreference.dark.appearanceName == .darkAqua)
+    }
+
+    @Test func playsTheNextVideoAutomaticallyUntilItIsTurnedOff() {
+        #expect(Preferences(store: MemoryPreferenceStore()).playsNextAutomatically)
+    }
+
+    @Test func remembersTheNextVideoNotPlayingAutomatically() {
+        // Worth a round trip: `false` is also what an absent key would read as under a different default.
+        let store = MemoryPreferenceStore()
+        Preferences(store: store).playsNextAutomatically = false
+        #expect(Preferences(store: store).playsNextAutomatically == false)
+    }
+
+    @Test func fallsBackToPlayingTheNextVideoWhenTheStoredValueIsTheWrongTypeAltogether() {
+        let store = MemoryPreferenceStore()
+        store.values[PreferenceKey.playsNextAutomatically.rawValue] = "off"
+        #expect(Preferences(store: store).playsNextAutomatically)
+    }
+
+    @Test func resetReturnsEveryStoredSettingToItsDefault() {
+        // The whole promise of the reset button: a key that a reset left behind would make it a lie.
+        let store = MemoryPreferenceStore()
+        let preferences = Preferences(store: store)
+        preferences.appearance = .dark
+        preferences.playsNextAutomatically = false
+        preferences.sidebar = SidebarSettings(mode: .compact, layout: .overlay, isVisible: false)
+        preferences.reset()
+        #expect(preferences.appearance == .system)
+        #expect(preferences.playsNextAutomatically)
+        #expect(preferences.sidebar == SidebarSettings.standard)
         #expect(store.values.isEmpty)
     }
 

@@ -157,6 +157,16 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
         sidebar.onFileDrop = { [weak self] url in self?.offerImport(from: url) }
         playerView.onFileDrop = { [weak self] url in self?.offerImport(from: url) }
         coordinator.onQueueChange = { [weak self] in self?.refreshSidebar() }
+        // The coordinator holds this while the app runs; the store is where it survives a quit.
+        coordinator.playsNextAutomatically = preferences.playsNextAutomatically
+        // The settings window writes the same keys this class does. Rather than the two knowing about each other,
+        // both write to the store and read back from it: whatever changed a setting, this window catches up here.
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(preferencesChanged),
+            name: Preferences.didChangeNotification,
+            object: nil
+        )
         installSidebarButton()
         refreshSidebar()
     }
@@ -416,7 +426,9 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
 
     /// Queue ▸ Play Next Automatically. Checked when finishing a video starts the next one.
     @objc func togglePlaysNextAutomatically(_ sender: Any?) {
-        coordinator.playsNextAutomatically.toggle()
+        // Written rather than only flipped, so it is still off after a quit. The settings window shows the same
+        // setting and hears about this write, so the checkbox and the checkmark never disagree.
+        preferences.playsNextAutomatically = !coordinator.playsNextAutomatically
     }
 
     // MARK: - Sidebar
@@ -438,6 +450,28 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
             layout: sidebarHost.layout,
             isVisible: sidebarHost.isVisible
         )
+    }
+
+    /// Something wrote a preference: this window, the settings window, or a reset. Everything here is brought to what
+    /// is stored.
+    ///
+    /// This is also what runs after this class's own writes, which is why every step below is guarded by a comparison
+    /// rather than applied blindly: applying a change that is already in place would call back into `saveSidebar`,
+    /// write again, and post again. With the guards the second pass finds nothing to do and stops.
+    @objc private func preferencesChanged() {
+        coordinator.playsNextAutomatically = preferences.playsNextAutomatically
+        let settings = preferences.sidebar
+        if sidebar.mode != settings.mode { sidebar.setMode(settings.mode) }
+        if sidebarHost.layout != settings.layout {
+            sidebarHost.setLayout(settings.layout)
+            updateSidebarButton()
+        }
+        if sidebarHost.isVisible != settings.isVisible {
+            let width = pushedSidebarWidth()
+            sidebarHost.setVisible(settings.isVisible)
+            updateSidebarButton()
+            resizeWindow(forSidebarWidth: width, appearing: settings.isVisible)
+        }
     }
 
     /// The width the pushed sidebar takes, read from the item while it is on screen and remembered for when it is not.

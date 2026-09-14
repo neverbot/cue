@@ -3,19 +3,27 @@ import CueCore
 import CuePlayer
 import CueQueue
 
+/// Every delegate callback here already runs on the main thread, and now that this class holds the preferences —
+/// a reference type it hands to the two window controllers, which are main-actor bound — saying so is what lets it
+/// share them rather than send them.
+@MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Overrides the database location, for automated checks that must not touch the real one.
-    static let databasePathVariable = "CUE_DATABASE_PATH"
+    nonisolated static let databasePathVariable = "CUE_DATABASE_PATH"
 
     private let arguments: [String]
     private var windowController: PlayerWindowController?
+    /// One store for the whole app, shared with the player window and the settings window, so a setting has one home.
+    private let preferences = Preferences()
+    /// Built the first time the menu item is chosen, and kept afterwards.
+    private var settingsWindowController: SettingsWindowController?
 
     init(arguments: [String]) {
         self.arguments = arguments
     }
 
     /// The real database, or the override from the environment.
-    static func databaseURL(environment: [String: String] = ProcessInfo.processInfo.environment) -> URL {
+    nonisolated static func databaseURL(environment: [String: String] = ProcessInfo.processInfo.environment) -> URL {
         guard let path = environment[databasePathVariable], !path.isEmpty else { return QueueDatabase.defaultFileURL }
         return URL(fileURLWithPath: path)
     }
@@ -25,6 +33,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if QueueSmoke.isRequested(in: arguments) {
             QueueSmoke.run(databaseURL: databaseURL)
         }
+        // Before any window is built, so the first thing drawn is already in the chosen appearance rather than
+        // flickering out of the system one. Re-applied on every change, including a reset.
+        applyAppearance()
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(preferencesChanged),
+            name: Preferences.didChangeNotification,
+            object: nil
+        )
         NSApp.mainMenu = MainMenu.make()
         do {
             let store = QueueStore(database: try QueueDatabase.open(at: databaseURL))
@@ -38,7 +55,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 // One extractor, so one URLSession and one shared solver cache for the whole app. Wrapped so the
                 // queue can warm the next video ahead of playback (see PlayerWindowController).
                 resolver: PrefetchingResolver(wrapping: Extractor()),
-                resumeStore: DatabaseResumeStore(store: store)
+                resumeStore: DatabaseResumeStore(store: store),
+                preferences: preferences
             )
             windowController = controller
             controller.showWindow(nil)
@@ -56,6 +74,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             alert.runModal()
             NSApp.terminate(nil)
         }
+    }
+
+    /// Cue ▸ Settings… (⌘,). The window is a plain one: it takes key focus while it is in front, and gives it back to
+    /// the player when it closes, so the player's own key bindings are never in two places at once.
+    @objc func showSettings(_ sender: Any?) {
+        let controller = settingsWindowController ?? SettingsWindowController(preferences: preferences)
+        settingsWindowController = controller
+        controller.showWindow(nil)
+        controller.window?.makeKeyAndOrderFront(nil)
+        NSApp.activate()
+    }
+
+    @objc private func preferencesChanged() {
+        applyAppearance()
+    }
+
+    /// Nil means "no appearance of our own", which is how an app follows the system — including a switch to dark that
+    /// happens while Cue is running. The chrome over the video is not affected by any of this: it draws absolute
+    /// colours, because it sits on the picture.
+    private func applyAppearance() {
+        NSApp.appearance = preferences.appearance.appearanceName.flatMap(NSAppearance.init(named:))
     }
 
     /// `cue://add?url=…`, from a browser, a bookmarklet or `open`.
@@ -83,6 +122,10 @@ enum MainMenu {
     static func make() -> NSMenu {
         let menu = NSMenu()
         menu.addItem(submenu("Cue", items: [
+            // ⌘, is where macOS keeps settings in every app. Nothing else here claims a comma: every other shortcut
+            // in Cue is a letter, plus ⌘0 for fitting the window.
+            NSMenuItem(title: "Settings…", action: #selector(AppDelegate.showSettings(_:)), keyEquivalent: ","),
+            .separator(),
             NSMenuItem(title: "Hide Cue", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h"),
             .separator(),
             NSMenuItem(title: "Quit Cue", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"),

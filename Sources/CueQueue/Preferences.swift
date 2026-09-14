@@ -15,6 +15,8 @@ extension UserDefaults: PreferenceStore {}
 /// settings window that offers to restore defaults resets exactly this list: a key that is not here does not exist,
 /// and cannot be quietly left behind by a reset.
 public enum PreferenceKey: String, CaseIterable, Sendable {
+    case appearance = "appearance"
+    case playsNextAutomatically = "playback.plays-next-automatically"
     case sidebarMode = "sidebar.mode"
     case sidebarLayout = "sidebar.layout"
     case sidebarVisible = "sidebar.visible"
@@ -48,6 +50,37 @@ public final class Preferences {
         self.store = store
     }
 
+    /// Posted after anything here is written, including a reset, so that every part of the app showing a preference
+    /// catches up at once. There is one copy of each setting — this store — and both the settings window and the
+    /// controls that also change it (the sidebar's own popup, the Queue menu) read it back from here rather than
+    /// keeping a second copy in step by hand.
+    public static let didChangeNotification = Notification.Name("com.neverbot.cue.preferences-did-change")
+
+    /// Whether the sidebar, the panels and the settings window follow the system, or are pinned light or dark.
+    public var appearance: AppearancePreference {
+        get { value(.appearance, fallingBackTo: AppearancePreference.standard) }
+        set {
+            store.set(newValue.rawValue, forKey: PreferenceKey.appearance.rawValue)
+            announceChange()
+        }
+    }
+
+    /// Whether finishing a video starts the next one. The queue coordinator holds this while the app runs; this is
+    /// where it survives a quit.
+    public var playsNextAutomatically: Bool {
+        get {
+            // A bool is stored as a bool: anything else is not a value this can use.
+            store.object(forKey: PreferenceKey.playsNextAutomatically.rawValue) as? Bool ?? Self.playsNextAutomaticallyByDefault
+        }
+        set {
+            store.set(newValue, forKey: PreferenceKey.playsNextAutomatically.rawValue)
+            announceChange()
+        }
+    }
+
+    /// Working through a queue is the point of the app, so it moves on by itself until told otherwise.
+    public static let playsNextAutomaticallyByDefault = true
+
     /// The sidebar's appearance. Read once at startup; written whenever one of the three changes.
     public var sidebar: SidebarSettings {
         get {
@@ -63,6 +96,7 @@ public final class Preferences {
             store.set(newValue.mode.rawValue, forKey: PreferenceKey.sidebarMode.rawValue)
             store.set(newValue.layout.rawValue, forKey: PreferenceKey.sidebarLayout.rawValue)
             store.set(newValue.isVisible, forKey: PreferenceKey.sidebarVisible.rawValue)
+            announceChange()
         }
     }
 
@@ -72,6 +106,13 @@ public final class Preferences {
         for key in PreferenceKey.allCases {
             store.removeObject(forKey: key.rawValue)
         }
+        announceChange()
+    }
+
+    /// Tells whoever is showing a preference that it changed. Posted after the write, never before, so an observer
+    /// that reads straight back gets the new value.
+    private func announceChange() {
+        NotificationCenter.default.post(name: Self.didChangeNotification, object: nil)
     }
 
     /// One stored enum, or the default. A value that is not a string, or is a string the enum does not recognise,
