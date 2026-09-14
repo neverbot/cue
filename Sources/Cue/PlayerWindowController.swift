@@ -35,9 +35,6 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
     private let inspector: InspectorViewController
     private let inspectorItem: NSSplitViewItem
     private var fittedVideoSize: VideoSize?
-    /// The width the pushed sidebar last took on screen. A collapsed split item reports nothing, so the width it is
-    /// about to take again has to be remembered from when it was visible.
-    private var lastSidebarWidth: CGFloat = QueueSidebarViewController.width
     /// The chapters of whatever is playing, rebuilt when the stream changes.
     private var timeline = ChapterTimeline(chapters: [], duration: nil)
     /// Storyboard sheets for the video playing now. Recreated per video so nothing survives into the next one.
@@ -98,7 +95,11 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
         sidebarItem.minimumThickness = 200
         sidebarItem.maximumThickness = 420
         sidebarItem.canCollapse = true
-        sidebarItem.holdingPriority = .defaultLow
+        // Held high for the same reason as the inspector: a split view hands new width to its lowest-priority item
+        // first, and at the default the queue was as willing to grow as the video beside it, so a window growing to
+        // make room split the difference between them. Held high, the video is the only low item left and takes it
+        // all, which is what keeps the picture the shape it already had.
+        sidebarItem.holdingPriority = .defaultHigh
 
         // The chapters and the subtitles live in a trailing inspector, which is the platform's own construction for a
         // second column beside the content: it takes no key focus from the player, cannot drift behind the window,
@@ -501,12 +502,29 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
     // MARK: - Sidebar
 
     @objc func toggleSidebar(_ sender: Any?) {
-        let width = pushedSidebarWidth()
-        let appearing = !sidebarHost.isVisible
-        sidebarHost.toggleVisible()
-        updateSidebarButton()
-        resizeWindow(forSidebarWidth: width, appearing: appearing)
+        setSidebarVisible(!sidebarHost.isVisible)
         saveSidebarSettings()
+    }
+
+    /// Shows or hides the queue and takes its width out of the window rather than out of the picture, measured the
+    /// same way the inspector measures: read the picture, collapse, let the layout settle, then give the window back
+    /// what the picture lost. The width the column actually takes depends on holding priorities, thicknesses and
+    /// wherever the divider was last dragged, so it is never assumed.
+    ///
+    /// Only in push layout. A floating sidebar is drawn over the video and the picture never changed size, so there
+    /// is nothing to give back.
+    private func setSidebarVisible(_ visible: Bool) {
+        guard visible != sidebarHost.isVisible else { return }
+        guard sidebarHost.layout == .push else {
+            sidebarHost.setVisible(visible)
+            updateSidebarButton()
+            return
+        }
+        let videoWidth = playerContainer.frame.width
+        sidebarHost.setVisible(visible)
+        updateSidebarButton()
+        splitViewController.view.layoutSubtreeIfNeeded()
+        restoreVideoWidth(to: videoWidth)
     }
 
     /// Writes the sidebar's appearance the moment it changes, assembled from the live objects rather than from
@@ -534,10 +552,7 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
             updateSidebarButton()
         }
         if sidebarHost.isVisible != settings.isVisible {
-            let width = pushedSidebarWidth()
-            sidebarHost.setVisible(settings.isVisible)
-            updateSidebarButton()
-            resizeWindow(forSidebarWidth: width, appearing: settings.isVisible)
+            setSidebarVisible(settings.isVisible)
         }
         let inspectorSettings = preferences.inspector
         if inspector.tab != inspectorSettings.tab { inspector.setTab(inspectorSettings.tab) }
@@ -545,20 +560,6 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
             if inspectorSettings.isVisible { refreshInspector() }
             setInspectorVisible(inspectorSettings.isVisible)
         }
-    }
-
-    /// The width the pushed sidebar takes, read from the item while it is on screen and remembered for when it is not.
-    private func pushedSidebarWidth() -> CGFloat {
-        let current = sidebarItem.viewController.view.frame.width
-        if sidebarHost.isVisible, current > 0 { lastSidebarWidth = current }
-        return lastSidebarWidth
-    }
-
-    /// The queue sidebar's half of the rule below: nothing to do in overlay layout, where the sidebar floats over the
-    /// video and the video area never changed size in the first place.
-    private func resizeWindow(forSidebarWidth width: CGFloat, appearing: Bool) {
-        guard sidebarHost.layout == .push else { return }
-        resizeWindow(byWidth: width, appearing: appearing)
     }
 
     /// Takes a column's width out of the window rather than out of the picture, so showing or hiding the queue or the

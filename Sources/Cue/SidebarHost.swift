@@ -32,7 +32,7 @@ final class SidebarHost {
         self.parent = parent
         self.layout = layout
         self.isVisible = isVisible
-        apply(animated: false)
+        apply()
     }
 
     func toggleVisible() {
@@ -42,22 +42,24 @@ final class SidebarHost {
     func setVisible(_ visible: Bool) {
         guard visible != isVisible else { return }
         isVisible = visible
-        apply(animated: true)
+        apply()
     }
 
     func setLayout(_ newLayout: SidebarLayout) {
         guard newLayout != layout else { return }
         layout = newLayout
-        apply(animated: false)
+        apply()
     }
 
-    private func apply(animated: Bool) {
+    /// Collapsing is deliberately not animated. The window controller measures the picture immediately after this
+    /// returns so it can give the window back exactly the width the column took, and an animation in flight reports
+    /// an intermediate width — which would leave the correction wrong and the video letterboxed, the very defect
+    /// this measuring exists to remove. The inspector gave up its animation for the same reason.
+    private func apply() {
         switch (layout, isVisible) {
         case (.push, let visible):
             detachFromOverlay()
             attachToSplitItem()
-            splitItem.animator().isCollapsed = !visible
-            if animated { return }
             splitItem.isCollapsed = !visible
         case (.overlay, true):
             splitItem.isCollapsed = true
