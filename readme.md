@@ -118,6 +118,8 @@ CUE_MPV_TESTS=1 scripts/test.sh            # also play a synthetic clip through 
 
 Use `scripts/test.sh` rather than `swift test`. On a machine with only the Command Line Tools installed, SwiftPM does not find the Swift Testing framework on its own. The script adds the missing framework search paths and forwards any arguments to `swift test`.
 
+It also pins `--build-system native`. SwiftPM's default engine fails here at random with `external macro implementation type 'TestingMacros.…Macro' could not be found`, always blamed on whichever test file the compiler reached first; the same sources build and pass under the classic engine, and a warm full run takes about a second instead of tens of seconds plus retries. One consequence worth knowing: the classic engine links every test target into a single bundle, so a full run prints **one** summary line for the whole suite rather than one per target. That is the complete run, not a partial one.
+
 The default suite runs offline against sanitized fixtures. The live tests resolve two public videos and check that their streams answer. They depend on YouTube's current behaviour and are opt-in for that reason.
 
 ## How it works
