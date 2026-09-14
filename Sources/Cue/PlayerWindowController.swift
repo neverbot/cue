@@ -95,11 +95,11 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
         sidebarItem.minimumThickness = 200
         sidebarItem.maximumThickness = 420
         sidebarItem.canCollapse = true
-        // Held high for the same reason as the inspector: a split view hands new width to its lowest-priority item
-        // first, and at the default the queue was as willing to grow as the video beside it, so a window growing to
-        // make room split the difference between them. Held high, the video is the only low item left and takes it
-        // all, which is what keeps the picture the shape it already had.
-        sidebarItem.holdingPriority = .defaultHigh
+        // Just above the video, not at the top of the scale. A split view hands new width to its lowest-priority item
+        // first, so the queue only has to outrank the video for the picture to receive what the window gains. Setting
+        // this to `.defaultHigh` also achieved that, and cost the divider: at 750 the item reads as fixed width and
+        // stops being draggable. One point above the video's 250 keeps the resize behaviour and gives the handle back.
+        sidebarItem.holdingPriority = NSLayoutConstraint.Priority(NSLayoutConstraint.Priority.defaultLow.rawValue + 1)
 
         // The chapters and the subtitles live in a trailing inspector, which is the platform's own construction for a
         // second column beside the content: it takes no key focus from the player, cannot drift behind the window,
@@ -114,7 +114,7 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
         // inspector was as willing to grow as the video beside it, so the width the window gained when the inspector
         // opened was split between the two and the picture came back with bars around it. Held high, the inspector
         // keeps the width it has and the video is the only item left to take the difference.
-        inspectorItem.holdingPriority = .defaultHigh
+        inspectorItem.holdingPriority = NSLayoutConstraint.Priority(NSLayoutConstraint.Priority.defaultLow.rawValue + 1)
         inspectorItem.isCollapsed = !inspectorSettings.isVisible
 
         splitViewController = NSSplitViewController()
@@ -858,6 +858,24 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
     func windowDidChangeOcclusionState(_ notification: Notification) {
         guard let window else { return }
         playerView.videoView.videoLayer.setVisible(window.occlusionState.contains(.visible))
+    }
+
+    /// The bare keys work wherever the focus happens to be.
+    ///
+    /// `PlayerView` only sees a key while it holds first responder, and this window now contains the queue's table,
+    /// the inspector's two tables and its page control — each of which takes first responder the moment it is
+    /// clicked. The queue's table does forward what it does not use, but that chain runs up through the split view
+    /// to the window, and the player view is a sibling branch it never passes through: after clicking the queue,
+    /// space stopped playing and pausing. A window controller sits at the end of every responder chain in its
+    /// window, so whatever no view consumed arrives here and can still reach the player.
+    ///
+    /// Never while text is being edited: a field editor keeps its own keys, or typing a space into a text field
+    /// would pause the video.
+    override func keyDown(with event: NSEvent) {
+        guard !(window?.firstResponder is NSText), let press = KeyPress(event: event), handle(press) else {
+            super.keyDown(with: event)
+            return
+        }
     }
 
     private func handle(_ press: KeyPress) -> Bool {

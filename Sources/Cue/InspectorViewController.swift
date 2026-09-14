@@ -54,6 +54,10 @@ final class InspectorViewController: NSViewController {
         tabs.font = .systemFont(ofSize: 11)
         tabs.selectedSegment = InspectorTab.allCases.firstIndex(of: tab) ?? 0
         tabs.setAccessibilityLabel("Inspector page")
+        // A segmented control consumes the space bar to activate its selected segment, and it does not pass it on.
+        // Focused, it would swallow play/pause from inside the inspector. It needs no keyboard focus of its own:
+        // ⌃⌘C and ⌃⌘U already switch pages, which is the discoverable route.
+        tabs.refusesFirstResponder = true
         tabs.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(tabs)
 
