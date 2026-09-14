@@ -502,6 +502,11 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
         let label = sidebarHost.isVisible ? "Hide Sidebar" : "Show Sidebar"
         sidebarButton.toolTip = label
         sidebarButton.setAccessibilityLabel(label)
+        // The title bar spans the whole window, so what lies under this button changes with the sidebar. Over the
+        // sidebar it is a surface that follows the system appearance, and a nil tint lets the glyph follow it too.
+        // Over the video it is the picture, which is always dark, so the glyph goes white like every other control
+        // that sits on the picture. Without this it inherits a dark tint in a light appearance and disappears.
+        sidebarButton.contentTintColor = sidebarHost.isVisible ? nil : .white
     }
 
     private static func sidebarToggleButton() -> NSButton {
