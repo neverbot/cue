@@ -17,6 +17,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let preferences = Preferences()
     /// Built the first time the menu item is chosen, and kept afterwards.
     private var settingsWindowController: SettingsWindowController?
+    /// The queue and the thumbnail cache the player window is using. Held here so the settings window works on the
+    /// same two objects rather than opening its own, which is what lets a change made there reach the sidebar now.
+    private var store: QueueStore?
+    private var thumbnails: ThumbnailStore?
 
     init(arguments: [String]) {
         self.arguments = arguments
@@ -45,13 +49,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.mainMenu = MainMenu.make()
         do {
             let store = QueueStore(database: try QueueDatabase.open(at: databaseURL))
+            self.store = store
+            // One store for the whole app, for the same reason the preferences are: the settings window's cache
+            // section and the sidebar's thumbnails must be looking at one directory and one set of remembered
+            // failures, not at two that happen to point at the same path.
+            let thumbnails = ThumbnailStore(directory: ThumbnailStore.defaultDirectory)
+            self.thumbnails = thumbnails
             // One-time move of the player's JSON positions into the database. The file is left where it is.
             try JSONResumeImport(store: store).runIfNeeded(from: JSONResumeStore.defaultFileURL)
 
             let controller = PlayerWindowController(
                 engine: try MPVPlaybackEngine(),
                 store: store,
-                thumbnails: ThumbnailStore(directory: ThumbnailStore.defaultDirectory),
+                thumbnails: thumbnails,
                 // One extractor, so one URLSession and one shared solver cache for the whole app. Wrapped so the
                 // queue can warm the next video ahead of playback (see PlayerWindowController).
                 resolver: PrefetchingResolver(wrapping: Extractor()),
@@ -78,8 +88,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Cue ▸ Settings… (⌘,). The window is a plain one: it takes key focus while it is in front, and gives it back to
     /// the player when it closes, so the player's own key bindings are never in two places at once.
+    ///
+    /// Nothing to show before the queue is open: a failed launch has already put up its own alert and is on its way
+    /// to terminating, and a settings window with no queue behind it could only lie about the cache.
     @objc func showSettings(_ sender: Any?) {
-        let controller = settingsWindowController ?? SettingsWindowController(preferences: preferences)
+        guard let store, let thumbnails else { return }
+        let controller = settingsWindowController
+            ?? SettingsWindowController(preferences: preferences, store: store, thumbnails: thumbnails)
         settingsWindowController = controller
         controller.showWindow(nil)
         controller.window?.makeKeyAndOrderFront(nil)

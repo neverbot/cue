@@ -109,6 +109,102 @@ import Testing
         #expect(await store.cachedImageData(for: TestQueue.first) != nil)
     }
 
+    @Test func measuresAnEmptyStoreAsNothing() async {
+        // Nothing has been fetched, so the directory does not exist yet. Measuring it is still a question with an
+        // answer: zero, not a failure.
+        let store = ThumbnailStore(directory: TestQueue.temporaryDirectory(), http: FakeHTTPClient([]))
+        #expect(await store.cachedByteCount() == 0)
+    }
+
+    @Test func measuresWhatItHasStored() async throws {
+        let directory = TestQueue.temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let http = FakeHTTPClient([
+            HTTPResponse(status: 200, body: image(64)),
+            HTTPResponse(status: 200, body: image(150)),
+        ])
+        let store = ThumbnailStore(directory: directory, http: http)
+
+        _ = try await store.imageData(for: TestQueue.first)
+        #expect(await store.cachedByteCount() == 64)
+
+        _ = try await store.imageData(for: TestQueue.second)
+        #expect(await store.cachedByteCount() == 214)
+    }
+
+    @Test func emptiesTheCacheAndReportsWhatItFreed() async throws {
+        let directory = TestQueue.temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let http = FakeHTTPClient([
+            HTTPResponse(status: 200, body: image(64)),
+            HTTPResponse(status: 200, body: image(150)),
+        ])
+        let store = ThumbnailStore(directory: directory, http: http)
+        _ = try await store.imageData(for: TestQueue.first)
+        _ = try await store.imageData(for: TestQueue.second)
+
+        #expect(await store.empty() == 214)
+        #expect(await store.cachedByteCount() == 0)
+        #expect(await store.cachedImageData(for: TestQueue.first) == nil)
+    }
+
+    @Test func freesNothingFromACacheThatHasNothingInIt() async {
+        let store = ThumbnailStore(directory: TestQueue.temporaryDirectory(), http: FakeHTTPClient([]))
+        #expect(await store.empty() == 0)
+    }
+
+    /// Unlike `clear()`, emptying leaves the directory where it is and fit to be written to again.
+    @Test func leavesTheDirectoryUsableAfterEmptyingIt() async throws {
+        let directory = TestQueue.temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let http = FakeHTTPClient([
+            HTTPResponse(status: 200, body: image(64)),
+            HTTPResponse(status: 200, body: image(90)),
+        ])
+        let store = ThumbnailStore(directory: directory, http: http)
+        _ = try await store.imageData(for: TestQueue.first)
+
+        _ = await store.empty()
+
+        #expect(FileManager.default.fileExists(atPath: directory.path))
+        let fetched = try await store.imageData(for: TestQueue.second)
+        #expect(fetched == image(90))
+        #expect(await store.cachedByteCount() == 90)
+    }
+
+    /// A re-fetch goes back to the network for an image that is already on disk, which is the whole point of it, and
+    /// forgets a previous failure so a video that was unreachable last time is tried once more.
+    @Test func refetchesAnImageItAlreadyHas() async throws {
+        let directory = TestQueue.temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let http = FakeHTTPClient([
+            HTTPResponse(status: 200, body: image(64)),
+            HTTPResponse(status: 200, body: image(128)),
+        ])
+        let store = ThumbnailStore(directory: directory, http: http)
+        _ = try await store.imageData(for: TestQueue.first)
+
+        let refreshed = try await store.refreshedImageData(for: TestQueue.first)
+        #expect(refreshed == image(128))
+        #expect(http.requestedURLs.count == 2)
+        #expect(await store.cachedImageData(for: TestQueue.first) == image(128))
+    }
+
+    @Test func triesAgainForAVideoWhoseImageFailedBefore() async throws {
+        let directory = TestQueue.temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let http = FakeHTTPClient([
+            HTTPResponse(status: 404, body: Data()),
+            HTTPResponse(status: 200, body: image(64)),
+        ])
+        let store = ThumbnailStore(directory: directory, http: http)
+        await #expect(throws: ThumbnailError.httpStatus(404)) { try await store.imageData(for: TestQueue.first) }
+
+        let retried = try await store.refreshedImageData(for: TestQueue.first)
+        #expect(retried == image(64))
+        #expect(http.requestedURLs.count == 2)
+    }
+
     @Test func clearsTheWholeCache() async throws {
         let directory = TestQueue.temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }

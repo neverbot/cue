@@ -121,6 +121,38 @@ public actor ThumbnailStore {
         failed.removeAll()
     }
 
+    /// Empties the cache and reports how many bytes that freed.
+    ///
+    /// Thumbnails and nothing else: the preprocessed player scripts, the subtitle files, the queue database and the
+    /// resume positions are all kept elsewhere and are not touched here. Unlike `clear()`, the directory itself is
+    /// left in place and still usable, so the next fetch writes into it rather than having to build it again.
+    @discardableResult
+    public func empty() -> Int {
+        var freed = 0
+        for file in contents() {
+            do {
+                try FileManager.default.removeItem(at: file.url)
+            } catch {
+                // A file that could not be removed is still on disk, so it was not freed and is not counted.
+                continue
+            }
+            freed += file.size
+        }
+        failed.removeAll()
+        return freed
+    }
+
+    /// Fetches one video's image again, whatever is already cached. The cached file and any remembered failure are
+    /// dropped first, so this is the one path that goes back to the network for an image that is already on disk.
+    ///
+    /// One video per call, deliberately. Re-fetching a queue is a loop of these awaited one at a time, so a long
+    /// queue never becomes hundreds of simultaneous requests.
+    public func refreshedImageData(for videoID: VideoID) async throws -> Data {
+        try? FileManager.default.removeItem(at: fileURL(for: videoID))
+        failed.remove(videoID)
+        return try await imageData(for: videoID)
+    }
+
     private func store(_ data: Data, for videoID: VideoID) throws {
         // The file names are the ids of videos the user queued, so the directory is created `rwx------`.
         try FileManager.default.createDirectory(
