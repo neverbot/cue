@@ -137,6 +137,39 @@ import Testing
         #expect(StreamFormat.bitDepth(fromCodecs: arguments.codecs) == arguments.expected)
     }
 
+    @Test func mapsTheAudioTrackBlock() throws {
+        let format = try #require(StreamFormat(raw: raw(#"{"itag":140,"mimeType":"audio/mp4; codecs=\"mp4a.40.2\"","bitrate":130000,"url":"https://rr1.googlevideo.com/videoplayback?itag=140","audioTrack":{"id":"es-ES.3","displayName":"Spanish (Spain)","audioIsDefault":false}}"#)))
+        #expect(format.audioTrack?.id == "es-ES.3")
+        #expect(format.audioTrack?.displayName == "Spanish (Spain)")
+        #expect(format.audioTrack?.isDefault == false)
+        #expect(format.audioTrack?.languageCode == "es-ES")
+    }
+
+    @Test func marksTheDefaultAudioTrack() throws {
+        let format = try #require(StreamFormat(raw: raw(#"{"itag":140,"mimeType":"audio/mp4; codecs=\"mp4a.40.2\"","bitrate":130000,"url":"https://rr1.googlevideo.com/videoplayback?itag=140","audioTrack":{"id":"en.4","displayName":"English original","audioIsDefault":true}}"#)))
+        #expect(format.audioTrack?.isDefault == true)
+        #expect(format.audioTrack?.languageCode == "en")
+    }
+
+    /// No block at all is a video with one soundtrack; a block with no id names a track that could never be
+    /// switched to. Both leave the format without a language rather than inventing one.
+    @Test(arguments: [
+        #"{"itag":140,"mimeType":"audio/mp4; codecs=\"mp4a.40.2\"","url":"https://rr1.googlevideo.com/videoplayback?itag=140"}"#,
+        #"{"itag":140,"mimeType":"audio/mp4; codecs=\"mp4a.40.2\"","url":"https://rr1.googlevideo.com/videoplayback?itag=140","audioTrack":{}}"#,
+        #"{"itag":140,"mimeType":"audio/mp4; codecs=\"mp4a.40.2\"","url":"https://rr1.googlevideo.com/videoplayback?itag=140","audioTrack":{"id":"","displayName":"English"}}"#,
+    ])
+    func leavesTheAudioTrackNilWithoutAUsableBlock(_ json: String) throws {
+        #expect(try #require(StreamFormat(raw: raw(json))).audioTrack == nil)
+    }
+
+    /// Dubbed videos are as ciphered as any other, and the track has to survive the rewrite or a switch would lose
+    /// the language it was made for.
+    @Test func keepsTheAudioTrackWhenChallengesAreSolved() throws {
+        let format = try #require(StreamFormat(raw: raw(#"{"itag":140,"mimeType":"audio/mp4; codecs=\"mp4a.40.2\"","bitrate":130000,"url":"https://rr1.googlevideo.com/videoplayback?itag=140&n=zzz","audioTrack":{"id":"en.4","displayName":"English original","audioIsDefault":true}}"#)))
+        let solved = try #require(format.resolvingChallenges([.n: ["zzz": "yyy"]]))
+        #expect(solved.audioTrack == format.audioTrack)
+    }
+
     @Test func mapsBitDepthOfHDRFormats() throws {
         let format = try #require(StreamFormat(raw: raw(#"{"itag":699,"mimeType":"video/mp4; codecs=\"av01.0.09M.10\"","bitrate":5000000,"width":1920,"height":1080,"url":"https://rr1.googlevideo.com/videoplayback?itag=699"}"#)))
         #expect(format.bitDepth == 10)

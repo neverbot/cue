@@ -21,6 +21,8 @@ public struct FormatSelection: Sendable, Equatable {
 /// broadly available. Software tier (used only when no offered video qualifies for the hardware tier, and only when
 /// allowed): VP9 capped at 1080p, then AV1 capped at 720p — H.264 never appears here, since it is always hardware.
 /// The cap applies to the short side, so portrait videos keep their quality.
+/// Audio is chosen by language first: on a video with dubs, the track YouTube marks as its default wins before codec
+/// and bitrate are looked at. Videos with a single soundtrack declare no language at all and are unaffected.
 /// 10-bit (HDR) streams are skipped unless allowed, because tone mapping them for SDR displays costs extra GPU work.
 public struct FormatSelector: Sendable {
     public var maxShortSide: Int
@@ -78,7 +80,7 @@ public struct FormatSelector: Sendable {
             .max { rank($0, codecs) < rank($1, codecs) }
         let audio = formats
             .filter { $0.kind == .audio && Self.audioCodecs.contains($0.codec) }
-            .max { (preference($0.codec, Self.audioCodecs), $0.bitrate) < (preference($1.codec, Self.audioCodecs), $1.bitrate) }
+            .max { audioRank($0) < audioRank($1) }
 
         guard let video, let audio else { return nil }
         return FormatSelection(video: video, audio: audio, decoding: tier == .hardware ? .hardware : .software)
@@ -118,6 +120,19 @@ public struct FormatSelector: Sendable {
         case .software:
             return codec == "vp9" ? min(maxShortSide, 1080) : min(maxShortSide, 720)
         }
+    }
+
+    /// Language first, then the codec and bitrate rule that has always chosen the audio.
+    ///
+    /// A dubbed video offers one set of audio formats per language, and the dubs are often encoded at a higher
+    /// bitrate than the original. Ranking on codec and bitrate alone therefore handed a video to whichever language
+    /// happened to be encoded loudest, which is how a video opened in a language nobody asked for. The track YouTube
+    /// marks as its default — the original soundtrack — outranks all of that.
+    ///
+    /// A video with one soundtrack carries no `audioTrack` block at all, so every format scores 0 here and the
+    /// remaining two keys decide exactly as they did before. So does a dubbed video that marks no default.
+    private func audioRank(_ format: StreamFormat) -> (Int, Int, Int) {
+        (format.audioTrack?.isDefault == true ? 1 : 0, preference(format.codec, Self.audioCodecs), format.bitrate)
     }
 
     private func rank(_ format: StreamFormat, _ codecs: [String]) -> (Int, Int, Int) {

@@ -23,6 +23,15 @@ struct PlayerResponse: Decodable, Sendable {
     }
 
     struct RawFormat: Decodable, Sendable {
+        /// The language of one audio format, present only on videos that offer dubs. Field names are YouTube's own.
+        struct AudioTrack: Decodable, Sendable {
+            /// `en.4`, `es-ES.3`: the language code, a dot, and YouTube's own index for the track.
+            let id: String?
+            let displayName: String?
+            /// True on the track YouTube plays by default — the original soundtrack.
+            let audioIsDefault: Bool?
+        }
+
         let itag: Int
         let url: String?
         let signatureCipher: String?
@@ -33,6 +42,8 @@ struct PlayerResponse: Decodable, Sendable {
         let fps: Int?
         let contentLength: String?
         let qualityLabel: String?
+        /// Absent on every format of a single-language video, and on every video format.
+        let audioTrack: AudioTrack?
     }
 
     struct Captions: Decodable, Sendable {

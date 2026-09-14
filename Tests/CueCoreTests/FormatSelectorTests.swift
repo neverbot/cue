@@ -3,14 +3,22 @@ import Testing
 @testable import CueCore
 
 @Suite struct FormatSelectorTests {
-    func stream(_ itag: Int, _ kind: StreamFormat.Kind, _ codec: String, width: Int? = nil, height: Int? = nil, bitDepth: Int? = nil, bitrate: Int) -> StreamFormat {
+    func stream(
+        _ itag: Int, _ kind: StreamFormat.Kind, _ codec: String, width: Int? = nil, height: Int? = nil,
+        bitDepth: Int? = nil, audioTrack: AudioTrack? = nil, bitrate: Int
+    ) -> StreamFormat {
         StreamFormat(
             itag: itag, kind: kind, container: codec == "opus" || codec == "vp9" ? "webm" : "mp4", codec: codec, bitDepth: bitDepth,
             bitrate: bitrate, width: width, height: height, fps: 30,
             url: URL(string: "https://rr1.googlevideo.com/videoplayback?itag=\(itag)")!,
-            nChallenge: nil, signatureChallenge: nil
+            nChallenge: nil, signatureChallenge: nil, audioTrack: audioTrack
         )
     }
+
+    /// The original soundtrack, as YouTube marks it.
+    static let original = AudioTrack(id: "en.4", displayName: "English original", isDefault: true)
+    /// A dub, as YouTube marks it: same shape, no default flag.
+    static let dub = AudioTrack(id: "es-ES.3", displayName: "Spanish (Spain)", isDefault: false)
 
     var catalogue: [StreamFormat] {
         [
@@ -201,6 +209,53 @@ import Testing
             FormatSelector(maxShortSide: 1080, av1HardwareDecoding: false, vp9HardwareDecoding: false, allowsSoftwareDecoding: false)
                 .select(from: formats) == nil
         )
+    }
+
+    /// The reported failure. YouTube encodes dubs at least as generously as the original, so ranking audio on codec
+    /// and bitrate alone opened a dubbed video in whichever language happened to be loudest.
+    @Test func prefersTheDefaultTrackOverALouderDub() throws {
+        let formats = [
+            stream(137, .video, "avc1", width: 1920, height: 1080, bitrate: 4_000_000),
+            stream(140, .audio, "mp4a", audioTrack: Self.original, bitrate: 130_000),
+            stream(141, .audio, "mp4a", audioTrack: Self.dub, bitrate: 190_000),
+        ]
+        let selection = try #require(FormatSelector(maxShortSide: 1080, av1HardwareDecoding: false, vp9HardwareDecoding: false).select(from: formats))
+        #expect(selection.audio.audioTrack?.id == "en.4")
+        #expect(selection.audio.itag == 140)
+    }
+
+    /// Language outranks the codec too: a default track is the one the video is meant to be heard in, whichever
+    /// container it arrived in.
+    @Test func prefersTheDefaultTrackAcrossCodecs() throws {
+        let formats = [
+            stream(137, .video, "avc1", width: 1920, height: 1080, bitrate: 4_000_000),
+            stream(251, .audio, "opus", audioTrack: Self.original, bitrate: 160_000),
+            stream(140, .audio, "mp4a", audioTrack: Self.dub, bitrate: 190_000),
+        ]
+        let selection = try #require(FormatSelector(maxShortSide: 1080, av1HardwareDecoding: false, vp9HardwareDecoding: false).select(from: formats))
+        #expect(selection.audio.audioTrack?.id == "en.4")
+        #expect(selection.audio.codec == "opus")
+    }
+
+    /// A dubbed video that marks no default at all leaves the old rule in charge rather than picking arbitrarily.
+    @Test func fallsBackToCodecAndBitrateWhenNoTrackIsMarkedDefault() throws {
+        let quiet = AudioTrack(id: "en.4", displayName: "English", isDefault: false)
+        let formats = [
+            stream(137, .video, "avc1", width: 1920, height: 1080, bitrate: 4_000_000),
+            stream(140, .audio, "mp4a", audioTrack: quiet, bitrate: 130_000),
+            stream(141, .audio, "mp4a", audioTrack: Self.dub, bitrate: 190_000),
+        ]
+        let selection = try #require(FormatSelector(maxShortSide: 1080, av1HardwareDecoding: false, vp9HardwareDecoding: false).select(from: formats))
+        #expect(selection.audio.audioTrack?.id == "es-ES.3")
+        #expect(selection.audio.bitrate == 190_000)
+    }
+
+    /// A video with one soundtrack sends no `audioTrack` block on anything, and must be chosen exactly as it was
+    /// before languages were modelled at all: AAC ahead of Opus, on bitrate.
+    @Test func leavesSingleLanguageVideosAsTheyWere() throws {
+        let selection = try #require(FormatSelector(maxShortSide: 1080, av1HardwareDecoding: false, vp9HardwareDecoding: false).select(from: catalogue))
+        #expect(selection.audio.itag == 140)
+        #expect(selection.audio.audioTrack == nil)
     }
 
     @Test func hardwareSelectionsReportHardware() throws {

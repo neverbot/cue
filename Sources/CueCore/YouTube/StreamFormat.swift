@@ -31,6 +31,39 @@ public struct StreamFormat: Sendable, Equatable {
     public let url: URL
     public let nChallenge: String?
     public let signatureChallenge: SignatureChallenge?
+    /// The language this audio format carries, on the videos that offer dubs. Nil on every video format, and on
+    /// every format of a video with a single soundtrack.
+    public let audioTrack: AudioTrack?
+
+    public init(
+        itag: Int,
+        kind: Kind,
+        container: String,
+        codec: String,
+        bitDepth: Int?,
+        bitrate: Int,
+        width: Int?,
+        height: Int?,
+        fps: Int?,
+        url: URL,
+        nChallenge: String?,
+        signatureChallenge: SignatureChallenge?,
+        audioTrack: AudioTrack? = nil
+    ) {
+        self.itag = itag
+        self.kind = kind
+        self.container = container
+        self.codec = codec
+        self.bitDepth = bitDepth
+        self.bitrate = bitrate
+        self.width = width
+        self.height = height
+        self.fps = fps
+        self.url = url
+        self.nChallenge = nChallenge
+        self.signatureChallenge = signatureChallenge
+        self.audioTrack = audioTrack
+    }
 
     public var needsChallenges: Bool { nChallenge != nil || signatureChallenge != nil }
 }
@@ -78,7 +111,8 @@ extension StreamFormat {
             fps: raw.fps,
             url: url,
             nChallenge: URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "n" }?.value,
-            signatureChallenge: signature
+            signatureChallenge: signature,
+            audioTrack: AudioTrack(raw: raw.audioTrack)
         )
     }
 
@@ -109,7 +143,7 @@ extension StreamFormat {
         return StreamFormat(
             itag: itag, kind: kind, container: container, codec: codec, bitDepth: bitDepth, bitrate: bitrate,
             width: width, height: height, fps: fps, url: rewritten,
-            nChallenge: nil, signatureChallenge: nil
+            nChallenge: nil, signatureChallenge: nil, audioTrack: audioTrack
         )
     }
 

@@ -20,6 +20,31 @@ import Testing
         #expect(firstFormat.fps == 25)
         #expect(firstFormat.bitrate == 18076636)
         #expect(firstFormat.url != nil)
+        // A video with one soundtrack describes no language anywhere, which is what makes a nil `audioTrack` mean
+        // "one track" rather than "unknown".
+        #expect(response.streamingData?.adaptiveFormats?.allSatisfy { $0.audioTrack == nil } == true)
+    }
+
+    /// Every audio format of a dubbed video carries the language it is in. The block is YouTube's own shape:
+    /// an id, a name to show, and a flag on the original soundtrack.
+    @Test func decodesAudioTrackBlocks() throws {
+        let json = #"""
+        {
+          "playabilityStatus": {"status": "OK"},
+          "streamingData": {"adaptiveFormats": [
+            {"itag": 137, "mimeType": "video/mp4; codecs=\"avc1.640028\""},
+            {"itag": 140, "mimeType": "audio/mp4; codecs=\"mp4a.40.2\"", "audioTrack": {"id": "en.4", "displayName": "English original", "audioIsDefault": true}},
+            {"itag": 141, "mimeType": "audio/mp4; codecs=\"mp4a.40.2\"", "audioTrack": {"id": "es-ES.3", "displayName": "Spanish (Spain)", "audioIsDefault": false}}
+          ]}
+        }
+        """#
+        let formats = try #require(JSONDecoder().decode(PlayerResponse.self, from: Data(json.utf8)).streamingData?.adaptiveFormats)
+        #expect(formats[0].audioTrack == nil)
+        #expect(formats[1].audioTrack?.id == "en.4")
+        #expect(formats[1].audioTrack?.displayName == "English original")
+        #expect(formats[1].audioTrack?.audioIsDefault == true)
+        #expect(formats[2].audioTrack?.id == "es-ES.3")
+        #expect(formats[2].audioTrack?.audioIsDefault == false)
     }
 
     @Test func decodesUnplayableResponse() throws {
