@@ -156,6 +156,17 @@ final class QueueSidebarViewController: NSViewController, NSTableViewDataSource,
         reload()
     }
 
+    /// Thumbnails are fetched for the rows that are on screen, and when the queue is first read there is no "on
+    /// screen" yet: the table has no geometry, its visible rectangle is empty, and the fetch asks for nothing at all.
+    /// Only a scroll or a mode change asked again afterwards, which is why a queue sat there blank until it was
+    /// touched. Layout is the first moment the question has a real answer, so it is asked again here — including for
+    /// a queue whose rows all fit without scrolling, which never gets a scroll to ask on its behalf. Cheap to repeat:
+    /// a row whose image is already in hand, or already requested, is skipped.
+    override func viewDidLayout() {
+        super.viewDidLayout()
+        loadVisibleThumbnails()
+    }
+
     @objc private func visibleRowsChanged() {
         loadVisibleThumbnails()
     }
