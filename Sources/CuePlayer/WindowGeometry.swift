@@ -59,6 +59,58 @@ public enum WindowGeometry {
         return CGRect(x: x, y: window.minY, width: width, height: max(window.height, minimumSize.height))
     }
 
+    /// The window frame whose video area has exactly the video's shape, so mpv draws neither letterbox nor pillarbox
+    /// bars. Once the window has been resized by hand there is no way to land on that shape with the mouse, and this
+    /// is the arithmetic that lands on it.
+    ///
+    /// The video area is the content minus `sidebarWidth`, which is zero when the sidebar is hidden or floats over the
+    /// picture. The area's current width is kept and its height follows the aspect ratio; only when that would make the
+    /// window taller than the screen is the height kept and the width made to follow instead. The result never falls
+    /// below `minimumContentSize`, keeps the window's top-left corner — the corner macOS resizes around — and is pushed
+    /// back inside `visibleFrame` if it spills off an edge.
+    ///
+    /// Sizes are whole points: a video area half a point out leaves a hairline bar, which is the defect being fixed, so
+    /// the dimension being kept is rounded first and the other derived from it.
+    public static func frameFittedToVideo(
+        window: CGRect,
+        contentSize: CGSize,
+        aspectRatio: Double,
+        sidebarWidth: CGFloat,
+        minimumContentSize: CGSize,
+        visibleFrame: CGRect
+    ) -> CGRect {
+        let aspect = CGFloat(aspectRatio)
+        guard aspect > 0, contentSize.width > 0, contentSize.height > 0 else { return window }
+        // What the window adds around its content: the title bar, when it is not drawn over the content.
+        let chromeWidth = window.width - contentSize.width
+        let chromeHeight = window.height - contentSize.height
+        let sidebar = min(max(sidebarWidth, 0), contentSize.width)
+        let minimumVideoWidth = max(minimumContentSize.width - sidebar, 1)
+        let minimumVideoHeight = max(minimumContentSize.height, 1)
+
+        // Candidate A keeps the width the video area already has; candidate B keeps its height, and is used only when
+        // A would not fit on the screen vertically.
+        let keptWidth = max(contentSize.width - sidebar, 1)
+        let video: CGSize
+        if keptWidth / aspect + chromeHeight > visibleFrame.height {
+            let height = max(contentSize.height, minimumVideoHeight, minimumVideoWidth / aspect).rounded()
+            video = CGSize(width: (height * aspect).rounded(), height: height)
+        } else {
+            let width = max(keptWidth, minimumVideoWidth, minimumVideoHeight * aspect).rounded()
+            video = CGSize(width: width, height: (width / aspect).rounded())
+        }
+
+        let width = video.width + sidebar + chromeWidth
+        let height = video.height + chromeHeight
+        var x = window.minX
+        var y = window.maxY - height
+        if x + width > visibleFrame.maxX { x = visibleFrame.maxX - width }
+        if x < visibleFrame.minX { x = visibleFrame.minX }
+        if y < visibleFrame.minY { y = visibleFrame.minY }
+        if y + height > visibleFrame.maxY { y = visibleFrame.maxY - height }
+        return CGRect(x: x, y: y, width: width, height: height)
+    }
+
     /// Whether mpv's reported size differs enough from the size the window was fitted to (1 % in aspect) to refit.
     public static func needsRefit(fittedTo current: VideoSize?, reported: VideoSize) -> Bool {
         guard let current else { return true }

@@ -36,7 +36,10 @@ import Testing
 
     /// Chapters and panels are window business: the engine has nothing to do with them.
     @Test func leavesWindowCommandsToTheWindow() {
-        for command in [PlayerCommand.nextChapter, .previousChapter, .toggleChaptersPanel, .toggleSubtitlesPanel, .toggleMiniPlayer] {
+        for command in [
+            PlayerCommand.nextChapter, .previousChapter, .toggleChaptersPanel, .toggleSubtitlesPanel,
+            .toggleMiniPlayer, .fitWindowToVideo,
+        ] {
             #expect(command.mpvArguments == nil)
         }
     }

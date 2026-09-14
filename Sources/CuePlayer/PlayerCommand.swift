@@ -25,6 +25,8 @@ public enum PlayerCommand: Equatable, Sendable {
     case toggleChaptersPanel
     case toggleSubtitlesPanel
     case toggleMiniPlayer
+    /// Resizes the window so the video area has exactly the video's shape, removing the black bars around it.
+    case fitWindowToVideo
 
     /// The mpv command for commands the engine handles; nil for window-level commands.
     public var mpvArguments: [String]? {
@@ -42,7 +44,7 @@ public enum PlayerCommand: Equatable, Sendable {
         case let .adjustSubtitleDelay(delta): ["add", "sub-delay", "\(delta)"]
         case let .setSubtitleProperty(name, value): ["set", name, value]
         case .toggleFullScreen, .close, .nextChapter, .previousChapter,
-             .toggleChaptersPanel, .toggleSubtitlesPanel, .toggleMiniPlayer: nil
+             .toggleChaptersPanel, .toggleSubtitlesPanel, .toggleMiniPlayer, .fitWindowToVideo: nil
         }
     }
 

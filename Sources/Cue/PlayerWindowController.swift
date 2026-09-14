@@ -162,6 +162,7 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
         case .close:
             (miniPlayer?.window ?? window)?.performClose(nil)
         case .toggleMiniPlayer: toggleMiniPlayer(nil)
+        case .fitWindowToVideo: fitWindowToVideo(nil)
         case .nextChapter:
             if let target = timeline.nextStart(from: controller.state.position) {
                 controller.perform(.seekAbsolute(seconds: target))
@@ -635,10 +636,12 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
 
     func windowDidEnterFullScreen(_ notification: Notification) {
         playerContainer.needsLayout = true
+        playerView.controls.windowIsFullScreen = true
     }
 
     func windowDidExitFullScreen(_ notification: Notification) {
         playerContainer.needsLayout = true
+        playerView.controls.windowIsFullScreen = false
     }
 
     func windowDidChangeOcclusionState(_ notification: Notification) {
@@ -698,6 +701,35 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
         window.setFrameTopLeftPoint(topLeft)
         window.setFrame(window.constrainFrameRect(window.frame, to: window.screen), display: true)
     }
+
+    /// View ▸ Fit Window to Video. Resizes the window until the video area has the video's exact shape, so mpv stops
+    /// padding the picture with black. Dragging a corner cannot land on that shape, which is why this exists; the rule
+    /// itself lives in `WindowGeometry`, and this only gathers what it needs and applies what it returns.
+    @objc func fitWindowToVideo(_ sender: Any?) {
+        guard canFitWindowToVideo, let window, let video = controller.state.videoSize,
+              let visible = (window.screen ?? NSScreen.main)?.visibleFrame else { return }
+        let frame = WindowGeometry.frameFittedToVideo(
+            window: window.frame,
+            contentSize: window.contentRect(forFrameRect: window.frame).size,
+            aspectRatio: video.aspectRatio,
+            // Only a pushed sidebar takes width away from the picture; an overlaid one floats over it.
+            sidebarWidth: sidebarHost.layout == .push && sidebarHost.isVisible
+                ? sidebarItem.viewController.view.frame.width
+                : 0,
+            minimumContentSize: window.contentMinSize,
+            visibleFrame: visible
+        )
+        guard frame != window.frame else { return }
+        window.setFrame(frame, display: true)
+    }
+
+    /// There is nothing to fit until a video is loaded, and full screen cannot resize the window at all, so the button
+    /// and the menu item are greyed instead of refusing silently.
+    var canFitWindowToVideo: Bool {
+        let phase = controller.state.phase
+        guard phase == .ready || phase == .ended, let window else { return false }
+        return !window.styleMask.contains(.fullScreen)
+    }
 }
 
 extension PlayerWindowController: NSMenuItemValidation {
@@ -725,6 +757,8 @@ extension PlayerWindowController: NSMenuItemValidation {
             return true
         case #selector(toggleSubtitlesPanel(_:)):
             return !(controller.state.stream?.captionTracks.isEmpty ?? true)
+        case #selector(fitWindowToVideo(_:)):
+            return canFitWindowToVideo
         default:
             // No superclass implements this protocol here (NSWindowController does not conform on its own), so an
             // unrecognized selector — one this object was never meant to validate — is allowed rather than guessed at.

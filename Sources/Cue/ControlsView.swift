@@ -8,13 +8,23 @@ final class ControlsView: NSView {
     var onCommand: ((PlayerCommand) -> Void)?
     /// Forwarded from the seek bar, in this view's coordinates.
     var onHover: ((Double?, CGFloat) -> Void)?
+    /// Full screen cannot resize the window, so the fit control is greyed there. The window says when it is in full
+    /// screen; this view never goes looking for one of its own.
+    var windowIsFullScreen = false {
+        didSet { updateFitWindowButton() }
+    }
 
     let seekBar = SeekBarView()
+
+    /// Whether a video is loaded, remembered from the last `update(_:timeline:)` so the fit button can be re-enabled
+    /// on leaving full screen without waiting for the next state change.
+    private var isReady = false
 
     private let playButton = ControlsView.button(symbol: "play.fill", label: "Play")
     private let muteButton = ControlsView.button(symbol: "speaker.wave.2.fill", label: "Mute")
     private let chaptersButton = ControlsView.button(symbol: "list.bullet", label: "Chapters")
     private let subtitlesButton = ControlsView.button(symbol: "captions.bubble", label: "Subtitles")
+    private let fitWindowButton = ControlsView.button(symbol: "aspectratio", label: "Fit Window to Video")
     private let miniButton = ControlsView.button(symbol: "rectangle.inset.bottomright.filled", label: "Mini Player")
     private let elapsedLabel = ControlsView.timeLabel()
     private let durationLabel = ControlsView.timeLabel()
@@ -34,6 +44,8 @@ final class ControlsView: NSView {
         chaptersButton.action = #selector(toggleChapters)
         subtitlesButton.target = self
         subtitlesButton.action = #selector(toggleSubtitles)
+        fitWindowButton.target = self
+        fitWindowButton.action = #selector(fitWindowToVideo)
         miniButton.target = self
         miniButton.action = #selector(toggleMini)
         volumeSlider.target = self
@@ -55,7 +67,8 @@ final class ControlsView: NSView {
         times.orientation = .horizontal
         times.spacing = 8
         let buttons = NSStackView(views: [
-            playButton, chapterLabel, NSView(), chaptersButton, subtitlesButton, miniButton, muteButton, volumeSlider,
+            playButton, chapterLabel, NSView(), chaptersButton, subtitlesButton, fitWindowButton, miniButton,
+            muteButton, volumeSlider,
         ])
         buttons.orientation = .horizontal
         buttons.spacing = 10
@@ -101,6 +114,8 @@ final class ControlsView: NSView {
         chaptersButton.isEnabled = enabled
         subtitlesButton.isEnabled = enabled && !(playerState.stream?.captionTracks.isEmpty ?? true)
         miniButton.isEnabled = enabled
+        isReady = enabled
+        updateFitWindowButton()
         for control in [playButton, muteButton, volumeSlider] as [NSControl] {
             control.isEnabled = enabled
         }
@@ -117,7 +132,12 @@ final class ControlsView: NSView {
     @objc private func toggleChapters() { onCommand?(.toggleChaptersPanel) }
     @objc private func toggleSubtitles() { onCommand?(.toggleSubtitlesPanel) }
     @objc private func toggleMini() { onCommand?(.toggleMiniPlayer) }
+    @objc private func fitWindowToVideo() { onCommand?(.fitWindowToVideo) }
     @objc private func changeVolume(_ sender: NSSlider) { onCommand?(.setVolume(sender.doubleValue)) }
+
+    private func updateFitWindowButton() {
+        fitWindowButton.isEnabled = isReady && !windowIsFullScreen
+    }
 
     private static func symbol(_ name: String, label: String) -> NSImage? {
         NSImage(systemSymbolName: name, accessibilityDescription: label)?

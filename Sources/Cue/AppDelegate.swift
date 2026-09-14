@@ -123,7 +123,16 @@ enum MainMenu {
         subtitlesItem.keyEquivalentModifierMask = [.control, .command]
         let mini = NSMenuItem(title: "Mini Player", action: #selector(PlayerWindowController.toggleMiniPlayer(_:)), keyEquivalent: "m")
         mini.keyEquivalentModifierMask = [.command, .shift]
-        menu.addItem(submenu("View", items: [toggleSidebar, cycleMode, toggleLayout, chapters, subtitlesItem, mini, .separator(), fullScreen]))
+        // ⌘0 is the only shortcut here without ⌃ or ⇧ because no other menu item and no bare key binding uses a digit.
+        let fitWindow = NSMenuItem(
+            title: "Fit Window to Video",
+            action: #selector(PlayerWindowController.fitWindowToVideo(_:)),
+            keyEquivalent: "0"
+        )
+        fitWindow.keyEquivalentModifierMask = [.command]
+        menu.addItem(submenu("View", items: [
+            toggleSidebar, cycleMode, toggleLayout, chapters, subtitlesItem, mini, fitWindow, .separator(), fullScreen,
+        ]))
 
         let windowMenu = submenu("Window", items: [
             NSMenuItem(title: "Minimize", action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m"),

@@ -71,6 +71,65 @@ import Testing
             == CGRect(x: 0, y: 100, width: 320, height: 208))
     }
 
+    /// The window's smallest content size, as the player window sets it.
+    let minimumContent = CGSize(width: 320, height: 180)
+
+    private func fitted(
+        _ window: CGRect,
+        contentSize: CGSize? = nil,
+        aspectRatio: Double = 16.0 / 9.0,
+        sidebarWidth: CGFloat = 0
+    ) -> CGRect {
+        WindowGeometry.frameFittedToVideo(
+            window: window,
+            contentSize: contentSize ?? window.size,
+            aspectRatio: aspectRatio,
+            sidebarWidth: sidebarWidth,
+            minimumContentSize: minimumContent,
+            visibleFrame: visibleFrame
+        )
+    }
+
+    @Test func trimsALetterboxedWindowByKeepingItsWidth() {
+        // 960 × 700 shows a 16:9 video with bars above and below it; 960 wide wants 540 of height.
+        #expect(fitted(CGRect(x: 100, y: 100, width: 960, height: 700))
+            == CGRect(x: 100, y: 260, width: 960, height: 540))
+    }
+
+    @Test func trimsAPillarboxedWindowByKeepingItsWidth() {
+        // 1200 × 540 is too wide for the video, so the window grows downwards to 675 rather than narrowing.
+        #expect(fitted(CGRect(x: 100, y: 200, width: 1200, height: 540))
+            == CGRect(x: 100, y: 65, width: 1200, height: 675))
+    }
+
+    @Test func keepsTheHeightWhenMatchingTheWidthWouldOutgrowTheScreen() {
+        // 1400 wide at 4:3 would need 1050 points of height on an 850-point work area, so the width follows instead.
+        #expect(fitted(CGRect(x: 0, y: 0, width: 1400, height: 400), aspectRatio: 4.0 / 3.0)
+            == CGRect(x: 0, y: 0, width: 533, height: 400))
+    }
+
+    @Test func leavesAWindowAlreadyAtTheMinimumSizeWhereItIs() {
+        #expect(fitted(CGRect(x: 0, y: 100, width: 320, height: 180))
+            == CGRect(x: 0, y: 100, width: 320, height: 180))
+    }
+
+    @Test func fitsTheVideoBesideTheSidebarRatherThanTheWholeWindow() {
+        // 1240 of content less a 280-point sidebar is a 960-wide video area, which wants 540 of height; the sidebar's
+        // width and the 28 points of title bar are added back afterwards.
+        #expect(fitted(
+            CGRect(x: 100, y: 100, width: 1240, height: 700),
+            contentSize: CGSize(width: 1240, height: 672),
+            sidebarWidth: 280
+        ) == CGRect(x: 100, y: 232, width: 1240, height: 568))
+    }
+
+    @Test func pushesAFittedFrameBackInsideTheScreen() {
+        // A square video: the window grows from 200 to 400 points of height below a top edge at 240, which would put
+        // its bottom at -160, and it already hung 60 points past the right edge.
+        #expect(fitted(CGRect(x: 1100, y: 40, width: 400, height: 200), aspectRatio: 1)
+            == CGRect(x: 1040, y: 0, width: 400, height: 400))
+    }
+
     @Test func requiresPositiveDimensions() {
         #expect(VideoSize(reportedWidth: 1920, reportedHeight: nil) == nil)
         #expect(VideoSize(reportedWidth: 0, reportedHeight: 1080) == nil)
