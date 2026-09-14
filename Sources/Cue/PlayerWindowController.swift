@@ -28,6 +28,9 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
     private let splitViewController: NSSplitViewController
     private let sidebarItem: NSSplitViewItem
     private var fittedVideoSize: VideoSize?
+    /// The width the pushed sidebar last took on screen. A collapsed split item reports nothing, so the width it is
+    /// about to take again has to be remembered from when it was visible.
+    private var lastSidebarWidth: CGFloat = QueueSidebarViewController.width
     /// The chapters of whatever is playing, rebuilt when the stream changes.
     private var timeline = ChapterTimeline(chapters: [], duration: nil)
     /// Storyboard sheets for the video playing now. Recreated per video so nothing survives into the next one.
@@ -402,8 +405,38 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
     // MARK: - Sidebar
 
     @objc func toggleSidebar(_ sender: Any?) {
+        let width = pushedSidebarWidth()
+        let appearing = !sidebarHost.isVisible
         sidebarHost.toggleVisible()
         updateSidebarButton()
+        resizeWindow(forSidebarWidth: width, appearing: appearing)
+    }
+
+    /// The width the pushed sidebar takes, read from the item while it is on screen and remembered for when it is not.
+    private func pushedSidebarWidth() -> CGFloat {
+        let current = sidebarItem.viewController.view.frame.width
+        if sidebarHost.isVisible, current > 0 { lastSidebarWidth = current }
+        return lastSidebarWidth
+    }
+
+    /// Takes the sidebar's width out of the window rather than out of the picture, so showing or hiding the queue
+    /// leaves the video area the same shape and mpv never adds bars to a video it had already fitted.
+    ///
+    /// Nothing to do in full screen, where the window cannot resize, nor in overlay layout, where the sidebar floats
+    /// over the video and the video area never changed size in the first place.
+    private func resizeWindow(forSidebarWidth width: CGFloat, appearing: Bool) {
+        guard sidebarHost.layout == .push, width > 0, let window,
+              !window.styleMask.contains(.fullScreen),
+              let visible = (window.screen ?? NSScreen.main)?.visibleFrame else { return }
+        let frame = WindowGeometry.frameAdjustedForSidebar(
+            window: window.frame,
+            sidebarWidth: width,
+            appearing: appearing,
+            minimumSize: window.frameRect(forContentRect: NSRect(origin: .zero, size: window.contentMinSize)).size,
+            visibleFrame: visible
+        )
+        guard frame != window.frame else { return }
+        window.setFrame(frame, display: true)
     }
 
     @objc func cycleSidebarMode(_ sender: Any?) {

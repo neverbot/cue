@@ -37,6 +37,28 @@ public enum WindowGeometry {
         return CGSize(width: fittedWidth, height: (fittedWidth * videoHeight / videoWidth).rounded(.down))
     }
 
+    /// The window frame that leaves the video area exactly the size it already had when the sidebar appears beside it
+    /// or goes away. The sidebar's width is taken from the window rather than from the picture, so mpv is never asked
+    /// to letterbox a video it had already fitted.
+    ///
+    /// The window grows rightwards until the screen's edge and then leftwards. If the screen is still too narrow, what
+    /// fits is kept and the video area absorbs the remainder, which is better than a window hanging off the display.
+    /// It never ends up smaller than `minimumSize` nor outside `visibleFrame`; the height is left alone.
+    public static func frameAdjustedForSidebar(
+        window: CGRect,
+        sidebarWidth: CGFloat,
+        appearing: Bool,
+        minimumSize: CGSize,
+        visibleFrame: CGRect
+    ) -> CGRect {
+        let wanted = window.width + (appearing ? sidebarWidth : -sidebarWidth)
+        let width = min(max(wanted, minimumSize.width), max(visibleFrame.width, minimumSize.width))
+        var x = window.minX
+        if x + width > visibleFrame.maxX { x = visibleFrame.maxX - width }
+        if x < visibleFrame.minX { x = visibleFrame.minX }
+        return CGRect(x: x, y: window.minY, width: width, height: max(window.height, minimumSize.height))
+    }
+
     /// Whether mpv's reported size differs enough from the size the window was fitted to (1 % in aspect) to refit.
     public static func needsRefit(fittedTo current: VideoSize?, reported: VideoSize) -> Bool {
         guard let current else { return true }
