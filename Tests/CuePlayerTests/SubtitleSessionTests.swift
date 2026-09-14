@@ -24,7 +24,9 @@ import Testing
 
     @Test func producesOneMpvPropertyPerStyleValue() {
         let names = SubtitleStyle().properties.map(\.name)
-        #expect(names == ["sub-scale", "sub-color", "sub-border-size", "sub-back-color", "sub-pos"])
+        #expect(names == [
+            "sub-scale", "sub-color", "sub-border-size", "sub-back-color", "sub-border-style", "sub-pos",
+        ])
     }
 
     @Test func scalesWithTheChosenSize() {
@@ -35,11 +37,16 @@ import Testing
         #expect(style.properties.first { $0.name == "sub-scale" }?.value == "0.8")
     }
 
+    /// The box is one setting expressed through two mpv properties, and the colour is the half that does nothing on
+    /// its own: nothing paints `sub-back-color` while the border style is the outlined default. Both are asserted in
+    /// both states, so a build that sets only the colour again fails here rather than on screen.
     @Test func turnsTheBackgroundBoxOnAndOff() {
         var style = SubtitleStyle()
         #expect(style.properties.first { $0.name == "sub-back-color" }?.value == "#00000000")
+        #expect(style.properties.first { $0.name == "sub-border-style" }?.value == "outline-and-shadow")
         style.hasBackgroundBox = true
         #expect(style.properties.first { $0.name == "sub-back-color" }?.value == "#80000000")
+        #expect(style.properties.first { $0.name == "sub-border-style" }?.value == "background-box")
     }
 
     @Test func buildsTheLoadCommandsInOrder() {

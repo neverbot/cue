@@ -53,6 +53,10 @@ public struct SubtitleStyle: Equatable, Sendable {
     /// An outline around the glyphs, in mpv's units. Zero turns it off.
     public var borderSize: Double = 3
     /// A translucent box behind the text, for subtitles over bright video.
+    ///
+    /// This drives mpv's border *style*, not only its back colour. `sub-back-color` is the colour the box is painted
+    /// in, and nothing paints it while the border style is the default outline-and-shadow: setting the colour alone
+    /// changed a value that nothing read, which is why the checkbox appeared to do nothing at all.
     public var hasBackgroundBox = false
     /// Distance from the bottom of the frame, 0–150 in mpv's units; 100 is the default position.
     public var position: Double = 100
@@ -66,6 +70,10 @@ public struct SubtitleStyle: Equatable, Sendable {
             MPVOption("sub-color", colour.value),
             MPVOption("sub-border-size", String(format: "%.1f", borderSize)),
             MPVOption("sub-back-color", hasBackgroundBox ? "#80000000" : "#00000000"),
+            // The two names this build's `border-style` accepts alongside `opaque-box`, which Cue does not offer:
+            // `background-box` fills one rectangle behind the whole line in `sub-back-color`, and
+            // `outline-and-shadow` is mpv's own default, the outlined text the checkbox returns to.
+            MPVOption("sub-border-style", hasBackgroundBox ? "background-box" : "outline-and-shadow"),
             MPVOption("sub-pos", String(Int(position.rounded()))),
         ]
     }
