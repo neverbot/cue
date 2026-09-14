@@ -987,6 +987,16 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
             // which one it was loaded with.
             audio = AudioTrackSession(stream: state.stream)
             playerView.controls.setSubtitlesActive(false)
+            // Which inspector buttons the bar shows is a property of the video, so it is settled here, where the new
+            // stream arrives — not in `refreshInspector()`, which only runs while the inspector is open and would
+            // leave the bar advertising the last video's pages until it was.
+            playerView.controls.setInspectorAvailability(
+                chapters: !timeline.isEmpty,
+                subtitles: !(state.stream?.captionTracks ?? []).isEmpty,
+                // The same rule the audio page lists by, so the button and the page can never disagree: one
+                // soundtrack is no choice, and both treat it as nothing to show.
+                audio: !AudioTrackPresentation.rows(for: audio.tracks, selected: audio.selectedID).isEmpty
+            )
             // The whole inspector, not just the subtitles: a new video brings new chapters too, and the position
             // update below deliberately no longer rebuilds either list.
             if isInspectorVisible { refreshInspector() }

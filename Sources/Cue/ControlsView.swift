@@ -24,6 +24,9 @@ final class ControlsView: NSView {
     private let muteButton = ControlsView.button(symbol: "speaker.wave.2.fill", label: "Mute")
     private let chaptersButton = ControlsView.button(symbol: "list.bullet", label: "Chapters")
     private let subtitlesButton = ControlsView.button(symbol: "captions.bubble", label: "Subtitles")
+    /// Only ever on screen for a dubbed video. A speaker would read as the volume control two places along, so the
+    /// waveform carries it.
+    private let audioButton = ControlsView.button(symbol: "waveform", label: "Audio Languages")
     private let fitWindowButton = ControlsView.button(symbol: "aspectratio", label: "Fit Window to Video")
     private let miniButton = ControlsView.button(symbol: "rectangle.inset.bottomright.filled", label: "Mini Player")
     private let elapsedLabel = ControlsView.timeLabel()
@@ -44,6 +47,8 @@ final class ControlsView: NSView {
         chaptersButton.action = #selector(toggleChapters)
         subtitlesButton.target = self
         subtitlesButton.action = #selector(toggleSubtitles)
+        audioButton.target = self
+        audioButton.action = #selector(toggleAudio)
         fitWindowButton.target = self
         fitWindowButton.action = #selector(fitWindowToVideo)
         miniButton.target = self
@@ -67,11 +72,15 @@ final class ControlsView: NSView {
         times.orientation = .horizontal
         times.spacing = 8
         let buttons = NSStackView(views: [
-            playButton, chapterLabel, NSView(), chaptersButton, subtitlesButton, fitWindowButton, miniButton,
-            muteButton, volumeSlider,
+            playButton, chapterLabel, NSView(), chaptersButton, subtitlesButton, audioButton, fitWindowButton,
+            miniButton, muteButton, volumeSlider,
         ])
         buttons.orientation = .horizontal
         buttons.spacing = 10
+
+        // Nothing is loaded yet, so there is nothing behind any of the three. They appear when a video says what it
+        // offers; without this they would all show on an empty player and then vanish one by one.
+        setInspectorAvailability(chapters: false, subtitles: false, audio: false)
 
         let column = NSStackView(views: [times, buttons])
         column.orientation = .vertical
@@ -109,11 +118,11 @@ final class ControlsView: NSView {
 
         let enabled = playerState.phase == .ready || playerState.phase == .ended
         seekBar.isEnabled = enabled
-        // Both stay enabled with nothing to show, like their menu items: the inspector page says the video offers
-        // none, which beats a button that refuses silently. Greying only the subtitles one left the same page
-        // answering differently depending on whether it was opened from here or from the inspector's own segment.
+        // Whether these three are on screen at all is `setInspectorAvailability`'s business, and it is decided by what
+        // the video offers, not by the phase. This only says whether what is on screen can be clicked yet.
         chaptersButton.isEnabled = enabled
         subtitlesButton.isEnabled = enabled
+        audioButton.isEnabled = enabled
         miniButton.isEnabled = enabled
         isReady = enabled
         updateFitWindowButton()
@@ -121,6 +130,19 @@ final class ControlsView: NSView {
             control.isEnabled = enabled
         }
         volumeSlider.doubleValue = playerState.volume
+    }
+
+    /// Shows each inspector button only when the video has something to put on that page.
+    ///
+    /// These three used to stay on the bar with nothing behind them, on the grounds that the page could say so in
+    /// words. In use that was three buttons that mostly led nowhere: most videos have no chapters and many have no
+    /// captions, so the common case was a bar advertising pages that were empty. A control that is absent says "not
+    /// here" faster than one that opens onto a sentence, and the bar shrinks to what this particular video can
+    /// actually do. `⌃⌘C`, `⌃⌘U` and the menu items still reach every page, so nothing becomes unreachable.
+    func setInspectorAvailability(chapters: Bool, subtitles: Bool, audio: Bool) {
+        chaptersButton.isHidden = !chapters
+        subtitlesButton.isHidden = !subtitles
+        audioButton.isHidden = !audio
     }
 
     /// Marks the subtitles button when a track is showing, so the state is visible without opening the inspector.
@@ -132,6 +154,7 @@ final class ControlsView: NSView {
     @objc private func toggleMute() { onCommand?(.toggleMute) }
     @objc private func toggleChapters() { onCommand?(.toggleChaptersInspector) }
     @objc private func toggleSubtitles() { onCommand?(.toggleSubtitlesInspector) }
+    @objc private func toggleAudio() { onCommand?(.toggleAudioInspector) }
     @objc private func toggleMini() { onCommand?(.toggleMiniPlayer) }
     @objc private func fitWindowToVideo() { onCommand?(.fitWindowToVideo) }
     @objc private func changeVolume(_ sender: NSSlider) { onCommand?(.setVolume(sender.doubleValue)) }
