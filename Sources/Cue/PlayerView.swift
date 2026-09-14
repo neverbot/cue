@@ -20,6 +20,7 @@ final class PlayerView: NSView {
     }
 
     private let messageLabel = NSTextField(labelWithString: "")
+    private let pausedIndicator = PausedIndicator()
     private var playerState = PlayerState()
     private var timeline = ChapterTimeline(chapters: [], duration: nil)
     private var hideTask: Task<Void, Never>?
@@ -39,11 +40,13 @@ final class PlayerView: NSView {
         messageLabel.maximumNumberOfLines = 3
         messageLabel.lineBreakMode = .byWordWrapping
 
-        for view in [videoView, messageLabel, controls, preview] as [NSView] {
+        for view in [videoView, messageLabel, pausedIndicator, controls, preview] as [NSView] {
             view.translatesAutoresizingMaskIntoConstraints = false
             addSubview(view)
         }
         NSLayoutConstraint.activate([
+            pausedIndicator.centerXAnchor.constraint(equalTo: centerXAnchor),
+            pausedIndicator.centerYAnchor.constraint(equalTo: centerYAnchor),
             videoView.leadingAnchor.constraint(equalTo: leadingAnchor),
             videoView.trailingAnchor.constraint(equalTo: trailingAnchor),
             videoView.topAnchor.constraint(equalTo: topAnchor),
@@ -117,6 +120,8 @@ final class PlayerView: NSView {
         let message = Self.message(for: state.phase)
         messageLabel.stringValue = message ?? ""
         messageLabel.isHidden = message == nil
+        // Only with a video loaded: in every other phase the message above owns the centre of the picture.
+        pausedIndicator.setVisible(state.phase == .ready && state.isPaused)
         if state.phase != .ready || state.isPaused {
             revealControls()
         }
