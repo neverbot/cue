@@ -42,6 +42,7 @@ tracks — comes from YouTube straight to your Mac, and nothing about what you w
 | Subtitles: pick a track, size and colour it, shift its timing, and export it as SRT or VTT | Working |
 | Audio languages: play the original soundtrack of a dubbed video, and switch without reloading | Working |
 | A settings window: appearance, automatic playback, the sidebar, the thumbnail cache and the queue | Working |
+| An About window with the version, the author, and the licenses of everything bundled | Working |
 | A mini player: a small always-on-top window that keeps playing, with no reload and no second stream | Working |
 | Browser extension and bookmarklet ("send this tab to Cue") | Planned |
 | Channel subscriptions with new-video alerts | Planned |
@@ -282,6 +283,14 @@ bring the bars back.
 | `z` / `x` | Subtitle delay −0.1 s / +0.1 s |
 | `⌘⇧M` | Mini player |
 | `⌘0` | Fit the window to the video |
+
+## About
+
+Cue ▸ About Cue shows the icon, the version and build, the author and Cue's own MIT license, and below them the full
+text of the licenses of everything bundled — libmpv and FFmpeg under the LGPL, GRDB under MIT, the yt-dlp EJS solver
+under the Unlicense, and the rest. That text is not written into the app: it is read from
+`Cue.app/Contents/Resources/licenses/`, so what ships and what the window shows are the same document and cannot
+drift apart.
 
 ## Settings
 
