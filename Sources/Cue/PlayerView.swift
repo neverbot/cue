@@ -11,12 +11,12 @@ final class PlayerView: NSView {
     var onKeyPress: ((KeyPress) -> Bool)?
     /// Called whenever the controls appear or disappear, so the window can fade its title bar with them.
     var onChromeVisibilityChange: ((Bool) -> Void)?
-    /// Everything that comes and goes as one unit: the controls bar, the seek preview, and chrome that belongs to the
-    /// window rather than to this view — the sidebar toggle, which sits in the container around the video.
+    /// Everything that comes and goes as one unit over the picture: the controls bar and the seek preview.
     ///
     /// This list is the single source of truth for chrome visibility, and `fade(_:to:)` is the only code in the app
-    /// that writes `alphaValue` or `isHidden` on any view in it. Holding the toggle strongly is not a cycle: the
-    /// container owns it, and it points back here only through its action, which AppKit does not retain.
+    /// that writes `alphaValue` or `isHidden` on any view in it. The window's own chrome — the title bar, the traffic
+    /// lights and the sidebar toggle beside them — is not in here: it follows `onChromeVisibilityChange` instead, so
+    /// each of the two lives under exactly one owner.
     private var chromeViews: [NSView] = []
 
     private let messageLabel = NSTextField(labelWithString: "")
@@ -188,15 +188,9 @@ final class PlayerView: NSView {
 
     /// Adds a view to the chrome and brings it straight to whatever the chrome is doing right now, so a view that
     /// joins late cannot start out contradicting the others.
-    func registerChrome(_ view: NSView) {
+    private func registerChrome(_ view: NSView) {
         guard !chromeViews.contains(where: { $0 === view }) else { return }
         chromeViews.append(view)
-        applyChrome()
-    }
-
-    /// Re-applies the current state to every chrome view. Anything that moves or rebuilds one of them calls this, so
-    /// none can be left behind at an alpha that does not match what the chrome is doing.
-    func refreshChrome() {
         applyChrome()
     }
 

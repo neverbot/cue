@@ -16,13 +16,15 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
     private let store: QueueStore
     private let playerView: PlayerView
     /// The container the player view normally lives in; where it returns when the mini player closes.
-    private let playerContainer: VideoAreaView
-    /// Shows and hides the sidebar from the video area, so the menu is not the only way.
+    private let playerContainer: NSView
+    /// Shows and hides the sidebar, so the menu is not the only way.
     private let sidebarButton = PlayerWindowController.sidebarToggleButton()
-    /// How far the button sits from the container's left edge. The edge moves with the sidebar, so the inset has to.
-    private var sidebarButtonLeading: NSLayoutConstraint!
-    /// How far the button's centre sits below the container's top edge, measured from the traffic lights.
-    private var sidebarButtonCentreY: NSLayoutConstraint!
+    /// Carries the toggle in the title bar, where AppKit places it after the traffic lights using the system's own
+    /// spacing. Nothing here measures that spacing, which is the point: it is not ours to guess.
+    private let sidebarAccessory = NSTitlebarAccessoryViewController()
+    /// What the chrome last reported, so a full screen transition can put the title bar back where the chrome is
+    /// rather than where the last fade left it.
+    private var chromeIsVisible = true
     private let sidebar: QueueSidebarViewController
     private let sidebarHost: SidebarHost
     private let splitViewController: NSSplitViewController
@@ -81,7 +83,7 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
         sidebar = QueueSidebarViewController(store: store, thumbnails: thumbnails)
 
         // The video fills its own view controller; the overlay sidebar floats in the same view, above it.
-        let playerContainer = VideoAreaView(frame: NSRect(origin: .zero, size: WindowGeometry.defaultContentSize))
+        let playerContainer = NSView(frame: NSRect(origin: .zero, size: WindowGeometry.defaultContentSize))
         playerView.translatesAutoresizingMaskIntoConstraints = false
         playerContainer.addSubview(playerView)
         NSLayoutConstraint.activate([
@@ -141,7 +143,6 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
         sidebar.onPlay = { [weak self] videoID in self?.coordinator.play(videoID) }
         coordinator.onQueueChange = { [weak self] in self?.refreshSidebar() }
         installSidebarButton()
-        playerContainer.onLayout = { [weak self] in self?.alignSidebarButtonWithTrafficLights() }
         refreshSidebar()
     }
 
@@ -449,53 +450,35 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
         updateSidebarButton()
     }
 
-    /// Puts the toggle in the video area's top-left and hands it to the player view, which fades it with the rest of
-    /// the chrome. It goes through `toggleSidebar(_:)` like the menu item does, so there is one way to hide a sidebar.
+    /// Puts the toggle in the title bar, as a leading accessory. That is where Finder, Safari and Mail keep theirs,
+    /// and it is the only way to sit beside the traffic lights without guessing at their position: AppKit lays the
+    /// accessory out after them, at the system's spacing, at every title bar height and on both sides of a full
+    /// screen transition. It goes through `toggleSidebar(_:)` like the menu item does, so there is one way to hide a
+    /// sidebar.
     private func installSidebarButton() {
         sidebarButton.target = self
         sidebarButton.action = #selector(toggleSidebar(_:))
         sidebarButton.translatesAutoresizingMaskIntoConstraints = false
-        playerContainer.addSubview(sidebarButton)
-        sidebarButtonLeading = sidebarButton.leadingAnchor.constraint(equalTo: playerContainer.leadingAnchor)
-        sidebarButtonCentreY = sidebarButton.centerYAnchor.constraint(equalTo: playerContainer.topAnchor)
-        NSLayoutConstraint.activate([sidebarButtonLeading, sidebarButtonCentreY])
+        let fitting = sidebarButton.fittingSize
+        let container = NSView(frame: NSRect(x: 0, y: 0, width: fitting.width + 12, height: fitting.height + 4))
+        container.addSubview(sidebarButton)
+        NSLayoutConstraint.activate([
+            sidebarButton.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 6),
+            sidebarButton.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -6),
+            sidebarButton.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+        ])
+        sidebarAccessory.view = container
+        sidebarAccessory.layoutAttribute = .leading
         updateSidebarButton()
-        alignSidebarButtonWithTrafficLights()
-        playerView.registerChrome(sidebarButton)
+        window?.addTitlebarAccessoryViewController(sidebarAccessory)
     }
 
-    /// The container's left edge is not always the same edge. Beside a visible sidebar it starts well inside the
-    /// window and a small inset is enough; with the sidebar gone it *is* the window's edge, where the traffic lights
-    /// are, and the button has to start clear of them.
+    /// The toggle says what it will do, not what it shows now, and the accessibility label says the same thing as the
+    /// tooltip. Position is no longer any of this method's business: the title bar owns it.
     private func updateSidebarButton() {
-        let showing = sidebarHost.isVisible
-        sidebarButtonLeading.constant = showing ? 8 : 86
-        let label = showing ? "Hide Sidebar" : "Show Sidebar"
+        let label = sidebarHost.isVisible ? "Hide Sidebar" : "Show Sidebar"
         sidebarButton.toolTip = label
         sidebarButton.setAccessibilityLabel(label)
-        // The button just moved. Its visibility belongs to the player view, and asking again here is what stops a
-        // move from leaving it at an alpha the rest of the chrome has moved on from.
-        playerView.refreshChrome()
-    }
-
-    /// Puts the toggle on the same line as the traffic lights, by asking the window where its close button actually
-    /// is rather than assuming a title bar height: that height is not a constant, and the safe area the button used
-    /// to hang from starts *below* the title bar, which is what left it sitting too low. The close button's centre is
-    /// converted into the container's own coordinates, so it stays right whether the sidebar pushes the video aside
-    /// or not. Measured again on every layout pass, so a resize or a trip through full screen cannot stale it.
-    private func alignSidebarButtonWithTrafficLights() {
-        let half = max(sidebarButton.frame.height, sidebarButton.fittingSize.height) / 2
-        let height = playerContainer.bounds.height
-        var belowTop = playerContainer.safeAreaInsets.top / 2
-        if let close = window?.standardWindowButton(.closeButton), close.window === window {
-            let inContainer = playerContainer.convert(close.convert(close.bounds, to: nil), from: nil)
-            belowTop = height - inContainer.midY
-        }
-        // Never above the container's top edge, and never so far down that a wrong reading pushes it off screen.
-        let distance = min(max(belowTop, half), max(height / 2, half))
-        guard sidebarButtonCentreY.constant != distance else { return }
-        sidebarButtonCentreY.constant = distance
-        playerView.refreshChrome()
     }
 
     private static func sidebarToggleButton() -> NSButton {
@@ -504,7 +487,6 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
         let button = NSButton(image: image ?? NSImage(), target: nil, action: nil)
         button.isBordered = false
         button.refusesFirstResponder = true
-        button.contentTintColor = .white
         return button
     }
 
@@ -604,19 +586,47 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
         shutdown()
     }
 
-    /// Fades the title bar with the controls. The traffic lights stay put while the pointer is up there, and the bar
-    /// never fades while the window is not key: a window you are about to click must show its buttons.
+    /// Fades the title bar with the controls.
     private func setTitleBarVisible(_ visible: Bool) {
-        guard let window, !window.styleMask.contains(.fullScreen) else { return }
+        chromeIsVisible = visible
+        applyTitleBarVisibility()
+    }
+
+    /// Brings the title bar to what the chrome is doing. The traffic lights stay put while the pointer is up there,
+    /// and the bar never fades while the window is not key: a window you are about to click must show its buttons.
+    ///
+    /// The sidebar toggle fades in the same animation group as the traffic lights, because it is now one of them:
+    /// they appear and disappear together, from one decision, and nothing else in the app writes the accessory's
+    /// alpha. `isHidden` is settled from the alpha the fade actually ended on, so a fade in that overtakes a fade out
+    /// leaves the toggle visible and clickable, and an accessory at alpha 0 is never left hit testing.
+    private func applyTitleBarVisibility() {
+        guard let window else { return }
+        let accessory = sidebarAccessory.view
+        // In full screen the title bar is AppKit's to slide in and out, accessory included. Anything faded here would
+        // stay faded behind its back, so the toggle is put back to full alpha and left alone.
+        guard !window.styleMask.contains(.fullScreen) else {
+            accessory.isHidden = false
+            accessory.alphaValue = 1
+            return
+        }
         // `contentLayoutRect` is the part of the content view the title bar does not cover, in the same coordinate
         // space the pointer is reported in. Comparing against its top asks the window where its title bar ends
         // instead of assuming a height, and it keeps working at any title bar size.
         let pointerIsInTitleArea = window.mouseLocationOutsideOfEventStream.y > window.contentLayoutRect.maxY
-        let shown = visible || pointerIsInTitleArea || !window.isKeyWindow
+        let shown = chromeIsVisible || pointerIsInTitleArea || !window.isKeyWindow
+        // Unhidden before the fade in, or there would be nothing on screen for it to act on.
+        if shown { accessory.isHidden = false }
         NSAnimationContext.runAnimationGroup { context in
             context.duration = 0.2
             for button in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] {
                 window.standardWindowButton(button)?.animator().alphaValue = shown ? 1 : 0
+            }
+            accessory.animator().alphaValue = shown ? 1 : 0
+        } completionHandler: {
+            // AppKit runs this on the main thread, but the handler itself is `@Sendable`, so the isolation has to be
+            // stated rather than assumed by the compiler.
+            MainActor.assumeIsolated {
+                accessory.isHidden = accessory.alphaValue == 0
             }
         }
         window.titleVisibility = shown ? .visible : .hidden
@@ -628,20 +638,17 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
         playerView.hidePreview()
     }
 
-    /// The traffic lights move with the window's size and with full screen, and the toggle is aligned to them, so
-    /// every one of those moments asks the container to measure them again.
-    func windowDidResize(_ notification: Notification) {
-        playerContainer.needsLayout = true
-    }
-
+    /// Full screen takes the title bar away and gives it back, so both transitions re-apply what the chrome is doing:
+    /// leaving is what would otherwise restore a title bar still faded out from before, with no pointer move due to
+    /// bring it back.
     func windowDidEnterFullScreen(_ notification: Notification) {
-        playerContainer.needsLayout = true
         playerView.controls.windowIsFullScreen = true
+        applyTitleBarVisibility()
     }
 
     func windowDidExitFullScreen(_ notification: Notification) {
-        playerContainer.needsLayout = true
         playerView.controls.windowIsFullScreen = false
+        applyTitleBarVisibility()
     }
 
     func windowDidChangeOcclusionState(_ notification: Notification) {
@@ -765,17 +772,5 @@ extension PlayerWindowController: NSMenuItemValidation {
             // unrecognized selector — one this object was never meant to validate — is allowed rather than guessed at.
             return true
         }
-    }
-}
-
-/// The view the video and its overlays live in. It is a plain container except for one thing: it reports every layout
-/// pass, which is when anything pinned to a moving part of the window — the sidebar toggle, which follows the traffic
-/// lights — gets the chance to measure that part again.
-final class VideoAreaView: NSView {
-    var onLayout: (() -> Void)?
-
-    override func layout() {
-        super.layout()
-        onLayout?()
     }
 }
