@@ -23,8 +23,9 @@ final class SubtitlesViewController: NSViewController, NSTableViewDataSource, NS
     /// has no chapters. Leaving the size, colour, delay and export controls on screen with nothing to act on would
     /// read as a page that works and simply found nothing, which is not the same thing.
     private let emptyLabel = NSTextField(labelWithString: "This video has no subtitles.")
-    /// Everything except the empty label, hidden together when there is nothing to show.
-    private var column: NSStackView?
+    /// Everything except the empty label, hidden together when there is nothing to show. Not named `column`:
+    /// `loadView` already has a local `column` for the table's own column, which would shadow this one.
+    private var pageStack: NSStackView?
 
     private var tracks: [CaptionTrack] = []
     private var style = SubtitleStyle()
@@ -93,7 +94,7 @@ final class SubtitlesViewController: NSViewController, NSTableViewDataSource, NS
         column0.spacing = 8
         column0.edgeInsets = NSEdgeInsets(top: 10, left: 12, bottom: 10, right: 12)
         column0.translatesAutoresizingMaskIntoConstraints = false
-        column = column0
+        pageStack = column0
         content.addSubview(column0)
         content.addSubview(emptyLabel)
         NSLayoutConstraint.activate([
@@ -116,7 +117,7 @@ final class SubtitlesViewController: NSViewController, NSTableViewDataSource, NS
         // "Off" is always row 0, so an empty page still has one row: emptiness has to be read from the tracks
         // themselves, never from the table's row count.
         emptyLabel.isHidden = !tracks.isEmpty
-        column?.isHidden = tracks.isEmpty
+        pageStack?.isHidden = tracks.isEmpty
         tableView.reloadData()
         let row = selected.flatMap { track in tracks.firstIndex { $0.id == track.id }.map { $0 + 1 } } ?? 0
         tableView.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
