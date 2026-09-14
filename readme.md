@@ -232,7 +232,7 @@ timestamps in the description. Nothing is fetched from anywhere else, and nothin
 
 Subtitles are the caption tracks the video offers. Choosing one downloads it, writes it as WebVTT into a private
 temporary directory and hands that file to the player, so a subtitle cannot expire in the middle of a video the way a
-stream URL can. Size, colour, an optional background box and the timing offset (`z` and `x`, or the panel's slider)
+stream URL can. Size, colour, an optional background box and the timing offset (`z` and `x`, or the page's slider)
 apply immediately, and the subtitles lift clear of the controls bar while it is on screen rather than sitting behind
 it. Export writes SubRip (`.srt`) or WebVTT (`.vtt`) from the same text that is on screen.
 
