@@ -88,7 +88,10 @@ final class QueueRowView: NSTableCellView {
         titleLabel.stringValue = row.title
         titleLabel.maximumNumberOfLines = mode == .compact ? 1 : 2
         titleLabel.font = row.isCurrent ? .boldSystemFont(ofSize: 12) : .systemFont(ofSize: 12)
-        titleLabel.textColor = row.isWatched ? .secondaryLabelColor : .labelColor
+        // A title that is not known yet is the video's id standing in for one, and it is drawn in the secondary
+        // label colour so it reads as provisional rather than as the video's name - the same colour a watched row's
+        // title takes, which is the one dimmed treatment this list has.
+        titleLabel.textColor = row.isTitleKnown && !row.isWatched ? .labelColor : .secondaryLabelColor
         secondaryLabel.stringValue = row.secondaryText
         secondaryLabel.isHidden = mode == .compact || row.secondaryText.isEmpty
         thumbnail.isHidden = !row.showsThumbnail
