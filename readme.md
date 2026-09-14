@@ -4,7 +4,7 @@
 
 Cue keeps a personal queue of the YouTube videos you want to watch and plays them in a fast, native player built for the Mac. It aims for the polish of the best Mac media players: a clean window that stays out of the way, a sidebar with everything still pending, and playback that uses the hardware decoder in your Mac instead of a browser tab.
 
-> **Status: early development.** The extraction core, the command-line tool, the player, the queue and the player's chrome — chapters, subtitles, scrubbing previews and a mini player — are all built and covered by the test suite. What is still missing is a pass with human eyes on the interface, and a signed release you can download. See [Roadmap](#roadmap).
+> **Status: early development.** The extraction core, the command-line tool, the player, the queue and the player's chrome — the chapters, subtitles and audio-language inspector, scrubbing previews, a settings window and a mini player — are all built and covered by the test suite. What is still missing is a pass with human eyes on the interface, and a signed release you can download. See [Roadmap](#roadmap).
 
 ## Why Cue
 
@@ -33,8 +33,11 @@ tracks — comes from YouTube straight to your Mac, and nothing about what you w
 | Import and export of the queue | Available in `Cue.app` (manual checks pending) |
 | Drawn on-screen controls with chapter marks on the seek bar, and a title bar that fades with them | Available in `Cue.app` (manual checks pending) |
 | Thumbnail previews while scrubbing, from YouTube's own storyboard sheets | Available in `Cue.app` (manual checks pending) |
-| A chapters panel built from the video's own markers, or from the timestamps in its description | Available in `Cue.app` (manual checks pending) |
-| A subtitles panel: pick a track, size and colour it, shift its timing, and export it as SRT or VTT | Available in `Cue.app` (manual checks pending) |
+| A trailing inspector holding chapters, subtitles and audio languages, each on its own page | Available in `Cue.app` (manual checks pending) |
+| Chapters built from the video's own markers, or from the timestamps in its description | Available in `Cue.app` (manual checks pending) |
+| Subtitles: pick a track, size and colour it, shift its timing, and export it as SRT or VTT | Available in `Cue.app` (manual checks pending) |
+| Audio languages: play the original soundtrack of a dubbed video, and switch without reloading | Available in `Cue.app` (manual checks pending) |
+| A settings window: appearance, automatic playback, the sidebar, the thumbnail cache and the queue | Available in `Cue.app` (manual checks pending) |
 | A mini player: a small always-on-top window that keeps playing, with no reload and no second stream | Available in `Cue.app` (manual checks pending) |
 | Browser extension and bookmarklet ("send this tab to Cue") | Planned |
 | Channel subscriptions with new-video alerts | Planned |
@@ -147,7 +150,10 @@ Sources/
   cue-resolve/             command-line tool
   CMpv/                    system module for libmpv's C API
   CueMPV/                  Swift wrapper around libmpv (core and render API)
-  CuePlayer/               player logic: state, commands, resume positions, window sizing
+  CuePlayer/               player logic: state, commands, resume positions, window sizing,
+                           subtitle and audio-track sessions
+  CueQueue/                the queue itself: SQLite store and migrations, import and export,
+                           thumbnails, preferences, and what each list should show
   Cue/                     the macOS app (AppKit, OpenGL video layer)
 Tests/                     Swift Testing suites, sanitized fixtures and synthetic media
 packaging/                 Info.plist, entitlements and license texts for the app bundle
@@ -159,7 +165,7 @@ scripts/                   test runner, libmpv fetch, app bundle and fixture scr
 1. **Foundation and native extraction.** Done: `CueCore` and `cue-resolve`.
 2. **Player core.** Available: `Cue.app` plays with libmpv and hardware decoding, with on-screen controls, keyboard shortcuts and resume positions (manual checks pending).
 3. **Queue.** Available: a persistent SQLite queue with list, thumbnail and compact views, a counter, adding by paste, drag and drop or `cue://add` links, import and export, and watched state (manual checks pending).
-4. **Polish.** Available: restyled on-screen controls with a title bar that fades with them, thumbnail previews while scrubbing, a chapters panel, a subtitles panel with SRT/VTT export, and an always-on-top mini player (manual checks pending).
+4. **Polish.** Available: restyled on-screen controls with a title bar that fades with them, thumbnail previews while scrubbing, a trailing inspector for chapters, subtitles (with SRT/VTT export) and audio languages, a settings window, and an always-on-top mini player (manual checks pending).
 5. **Browser integration.** Bookmarklet and extensions for Firefox and Chrome.
 6. **Subscriptions.** Channel feeds and new-video notifications.
 7. **Casting.** Research first: AirPlay, Chromecast, DLNA.
@@ -173,7 +179,10 @@ player's own data. The file is created readable only by you. Resume positions li
 
 The sidebar (⌃⌘S to show or hide it, ⌃⌘M to cycle its density, ⌃⌘O to float it over the video instead of pushing it
 aside) lists what is left to watch with a counter of the videos still pending. Each row shows its own length once that
-is known.
+is known. The video playing right now is marked with a tinted row and a speaker glyph; a video already watched keeps
+a check mark. Titles are fetched for the rows that are on screen, so a long import does not become a long wait, and a
+row shows the video's id until its title arrives. Right-clicking a row offers copying its link or opening it in your
+browser.
 
 Add videos by pasting links (⌘V takes as many as the clipboard holds), by dropping links onto the sidebar, or with a
 `cue://add?url=<video URL>` link from a browser or a script. Adding the same video twice never duplicates it. ⇧⌘N
@@ -209,13 +218,23 @@ videos already queued are left as they are, and the summary says how many were a
 
 ## Chapters, subtitles, audio tracks and the mini player
 
+These three live in a column at the trailing edge of the window, not in floating panels: a panel takes focus away
+from the video, drifts behind the window and is easy to lose. One segmented control at its top switches pages, and
+every page keeps its scroll position while the others are in front. The inspector always opens closed.
+
+The buttons in the controls bar follow what the video actually offers: no chapters, no chapters button; no captions,
+no subtitles button; a single soundtrack, no audio button. Most videos have no chapters and many have no captions,
+so a bar that always showed all three mostly advertised empty pages. The keyboard and the menu still reach every
+page regardless.
+
 Chapters come from the video itself — the markers YouTube serves with the watch page, or, when there are none, the
 timestamps in the description. Nothing is fetched from anywhere else, and nothing is guessed.
 
 Subtitles are the caption tracks the video offers. Choosing one downloads it, writes it as WebVTT into a private
 temporary directory and hands that file to the player, so a subtitle cannot expire in the middle of a video the way a
 stream URL can. Size, colour, an optional background box and the timing offset (`z` and `x`, or the panel's slider)
-apply immediately. Export writes SubRip (`.srt`) or WebVTT (`.vtt`) from the same text that is on screen.
+apply immediately, and the subtitles lift clear of the controls bar while it is on screen rather than sitting behind
+it. Export writes SubRip (`.srt`) or WebVTT (`.vtt`) from the same text that is on screen.
 
 Audio tracks are the languages a dubbed video offers. Cue plays the one YouTube marks as the video's original, rather
 than whichever dub happens to be encoded at the highest bitrate, and the inspector's Audio page (`a`, or ⌃⌘A) lists the
@@ -234,16 +253,31 @@ bring the bars back.
 
 | Key | Does |
 |---|---|
-| `c` | Chapters panel |
-| `s` | Subtitles panel |
-| `a` | Audio tracks panel |
-| `⌃⌘C` | Chapters panel (menu) |
-| `⌃⌘U` | Subtitles panel (menu) |
-| `⌃⌘A` | Audio tracks panel (menu) |
+| `c` | Chapters page |
+| `s` | Subtitles page |
+| `a` | Audio languages page |
+| `⌃⌘C` | Chapters page (menu) |
+| `⌃⌘U` | Subtitles page (menu) |
+| `⌃⌘A` | Audio languages page (menu) |
 | `⌥→` / `⌥←` | Next / previous chapter |
 | `z` / `x` | Subtitle delay −0.1 s / +0.1 s |
 | `⌘⇧M` | Mini player |
 | `⌘0` | Fit the window to the video |
+
+## Settings
+
+⌘, opens a window with five sections. Everything in it is remembered across launches, in macOS's own preferences
+store — there is no configuration file to edit and nothing is sent anywhere. A Reset button at the foot puts every
+setting back to its default, and stands further from the form than the sections stand from each other, so it is not
+reached for by accident.
+
+- **Appearance.** Follow the system, or force light or dark.
+- **Playback.** Whether finishing a video starts the next one.
+- **Sidebar.** Its density and whether it floats over the video or pushes it aside. The choice you make with ⌃⌘M or
+  ⌃⌘O is the same setting, and survives a restart.
+- **Cache.** What the thumbnail cache currently weighs, a button to empty it and one to fetch the missing images.
+  Emptying it costs nothing: the images come back from YouTube as rows appear.
+- **Queue.** Import a file of links, add a single video, or empty the queue. Emptying asks first and cannot be undone.
 
 ## Contributing
 
