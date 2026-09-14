@@ -305,6 +305,15 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
         refreshSubtitlesInspector()
     }
 
+    /// What actually changes as a video plays: which chapter the playhead is in. Nothing else here follows the
+    /// position, and rebuilding the rest on every tick is what broke choosing a subtitle — the player reports state
+    /// several times a second, and each report used to repopulate the subtitles page and reset its selected row from
+    /// `subtitles.selected`, which stays nil until an asynchronous download finishes. The chosen track was pushed
+    /// back to "Off" milliseconds after the click, so the click looked as though it had done nothing at all.
+    private func updateInspectorPosition() {
+        inspector.chapters.setCurrent(timeline.index(at: controller.state.position))
+    }
+
     /// Moves the video into a small floating window, or brings it back. The view — and with it mpv's render context —
     /// is moved, never rebuilt.
     @objc func toggleMiniPlayer(_ sender: Any?) {
@@ -895,9 +904,11 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
             loadedCues.removeAll()
             subtitles = SubtitleSession(keeping: subtitles)
             playerView.controls.setSubtitlesActive(false)
-            if isInspectorVisible { refreshSubtitlesInspector() }
+            // The whole inspector, not just the subtitles: a new video brings new chapters too, and the position
+            // update below deliberately no longer rebuilds either list.
+            if isInspectorVisible { refreshInspector() }
         }
-        if isInspectorVisible { refreshInspector() }
+        if isInspectorVisible { updateInspectorPosition() }
         if let size = state.videoSize { fit(to: size) }
         if let stream = state.stream, stream.videoURL != loggedDecodingFor {
             loggedDecodingFor = stream.videoURL
