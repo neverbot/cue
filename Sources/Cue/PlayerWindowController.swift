@@ -723,11 +723,12 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
         window.setFrame(frame, display: true)
     }
 
-    /// There is nothing to fit until a video is loaded, and full screen cannot resize the window at all, so the button
-    /// and the menu item are greyed instead of refusing silently.
+    /// There is nothing to fit until a video is loaded, full screen cannot resize the window at all, and while the
+    /// mini player is up this window is hidden behind it — fitting a window the owner cannot see is worse than
+    /// refusing. In all three cases the button and the menu item are greyed instead of refusing silently.
     var canFitWindowToVideo: Bool {
         let phase = controller.state.phase
-        guard phase == .ready || phase == .ended, let window else { return false }
+        guard phase == .ready || phase == .ended, miniPlayer == nil, let window else { return false }
         return !window.styleMask.contains(.fullScreen)
     }
 }
