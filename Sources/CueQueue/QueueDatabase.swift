@@ -68,6 +68,33 @@ public struct QueueDatabase: Sendable {
                 table.column("value", .text).notNull()
             }
         }
+        // A title that is not known yet is now null, rather than the video id standing in for one. The old
+        // placeholder and a genuine title were indistinguishable, so nothing could tell what was known from what was
+        // merely filled in. SQLite cannot drop a NOT NULL constraint, so the table is rebuilt: every row is carried
+        // over, and only the rows whose title was exactly their own id - the placeholder `add` used to write - become
+        // null. A real title survives untouched, including the perverse one that happens to read like an id, which is
+        // now simply a title like any other.
+        migrator.registerMigration("v2-unknown-title") { db in
+            try db.create(table: "newQueueItem") { table in
+                table.primaryKey("videoID", .text).notNull()
+                table.column("title", .text)
+                table.column("author", .text)
+                table.column("duration", .double)
+                table.column("addedAt", .datetime).notNull()
+                table.column("sortIndex", .integer).notNull()
+                table.column("watchedAt", .datetime)
+            }
+            try db.execute(sql: """
+            INSERT INTO newQueueItem (videoID, title, author, duration, addedAt, sortIndex, watchedAt)
+            SELECT videoID, CASE WHEN title = videoID THEN NULL ELSE title END,
+                   author, duration, addedAt, sortIndex, watchedAt
+            FROM queueItem
+            """)
+            try db.drop(table: "queueItem")
+            try db.rename(table: "newQueueItem", to: "queueItem")
+            // The index went with the old table.
+            try db.create(indexOn: "queueItem", columns: ["sortIndex"])
+        }
         return migrator
     }
 

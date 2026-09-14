@@ -71,7 +71,11 @@ public enum InspectorTab: String, CaseIterable, Sendable {
 /// One sidebar row, ready to draw. The view layer adds no logic of its own.
 public struct QueueRow: Equatable, Sendable {
     public var videoID: String
+    /// What the row draws: the real title, or the video id standing in for one that is not known yet.
     public var title: String
+    /// Whether `title` is the video's own title. False when it is the id standing in, which the row draws as
+    /// provisional rather than as the video's name.
+    public var isTitleKnown: Bool
     /// Author and duration, already joined; empty when neither is known.
     public var secondaryText: String
     public var durationText: String
@@ -84,6 +88,7 @@ public struct QueueRow: Equatable, Sendable {
     public init(
         videoID: String,
         title: String,
+        isTitleKnown: Bool = true,
         secondaryText: String,
         durationText: String,
         isWatched: Bool,
@@ -93,6 +98,7 @@ public struct QueueRow: Equatable, Sendable {
     ) {
         self.videoID = videoID
         self.title = title
+        self.isTitleKnown = isTitleKnown
         self.secondaryText = secondaryText
         self.durationText = durationText
         self.isWatched = isWatched
@@ -108,7 +114,8 @@ public enum QueuePresentation {
         videos.map { video in
             QueueRow(
                 videoID: video.videoID,
-                title: video.title,
+                title: titleText(for: video),
+                isTitleKnown: hasKnownTitle(video),
                 secondaryText: secondaryText(for: video, mode: mode),
                 durationText: video.duration.map(PlaybackTime.format) ?? "",
                 isWatched: video.isWatched,
@@ -117,6 +124,19 @@ public enum QueuePresentation {
                 progress: progress(for: video)
             )
         }
+    }
+
+    /// What a row shows where the title goes. A video whose title is not known yet shows its id: it is the only
+    /// thing known about the video, and an empty row would say less. `hasKnownTitle(_:)` is what tells the two
+    /// apart, so the row can draw the stand-in as provisional instead of as the video's name.
+    public static func titleText(for video: QueuedVideo) -> String {
+        video.title ?? video.videoID
+    }
+
+    /// Whether the video's own title is known. A stored title that happens to read like a video id is still a
+    /// title: only a missing one is unknown.
+    public static func hasKnownTitle(_ video: QueuedVideo) -> Bool {
+        video.title != nil
     }
 
     /// The sidebar header: how many videos are left.

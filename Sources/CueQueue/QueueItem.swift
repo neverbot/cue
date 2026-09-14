@@ -8,7 +8,8 @@ public struct QueueItem: Codable, Equatable, Sendable, FetchableRecord, Persista
     public static let databaseTableName = "queueItem"
 
     public var videoID: String
-    public var title: String
+    /// Null until a title is known: the video id is never stored as a stand-in for one.
+    public var title: String?
     public var author: String?
     /// Seconds, when known.
     public var duration: Double?
@@ -19,7 +20,7 @@ public struct QueueItem: Codable, Equatable, Sendable, FetchableRecord, Persista
 
     public init(
         videoID: String,
-        title: String,
+        title: String? = nil,
         author: String? = nil,
         duration: Double? = nil,
         addedAt: Date,
@@ -37,7 +38,7 @@ public struct QueueItem: Codable, Equatable, Sendable, FetchableRecord, Persista
 
     public init(
         videoID: VideoID,
-        title: String,
+        title: String? = nil,
         author: String? = nil,
         duration: Double? = nil,
         addedAt: Date,
@@ -73,7 +74,8 @@ public struct ResumePosition: Codable, Equatable, Sendable, FetchableRecord, Per
 /// resume columns are nil for a video that was never played.
 public struct QueuedVideo: Codable, Equatable, Sendable, FetchableRecord {
     public var videoID: String
-    public var title: String
+    /// Null until a title is known; `QueuePresentation` decides what a row shows in its place.
+    public var title: String?
     public var author: String?
     public var duration: Double?
     public var addedAt: Date
@@ -85,7 +87,7 @@ public struct QueuedVideo: Codable, Equatable, Sendable, FetchableRecord {
 
     public init(
         videoID: String,
-        title: String,
+        title: String? = nil,
         author: String? = nil,
         duration: Double? = nil,
         addedAt: Date,

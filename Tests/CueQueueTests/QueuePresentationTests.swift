@@ -51,6 +51,26 @@ import Testing
         #expect(rows[0].progress == nil)
     }
 
+    /// The three cases the row styling turns on: a known title, one not fetched yet, and a real title that happens
+    /// to read exactly like a video id.
+    @Test func tellsAKnownTitleFromAStandInOne() throws {
+        let store = try TestQueue.store()
+        try store.add(TestQueue.first, title: "First", addedAt: TestQueue.date)
+        try store.add(TestQueue.second, addedAt: TestQueue.date)
+        try store.add(TestQueue.third, title: TestQueue.third.rawValue, addedAt: TestQueue.date)
+
+        let rows = QueuePresentation.rows(for: try store.videos(), mode: .list)
+
+        #expect(rows[0].title == "First")
+        #expect(rows[0].isTitleKnown)
+        // Nothing is known yet, so the row shows the id - and says that it is standing in for a title.
+        #expect(rows[1].title == TestQueue.second.rawValue)
+        #expect(rows[1].isTitleKnown == false)
+        // The same text, but stored as a title: it is the video's name and is drawn as one.
+        #expect(rows[2].title == TestQueue.third.rawValue)
+        #expect(rows[2].isTitleKnown)
+    }
+
     @Test func countsPendingVideosInTheHeader() {
         #expect(QueuePresentation.counterText(for: QueueSummary()) == "Queue empty")
         #expect(QueuePresentation.counterText(for: QueueSummary(watchedCount: 3)) == "Nothing left to watch")

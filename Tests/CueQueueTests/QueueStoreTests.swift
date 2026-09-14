@@ -32,9 +32,22 @@ import Testing
         #expect(try store.videos().first?.title == "First")
     }
 
-    @Test func titlesDefaultToTheVideoIdUntilItResolves() throws {
+    /// A video added without a title has none, rather than its own id standing in for one: that is what lets
+    /// everything downstream tell a known title from one that is merely not fetched yet.
+    @Test func leavesTheTitleUnknownUntilItResolves() throws {
         let store = try TestQueue.store()
         try store.add(TestQueue.first, addedAt: TestQueue.date)
+
+        let video = try #require(try store.video(for: TestQueue.first))
+        #expect(video.title == nil)
+    }
+
+    /// The perverse case the old placeholder could not survive: a stored title that happens to read exactly like the
+    /// video's id is a real title, and a later resolution must not replace it.
+    @Test func keepsAStoredTitleThatLooksLikeAVideoID() throws {
+        let store = try TestQueue.store()
+        try store.add(TestQueue.first, title: TestQueue.first.rawValue, addedAt: TestQueue.date)
+        try store.updateMetadata(for: TestQueue.first, title: "Whatever YouTube says today", author: nil, duration: nil)
 
         #expect(try store.video(for: TestQueue.first)?.title == TestQueue.first.rawValue)
     }
@@ -262,7 +275,7 @@ import Testing
     }
 
     @Test func pinsTheRegisteredMigrations() {
-        #expect(QueueDatabase.migrationNames == ["v1-queue"])
+        #expect(QueueDatabase.migrationNames == ["v1-queue", "v2-unknown-title"])
     }
 
     @Test func keepsTheQueueBetweenOpensOfTheSameFile() throws {

@@ -101,7 +101,7 @@ public struct QueueStore: Sendable {
             guard try QueueItem.filter(key: videoID.rawValue).fetchCount(db) == 0 else { return false }
             let item = QueueItem(
                 videoID: videoID,
-                title: title ?? videoID.rawValue,
+                title: title,
                 author: author,
                 duration: duration,
                 addedAt: addedAt,
@@ -115,15 +115,16 @@ public struct QueueStore: Sendable {
     /// Fills in what the extractor learned about a video the first time it played, without disturbing its place in
     /// the queue. Does nothing for a video that is not queued.
     ///
-    /// The title is only written while it is still the placeholder (the video id), so a title that came from an
-    /// imported file is never overwritten by whatever YouTube reports today. Author and duration fill in whenever
-    /// they are still missing.
+    /// The title is only written while none is known, so a title that came from an imported file is never
+    /// overwritten by whatever YouTube reports today - including the one that happens to read like a video id, which
+    /// is a title like any other now that an unknown one is null. Author and duration fill in whenever they are
+    /// still missing.
     public func updateMetadata(for videoID: VideoID, title: String, author: String?, duration: Double?) throws {
         try database.writer.write { db in
             try db.execute(
                 sql: """
                 UPDATE queueItem
-                SET title = CASE WHEN title = videoID THEN ? ELSE title END,
+                SET title = COALESCE(title, ?),
                     author = COALESCE(author, ?),
                     duration = COALESCE(duration, ?)
                 WHERE videoID = ?

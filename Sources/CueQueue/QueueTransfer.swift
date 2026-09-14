@@ -252,7 +252,7 @@ public enum QueueExport {
             var addedAt: Date
             var author: String?
             var duration: Double?
-            var title: String
+            var title: String?
             var videoID: String
             var watchedAt: Date?
         }
@@ -335,7 +335,7 @@ public enum CSVQueueFormat {
         for video in videos {
             lines.append([
                 quoted(video.videoID),
-                quoted(video.title),
+                quoted(video.title ?? ""),
                 quoted(video.author ?? ""),
                 video.duration.map { String(format: "%.0f", $0) } ?? "",
                 quoted(formatter.string(from: video.addedAt)),
