@@ -102,7 +102,9 @@ final class AboutWindowController: NSWindowController {
         // Selectable, because a licence nobody can copy out is a licence that is awkward to comply with.
         textView.isSelectable = true
         textView.drawsBackground = false
-        textView.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
+        // Monospaced, and not as a style choice: the document contains tables, and `AboutPresentation` lines their
+        // columns up by padding with spaces. In a proportional font that padding does not line anything up.
+        textView.font = .monospacedSystemFont(ofSize: NSFont.smallSystemFontSize, weight: .regular)
         textView.textContainerInset = NSSize(width: 6, height: 6)
         textView.string = AboutPresentation.licensesText(document: bundledLicenseDocument())
         textView.textColor = .labelColor

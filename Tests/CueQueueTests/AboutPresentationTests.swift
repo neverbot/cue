@@ -74,6 +74,61 @@ struct AboutPresentationTests {
         #expect(plain == "• mpv — https://github.com/mpv-player/mpv")
     }
 
+    @Test("Lays a table out in columns instead of leaving its pipes on screen")
+    func table() {
+        let markdown = """
+            | Component | License |
+            |---|---|
+            | libass 0.17.5 | ISC |
+            | FreeType 2.14.3 | FreeType License (FTL) |
+            """
+        let plain = AboutPresentation.plainText(fromMarkdown: markdown)
+        // The first column is as wide as "FreeType 2.14.3", its widest cell, plus two spaces of gutter.
+        #expect(plain == """
+            Component        License
+            ------------------------
+            libass 0.17.5    ISC
+            FreeType 2.14.3  FreeType License (FTL)
+            """)
+    }
+
+    @Test("Leaves the last column ragged, so one long cell cannot widen the whole block")
+    func tableLastColumnIsNotPadded() {
+        let markdown = """
+            | Component | License |
+            |---|---|
+            | LuaJIT 2.1 | MIT |
+            | uchardet 0.0.8 | LGPL-2.1-or-later (chosen from three) |
+            """
+        let lines = AboutPresentation.plainText(fromMarkdown: markdown).split(separator: "\n").map(String.init)
+        // No line is padded out to the width of the longest one, and none ends in stray spaces.
+        #expect(lines.allSatisfy { $0 == $0.replacingOccurrences(of: "\\s+$", with: "", options: .regularExpression) })
+        // Padded to "uchardet 0.0.8", the widest cell in the column, and no further.
+        #expect(lines.contains("LuaJIT 2.1      MIT"))
+    }
+
+    @Test("A table of one row needs no rule under it")
+    func singleRowTable() {
+        #expect(AboutPresentation.plainText(fromMarkdown: "| Component | License |") == "Component  License")
+    }
+
+    @Test("Text on either side of a table is untouched")
+    func textAroundATable() {
+        let markdown = """
+            Cue links these:
+
+            | Component | License |
+            |---|---|
+            | dav1d 1.5.3 | BSD-2-Clause |
+
+            The full texts ship in the bundle.
+            """
+        let plain = AboutPresentation.plainText(fromMarkdown: markdown)
+        #expect(plain.hasPrefix("Cue links these:\n\n"))
+        #expect(plain.hasSuffix("\n\nThe full texts ship in the bundle."))
+        #expect(!plain.contains("|"))
+    }
+
     @Test("Keeps blank lines, so the paragraphs of the document survive")
     func keepsBlankLines() {
         let plain = AboutPresentation.plainText(fromMarkdown: "One\n\nTwo")

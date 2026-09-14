@@ -71,20 +71,90 @@ public enum AboutPresentation {
     /// was, so a line this does not understand still reaches the reader intact — including the URLs, which are the
     /// part an auditor actually follows.
     public static func plainText(fromMarkdown markdown: String) -> String {
-        markdown
-            .split(separator: "\n", omittingEmptySubsequences: false)
-            .map { line -> String in
-                var text = String(line)
-                if let hashes = text.range(of: "^#{1,6} ", options: .regularExpression) {
-                    text.removeSubrange(hashes)
-                }
-                // A list marker becomes a real bullet; an indented one keeps its indent, so nesting survives.
-                if let dash = text.range(of: "^(\\s*)- ", options: .regularExpression) {
-                    let indent = text[dash].dropLast(2)
-                    text.replaceSubrange(dash, with: indent + "• ")
-                }
-                return text.replacingOccurrences(of: "**", with: "").replacingOccurrences(of: "`", with: "")
+        var output: [String] = []
+        var table: [[String]] = []
+
+        func flushTable() {
+            guard !table.isEmpty else { return }
+            output += layOutTable(table)
+            table = []
+        }
+
+        for line in markdown.split(separator: "\n", omittingEmptySubsequences: false).map(String.init) {
+            if let cells = tableCells(in: line) {
+                // A row of dashes is the separator under a header: it says nothing once the pipes are gone.
+                if !cells.isEmpty { table.append(cells) }
+                continue
             }
-            .joined(separator: "\n")
+            flushTable()
+            output.append(strippingInlineMarks(line))
+        }
+        flushTable()
+        return output.joined(separator: "\n")
+    }
+
+    /// The cells of a Markdown table row, or nil when the line is not one. An empty array means a row that carries no
+    /// content of its own — the `|---|---|` separator — which the caller drops.
+    private static func tableCells(in line: String) -> [String]? {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        guard trimmed.hasPrefix("|") else { return nil }
+        var cells = trimmed.split(separator: "|", omittingEmptySubsequences: false).map {
+            strippingInlineMarks(String($0)).trimmingCharacters(in: .whitespaces)
+        }
+        // The leading and trailing pipes produce an empty cell at each end that was never a column.
+        if cells.first?.isEmpty == true { cells.removeFirst() }
+        if cells.last?.isEmpty == true { cells.removeLast() }
+        let isSeparator = !cells.isEmpty && cells.allSatisfy {
+            $0.range(of: "^:?-{2,}:?$", options: .regularExpression) != nil
+        }
+        return isSeparator ? [] : cells
+    }
+
+    /// Lays a table out in columns, since there is no Markdown renderer behind this text and the pipes would otherwise
+    /// reach the reader as punctuation.
+    ///
+    /// Every column but the last is padded to its widest cell; the last is left ragged on purpose. Padding the last
+    /// one would set the block's width by its longest line — here a licence that names three alternatives — and a
+    /// table wider than the window is one that wraps, which destroys the very alignment the padding was for. This only
+    /// lines up in a monospaced font, which is what the About window uses for exactly this reason.
+    private static func layOutTable(_ rows: [[String]]) -> [String] {
+        let columnCount = rows.map(\.count).max() ?? 0
+        guard columnCount > 0 else { return [] }
+        let widths = (0..<columnCount).map { column in
+            rows.map { $0.indices.contains(column) ? $0[column].count : 0 }.max() ?? 0
+        }
+
+        var lines = rows.map { row in
+            (0..<columnCount)
+                .map { column -> String in
+                    let cell = row.indices.contains(column) ? row[column] : ""
+                    guard column < columnCount - 1 else { return cell }
+                    return cell + String(repeating: " ", count: max(0, widths[column] - cell.count))
+                }
+                .joined(separator: "  ")
+                // A short row would otherwise end in the padding of the columns it does not reach.
+                .replacingOccurrences(of: "\\s+$", with: "", options: .regularExpression)
+        }
+        // A rule under the header, as wide as the header itself rather than as wide as the widest row: it separates
+        // without drawing a line across a block whose right edge is deliberately ragged.
+        if let header = lines.first, rows.count > 1 {
+            lines.insert(String(repeating: "-", count: header.count), at: 1)
+        }
+        return lines
+    }
+
+    /// Heading marks, list markers, emphasis and backticks — everything that is punctuation in Markdown and noise in
+    /// plain text. Anything unrecognised is left exactly as it was, URLs included.
+    private static func strippingInlineMarks(_ line: String) -> String {
+        var text = line
+        if let hashes = text.range(of: "^#{1,6} ", options: .regularExpression) {
+            text.removeSubrange(hashes)
+        }
+        // A list marker becomes a real bullet; an indented one keeps its indent, so nesting survives.
+        if let dash = text.range(of: "^(\\s*)- ", options: .regularExpression) {
+            let indent = text[dash].dropLast(2)
+            text.replaceSubrange(dash, with: indent + "• ")
+        }
+        return text.replacingOccurrences(of: "**", with: "").replacingOccurrences(of: "`", with: "")
     }
 }
