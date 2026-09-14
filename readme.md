@@ -4,7 +4,11 @@
 
 Cue keeps a personal queue of the YouTube videos you want to watch and plays them in a fast, native player built for the Mac. It aims for the polish of the best Mac media players: a clean window that stays out of the way, a sidebar with everything still pending, and playback that uses the hardware decoder in your Mac instead of a browser tab.
 
-> **Status: early development.** The extraction core, the command-line tool, the player, the queue and the player's chrome — the chapters, subtitles and audio-language inspector, scrubbing previews, a settings window and a mini player — are all built and covered by the test suite. What is still missing is a pass with human eyes on the interface, and a signed release you can download. See [Roadmap](#roadmap).
+> **Status: the app works, built from source.** Cue resolves and plays YouTube videos today, with a persistent queue,
+> a trailing inspector for chapters, subtitles and audio languages, thumbnail previews while scrubbing, a settings
+> window and a mini player — all covered by a suite of 532 tests. What does not exist yet is a **signed release you
+> can download**, and the browser extension, channel subscriptions and casting described at the end of the
+> [Roadmap](#roadmap). Until then, building it takes two commands.
 
 ## Why Cue
 
@@ -25,20 +29,20 @@ tracks — comes from YouTube straight to your Mac, and nothing about what you w
 
 | Feature | Status |
 |---|---|
-| Resolve playable streams natively (no embed player, no external tools) | Available in `CueCore` |
-| Hardware-first format selection (AV1, H.264 or VP9 in hardware; software VP9/AV1 only as a fallback; AAC audio) | Available in `CueCore` |
-| `cue-resolve` command-line tool | Available |
-| Native player (libmpv), keyboard controls, resume position | Available in `Cue.app` (build from source) |
-| Queue sidebar with a counter; paste, drag & drop, `cue://` links | Available in `Cue.app` (manual checks pending) |
-| Import and export of the queue | Available in `Cue.app` (manual checks pending) |
-| Drawn on-screen controls with chapter marks on the seek bar, and a title bar that fades with them | Available in `Cue.app` (manual checks pending) |
-| Thumbnail previews while scrubbing, from YouTube's own storyboard sheets | Available in `Cue.app` (manual checks pending) |
-| A trailing inspector holding chapters, subtitles and audio languages, each on its own page | Available in `Cue.app` (manual checks pending) |
-| Chapters built from the video's own markers, or from the timestamps in its description | Available in `Cue.app` (manual checks pending) |
-| Subtitles: pick a track, size and colour it, shift its timing, and export it as SRT or VTT | Available in `Cue.app` (manual checks pending) |
-| Audio languages: play the original soundtrack of a dubbed video, and switch without reloading | Available in `Cue.app` (manual checks pending) |
-| A settings window: appearance, automatic playback, the sidebar, the thumbnail cache and the queue | Available in `Cue.app` (manual checks pending) |
-| A mini player: a small always-on-top window that keeps playing, with no reload and no second stream | Available in `Cue.app` (manual checks pending) |
+| Resolve playable streams natively (no embed player, no external tools) | Working |
+| Hardware-first format selection (AV1, H.264 or VP9 in hardware; software VP9/AV1 only as a fallback; AAC audio) | Working |
+| `cue-resolve` command-line tool | Working |
+| Native player (libmpv), keyboard controls, resume position | Working |
+| Queue sidebar with a counter; paste, drag & drop, `cue://` links | Working |
+| Import and export of the queue | Working |
+| Drawn on-screen controls with chapter marks on the seek bar, and a title bar that fades with them | Working |
+| Thumbnail previews while scrubbing, from YouTube's own storyboard sheets | Working |
+| A trailing inspector holding chapters, subtitles and audio languages, each on its own page | Working |
+| Chapters built from the video's own markers, or from the timestamps in its description | Working |
+| Subtitles: pick a track, size and colour it, shift its timing, and export it as SRT or VTT | Working |
+| Audio languages: play the original soundtrack of a dubbed video, and switch without reloading | Working |
+| A settings window: appearance, automatic playback, the sidebar, the thumbnail cache and the queue | Working |
+| A mini player: a small always-on-top window that keeps playing, with no reload and no second stream | Working |
 | Browser extension and bookmarklet ("send this tab to Cue") | Planned |
 | Channel subscriptions with new-video alerts | Planned |
 
@@ -47,7 +51,8 @@ tracks — comes from YouTube straight to your Mac, and nothing about what you w
 - macOS 14 Sonoma or later.
 - To build from source: Apple Command Line Tools with Swift 6 (`xcode-select --install`). Xcode is not needed.
 
-There is no downloadable app yet. Signed releases will be published once the player is usable.
+There is no downloadable app yet: signing and notarization are sub-project 8, and until they are done the way to run
+Cue is to build it, which is two commands below.
 
 ## Try it: `cue-resolve`
 
@@ -162,14 +167,28 @@ scripts/                   test runner, libmpv fetch, app bundle and fixture scr
 
 ## Roadmap
 
-1. **Foundation and native extraction.** Done: `CueCore` and `cue-resolve`.
-2. **Player core.** Available: `Cue.app` plays with libmpv and hardware decoding, with on-screen controls, keyboard shortcuts and resume positions (manual checks pending).
-3. **Queue.** Available: a persistent SQLite queue with list, thumbnail and compact views, a counter, adding by paste, drag and drop or `cue://add` links, import and export, and watched state (manual checks pending).
-4. **Polish.** Available: restyled on-screen controls with a title bar that fades with them, thumbnail previews while scrubbing, a trailing inspector for chapters, subtitles (with SRT/VTT export) and audio languages, a settings window, and an always-on-top mini player (manual checks pending).
+**Built and working today:**
+
+1. **Foundation and native extraction.** `CueCore` resolves playable streams, and `cue-resolve` prints them.
+2. **Player core.** `Cue.app` plays with libmpv and hardware decoding, with drawn on-screen controls, keyboard
+   shortcuts and resume positions.
+3. **Queue.** A persistent SQLite queue with list, thumbnail and compact views, a counter, adding by paste, drag and
+   drop or `cue://add` links, import and export, and watched state.
+4. **Polish.** On-screen controls with a title bar that fades with them, thumbnail previews while scrubbing, a
+   trailing inspector for chapters, subtitles (with SRT/VTT export) and audio languages, a settings window, and an
+   always-on-top mini player.
+
+**Not started:**
+
 5. **Browser integration.** Bookmarklet and extensions for Firefox and Chrome.
 6. **Subscriptions.** Channel feeds and new-video notifications.
 7. **Casting.** Research first: AirPlay, Chromecast, DLNA.
-8. **Distribution.** Developer ID signing, notarization, automatic updates.
+8. **Distribution.** Developer ID signing, notarization, and the downloadable release that depends on them.
+
+Two things were considered and deliberately left out. **SponsorBlock** would mean sending what you watch to a server
+that is not YouTube, which the app does not do for any feature. **Picture-in-Picture** is not a preference but a
+limitation: Apple's public API cannot drive the OpenGL layer the video is rendered into, and the mini player covers
+the same need without reaching for a private one.
 
 ## The queue
 
