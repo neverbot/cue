@@ -32,6 +32,13 @@ final class QueueSidebarViewController: NSViewController, NSTableViewDataSource,
     private let modeButton = NSPopUpButton(frame: .zero, pullsDown: false)
     private let tableView = NSTableView()
     private let scrollView = NSScrollView()
+    /// The ground the queue is drawn on while it sits beside the video. `NSVisualEffectView` with the sidebar
+    /// material is the platform's own surface for a column next to the content, and it resolves light and dark by
+    /// itself. Before it, nothing painted here at all and the window's black showed through: passable as a design in
+    /// the dark appearance, and the reason the light one looked like it did nothing.
+    private let surface = NSVisualEffectView()
+    /// What the queue is drawn on instead while it floats over the picture. See `setFloatingOverVideo(_:)`.
+    private let overlayFill = SidebarOverlayFill()
     /// Decoded thumbnails, newest last in `imageOrder`, capped at `imageCacheLimit`.
     private var images: [String: NSImage] = [:]
     private var imageOrder: [String] = []
@@ -88,9 +95,23 @@ final class QueueSidebarViewController: NSViewController, NSTableViewDataSource,
         header.orientation = .horizontal
         header.edgeInsets = NSEdgeInsets(top: 4, left: 10, bottom: 4, right: 6)
 
-        for view in [header, scrollView] as [NSView] {
+        surface.material = .sidebar
+        surface.blendingMode = .behindWindow
+        surface.state = .followsWindowActiveState
+        overlayFill.isHidden = true
+
+        // The two grounds go in first, so everything the queue draws sits on top of whichever one is showing.
+        for view in [surface, overlayFill, header, scrollView] as [NSView] {
             view.translatesAutoresizingMaskIntoConstraints = false
             container.addSubview(view)
+        }
+        for ground in [surface, overlayFill] as [NSView] {
+            NSLayoutConstraint.activate([
+                ground.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+                ground.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+                ground.topAnchor.constraint(equalTo: container.topAnchor),
+                ground.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            ])
         }
         NSLayoutConstraint.activate([
             header.leadingAnchor.constraint(equalTo: container.leadingAnchor),
@@ -106,6 +127,18 @@ final class QueueSidebarViewController: NSViewController, NSTableViewDataSource,
             container.widthAnchor.constraint(greaterThanOrEqualToConstant: 200),
         ])
         view = container
+    }
+
+    /// Which ground the queue is drawn on, decided by where it is hanging.
+    ///
+    /// Beside the video it is the platform's sidebar material, which follows the appearance on its own. Floating over
+    /// the video it cannot be: that material blends with what is behind the *window*, so over the picture it would
+    /// blur the desktop and read as a hole punched through the video. There the queue keeps the explicit 85 % window
+    /// background it has always floated on.
+    func setFloatingOverVideo(_ floating: Bool) {
+        loadViewIfNeeded()
+        surface.isHidden = floating
+        overlayFill.isHidden = !floating
     }
 
     override func viewDidLoad() {
@@ -341,5 +374,15 @@ final class QueueSidebarViewController: NSViewController, NSTableViewDataSource,
             }
         }
         return true
+    }
+}
+
+/// The queue's ground while it floats over the picture: the window's own background colour at 85 %, opaque enough to
+/// read a list against a moving image. Drawn rather than set as a layer colour, so the appearance is resolved again
+/// every time it changes instead of being frozen at whatever was current when the view was built.
+final class SidebarOverlayFill: NSView {
+    override func draw(_ dirtyRect: NSRect) {
+        NSColor.windowBackgroundColor.withAlphaComponent(0.85).setFill()
+        dirtyRect.fill()
     }
 }

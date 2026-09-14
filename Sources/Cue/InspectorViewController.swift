@@ -38,7 +38,13 @@ final class InspectorViewController: NSViewController {
     }
 
     override func loadView() {
-        let container = NSView(frame: NSRect(x: 0, y: 0, width: Self.width, height: 400))
+        let container = NSVisualEffectView(frame: NSRect(x: 0, y: 0, width: Self.width, height: 400))
+        // The same ground the queue sidebar is drawn on, for the same reason: a column beside the video is a surface
+        // of its own, not chrome over the picture, so it takes the platform's sidebar material and follows the
+        // appearance. Nothing painted here before and the window's black showed through the whole inspector.
+        container.material = .sidebar
+        container.blendingMode = .behindWindow
+        container.state = .followsWindowActiveState
         tabs.target = self
         tabs.action = #selector(tabClicked)
         tabs.segmentDistribution = .fillEqually

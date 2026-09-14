@@ -71,6 +71,8 @@ final class SidebarHost {
     private func attachToSplitItem() {
         guard sidebar.parent !== splitItem.viewController else { return }
         let container = splitItem.viewController
+        // Beside the video the queue is a surface of its own, so it takes the platform's sidebar material back.
+        sidebar.setFloatingOverVideo(false)
         sidebar.removeFromParent()
         sidebar.view.removeFromSuperview()
         container.addChild(sidebar)
@@ -90,8 +92,9 @@ final class SidebarHost {
         sidebar.view.removeFromSuperview()
         parent.addChild(sidebar)
         sidebar.view.translatesAutoresizingMaskIntoConstraints = false
-        sidebar.view.wantsLayer = true
-        sidebar.view.layer?.backgroundColor = NSColor.windowBackgroundColor.withAlphaComponent(0.85).cgColor
+        // Over the picture the queue paints its own ground: the sidebar material blends with what is behind the
+        // window, which over a video is the desktop, not the video.
+        sidebar.setFloatingOverVideo(true)
         overlayContainer.addSubview(sidebar.view)
         overlayConstraints = [
             sidebar.view.leadingAnchor.constraint(equalTo: overlayContainer.leadingAnchor),
