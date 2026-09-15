@@ -95,8 +95,8 @@ public enum BrowserIntegration {
 
         <h2>Firefox</h2>
         <ol>
-          <li>Show the bookmarks toolbar: right-click an empty part of the tab strip and tick
-          <strong>Bookmarks Toolbar</strong>.</li>
+          <li>Show the bookmarks toolbar: <strong>⌘⇧B</strong>. If it stays hidden, right-click an empty part of
+          the tab strip and tick <strong>Bookmarks Toolbar</strong>.</li>
           <li>Drag the button above onto it.</li>
         </ol>
 
