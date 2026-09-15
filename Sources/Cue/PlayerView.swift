@@ -23,6 +23,11 @@ final class PlayerView: NSView {
 
     private let messageLabel = NSTextField(labelWithString: "")
     private let pausedIndicator = PausedIndicator()
+    private let loadingIndicator = LoadingIndicator()
+    /// The message owns the middle of the picture, except while the spinner is there — then it steps below it.
+    /// Two constraints rather than a changing constant, so exactly one of the two arrangements is ever active.
+    private var messageCentred: NSLayoutConstraint!
+    private var messageBelowIndicator: NSLayoutConstraint!
     private var playerState = PlayerState()
     private var timeline = ChapterTimeline(chapters: [], duration: nil)
     private var hideTask: Task<Void, Never>?
@@ -48,25 +53,31 @@ final class PlayerView: NSView {
         messageLabel.maximumNumberOfLines = 3
         messageLabel.lineBreakMode = .byWordWrapping
 
-        for view in [videoView, messageLabel, pausedIndicator, controls, preview] as [NSView] {
+        for view in [videoView, messageLabel, pausedIndicator, loadingIndicator, controls, preview] as [NSView] {
             view.translatesAutoresizingMaskIntoConstraints = false
             addSubview(view)
         }
         NSLayoutConstraint.activate([
             pausedIndicator.centerXAnchor.constraint(equalTo: centerXAnchor),
             pausedIndicator.centerYAnchor.constraint(equalTo: centerYAnchor),
+            // Exactly where the paused glyph goes: one place in the window means one thing, whichever of the two
+            // is showing.
+            loadingIndicator.centerXAnchor.constraint(equalTo: centerXAnchor),
+            loadingIndicator.centerYAnchor.constraint(equalTo: centerYAnchor),
             videoView.leadingAnchor.constraint(equalTo: leadingAnchor),
             videoView.trailingAnchor.constraint(equalTo: trailingAnchor),
             videoView.topAnchor.constraint(equalTo: topAnchor),
             videoView.bottomAnchor.constraint(equalTo: bottomAnchor),
             messageLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
-            messageLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
             messageLabel.widthAnchor.constraint(lessThanOrEqualTo: widthAnchor, constant: -40),
             controls.leadingAnchor.constraint(equalTo: leadingAnchor, constant: Self.controlsInset),
             controls.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -Self.controlsInset),
             controls.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -Self.controlsInset),
             preview.bottomAnchor.constraint(equalTo: controls.topAnchor, constant: -8),
         ])
+        messageCentred = messageLabel.centerYAnchor.constraint(equalTo: centerYAnchor)
+        messageCentred.isActive = true
+        messageBelowIndicator = messageLabel.topAnchor.constraint(equalTo: loadingIndicator.bottomAnchor, constant: 16)
         previewLeadingConstraint = preview.leadingAnchor.constraint(equalTo: controls.leadingAnchor)
         previewLeadingConstraint.isActive = true
         registerChrome(controls)
@@ -167,8 +178,19 @@ final class PlayerView: NSView {
         let message = Self.message(for: state.phase)
         messageLabel.stringValue = message ?? ""
         messageLabel.isHidden = message == nil
-        // Only with a video loaded: in every other phase the message above owns the centre of the picture.
-        pausedIndicator.setVisible(state.phase == .ready && state.isPaused)
+        // `PlayerIndicator` owns the choice, so paused, buffering and loading cannot end up on screen together.
+        let indicator = PlayerIndicator.current(for: state)
+        loadingIndicator.setVisible(indicator == .loading)
+        pausedIndicator.setVisible(indicator == .paused)
+        // Deactivated before the other is activated: both active at once is a conflict the layout engine would
+        // have to break on its own.
+        if indicator == .loading {
+            messageCentred.isActive = false
+            messageBelowIndicator.isActive = true
+        } else {
+            messageBelowIndicator.isActive = false
+            messageCentred.isActive = true
+        }
         if state.phase != .ready || state.isPaused {
             revealControls()
         }
