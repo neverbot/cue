@@ -514,7 +514,9 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
     /// A `cue://add?url=…` link. A link that cannot be used says so instead of doing nothing.
     func handleAddLink(_ url: URL) {
         do {
-            add([try AddRequest.videoID(from: url)], playFirst: controller.state.stream == nil)
+            // One link may carry a whole browser window's worth of tabs, so every video in it is added and only
+            // the first one plays — and only when nothing is playing already, which is the existing rule.
+            add(try AddRequest.videoIDs(from: url), playFirst: controller.state.stream == nil)
         } catch {
             report(error, title: "Cue could not add that link")
         }

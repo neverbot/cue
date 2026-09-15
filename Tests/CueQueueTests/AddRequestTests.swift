@@ -55,6 +55,41 @@ import Testing
         #expect(try AddRequest.videoID(from: url) == TestQueue.first)
     }
 
+    @Test func readsEveryVideoFromALinkCarryingSeveral() throws {
+        let url = URL(string: "cue://add?url=dQw4w9WgXcQ&url=https://youtu.be/jNQXAC9IVRw")!
+        #expect(try AddRequest.videoIDs(from: url) == [TestQueue.first, TestQueue.second])
+    }
+
+    @Test func ignoresRepeatsWithinOneLink() throws {
+        let url = URL(string: "cue://add?url=dQw4w9WgXcQ&url=jNQXAC9IVRw&url=dQw4w9WgXcQ")!
+        #expect(try AddRequest.videoIDs(from: url) == [TestQueue.first, TestQueue.second])
+    }
+
+    @Test func keepsTheUsableVideosWhenOneParameterIsNot() throws {
+        let url = URL(string: "cue://add?url=dQw4w9WgXcQ&url=https://example.invalid/page&url=jNQXAC9IVRw")!
+        #expect(try AddRequest.videoIDs(from: url) == [TestQueue.first, TestQueue.second])
+    }
+
+    @Test func refusesALinkWhereNoParameterIsAVideo() {
+        #expect(throws: AddRequestError.notAYouTubeVideo("https://example.invalid/page")) {
+            try AddRequest.videoIDs(from: URL(string: "cue://add?url=https://example.invalid/page&url=123456789_")!)
+        }
+    }
+
+    @Test func buildsOneLinkForSeveralVideos() throws {
+        let url = AddRequest.url(adding: [TestQueue.first, TestQueue.second])
+
+        #expect(url.scheme == "cue")
+        #expect(url.host() == "add")
+        #expect(try AddRequest.videoIDs(from: url) == [TestQueue.first, TestQueue.second])
+    }
+
+    @Test func refusesALinkBuiltFromNoVideosAtAll() {
+        #expect(throws: AddRequestError.missingURLParameter) {
+            try AddRequest.videoIDs(from: AddRequest.url(adding: []))
+        }
+    }
+
     @Test func findsEveryVideoInPastedText() {
         let text = """
         https://www.youtube.com/watch?v=dQw4w9WgXcQ
