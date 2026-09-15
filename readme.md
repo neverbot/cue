@@ -44,7 +44,8 @@ tracks — comes from YouTube straight to your Mac, and nothing about what you w
 | A settings window: appearance, automatic playback, the sidebar, the thumbnail cache and the queue | Working |
 | An About window with the version, the author, and the licenses of everything bundled | Working |
 | A mini player: a small always-on-top window that keeps playing, with no reload and no second stream | Working |
-| Browser extension and bookmarklet ("send this tab to Cue") | Planned |
+| Browser extension for Firefox and Chrome: send a tab, a link, or every YouTube tab at once | Built, not yet exercised in a browser |
+| Bookmarklet, for the single-tab case with nothing installed | Built, not yet exercised in a browser |
 | Channel subscriptions with new-video alerts | Planned |
 
 ## Requirements
@@ -178,10 +179,12 @@ scripts/                   test runner, libmpv fetch, app bundle and fixture scr
 4. **Polish.** On-screen controls with a title bar that fades with them, thumbnail previews while scrubbing, a
    trailing inspector for chapters, subtitles (with SRT/VTT export) and audio languages, a settings window, and an
    always-on-top mini player.
+5. **Browser integration.** An extension for Firefox and Chrome that sends the current tab, a right-clicked link,
+   or every YouTube tab in the window at once, plus a bookmarklet for the no-install case. Built and unit-checked,
+   but not yet exercised in a real browser — see [the extension's readme](extension/readme.md).
 
 **Not started:**
 
-5. **Browser integration.** Bookmarklet and extensions for Firefox and Chrome.
 6. **Subscriptions.** Channel feeds and new-video notifications.
 7. **Casting.** Research first: AirPlay, Chromecast, DLNA.
 8. **Distribution.** Developer ID signing, notarization, and the downloadable release that depends on them.
@@ -290,6 +293,26 @@ text of the licenses of everything bundled — libmpv and FFmpeg under the LGPL,
 under the Unlicense, and the rest. That text is not written into the app: it is read from
 `Cue.app/Contents/Resources/licenses/`, so what ships and what the window shows are the same document and cannot
 drift apart.
+
+## From the browser
+
+Cue registers the `cue://add?url=…` scheme, so anything that can open a link can add a video. Two ways use it.
+
+**The extension** (Firefox and Chrome) adds a toolbar button for the current tab, a context-menu item for a link,
+and one gesture — ⌘⇧Y — that sends **every YouTube tab in the window** and closes them, which is the point: the
+tabs were the watch list, and Cue now holds it. It has no content scripts, no host permissions and no network
+access at all: it reads the address of a tab and opens a `cue://` link, and that is the whole of it. Build it with
+`scripts/make-extension.sh`; [`extension/readme.md`](extension/readme.md) has the install steps for both browsers.
+
+**The bookmarklet** does the single-tab case with nothing installed. Make a bookmark whose address is:
+
+```
+javascript:location.href='cue://add?url='+encodeURIComponent(location.href)
+```
+
+A link may carry many videos (`cue://add?url=…&url=…`), which is how a batch of tabs arrives as one handover
+rather than twenty. Videos Cue cannot read are skipped rather than failing the batch, and a link where nothing is
+readable says so instead of doing nothing quietly.
 
 ## Settings
 

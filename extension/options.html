@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Cue</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+      }
+      body {
+        font: 13px/1.5 system-ui, -apple-system, sans-serif;
+        margin: 0;
+        padding: 16px;
+        min-width: 320px;
+      }
+      h1 {
+        font-size: 13px;
+        font-weight: 600;
+        margin: 0 0 12px;
+      }
+      label {
+        display: flex;
+        gap: 8px;
+        align-items: flex-start;
+        margin-bottom: 12px;
+      }
+      p {
+        margin: 2px 0 0;
+        opacity: 0.7;
+      }
+      footer {
+        margin-top: 4px;
+        opacity: 0.7;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>After sending to Cue</h1>
+
+    <label>
+      <input type="checkbox" id="closeAfterSendingOne" />
+      <span>
+        Close the tab after sending one video
+        <p>Off by default: it is usually the tab you are reading.</p>
+      </span>
+    </label>
+
+    <label>
+      <input type="checkbox" id="closeAfterSendingAll" />
+      <span>
+        Close the tabs after sending all YouTube tabs
+        <p>On by default: the tabs were the list, and Cue now holds it.</p>
+      </span>
+    </label>
+
+    <footer>Cue must be installed for these to do anything. Nothing is sent anywhere but to Cue on this Mac.</footer>
+
+    <script src="options.js"></script>
+  </body>
+</html>

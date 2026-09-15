@@ -1,0 +1,39 @@
+{
+  "manifest_version": 3,
+  "name": "Cue",
+  "version": "0.1.0",
+  "description": "Send YouTube videos to Cue, the native macOS player, instead of leaving tabs open.",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "{6c4ac9d1-1f0e-4b7a-9a2f-cc4f1a3b7e55}",
+      "strict_min_version": "128.0"
+    }
+  },
+  "permissions": ["tabs", "contextMenus", "storage"],
+  "background": {
+    "scripts": ["cue.js", "background.js"]
+  },
+  "action": {
+    "default_title": "Add this video to Cue"
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": false
+  },
+  "commands": {
+    "send-current-tab": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+U",
+        "mac": "Command+Shift+U"
+      },
+      "description": "Add this video to Cue"
+    },
+    "send-all-youtube-tabs": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+Y",
+        "mac": "Command+Shift+Y"
+      },
+      "description": "Send all YouTube tabs to Cue"
+    }
+  }
+}
