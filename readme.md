@@ -317,6 +317,19 @@ Issues and pull requests are welcome. A few ground rules keep the project health
 
 When YouTube changes something and extraction breaks, the usual places to look are the client definitions in yt-dlp (`yt_dlp/extractor/youtube/_base.py`) and new releases of [yt-dlp/ejs](https://github.com/yt-dlp/ejs).
 
+The second of those has a script, because the vendored solver scripts are what make playback possible at all:
+
+```sh
+scripts/check-ejs.sh            # compare the vendored EJS scripts with the current upstream release
+scripts/check-ejs.sh --update   # replace them with the upstream ones
+```
+
+It also checks the checksums recorded in `third-party-licenses.md` against the files actually vendored, so the
+notice cannot drift from what ships. Updating the notice itself is deliberately left to you: the script prints the
+version and checksums to paste in, and the change belongs in the same commit as the new scripts. Always confirm with
+`CUE_LIVE_TESTS=1 scripts/test.sh` before committing an update — the live tests resolve real videos, which is the
+only thing that proves a new solver still works.
+
 ## License
 
 Cue is released under the [MIT License](license.md).
