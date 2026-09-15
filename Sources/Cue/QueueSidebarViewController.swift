@@ -199,9 +199,19 @@ final class QueueSidebarViewController: NSViewController, NSTableViewDataSource,
         loadVisibleTitles()
     }
 
+    /// Marks the video playing now and brings its row into view.
+    ///
+    /// Only when the video actually changed. This is called on every queue change, and scrolling on each one would
+    /// fight the reader: someone browsing a long list would be yanked back to the playing row every few seconds.
+    /// The selection is left alone for the same reason — it belongs to whoever made it, not to playback.
     func setCurrentVideo(_ videoID: VideoID?) {
+        let changed = videoID != currentVideoID
         currentVideoID = videoID
         reload()
+        guard changed, let videoID,
+              let index = rows.firstIndex(where: { $0.videoID == videoID.rawValue })
+        else { return }
+        tableView.scrollRowToVisible(index)
     }
 
     func setMode(_ newMode: QueueDisplayMode) {

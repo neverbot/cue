@@ -508,30 +508,36 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
             NSSound.beep()
             return
         }
-        add(videoIDs, playFirst: controller.state.stream == nil)
+        add(videoIDs)
     }
 
     /// A `cue://add?url=…` link. A link that cannot be used says so instead of doing nothing.
     func handleAddLink(_ url: URL) {
         do {
-            // One link may carry a whole browser window's worth of tabs, so every video in it is added and only
-            // the first one plays — and only when nothing is playing already, which is the existing rule.
-            add(try AddRequest.videoIDs(from: url), playFirst: controller.state.stream == nil)
+            // One link may carry a whole browser window's worth of tabs. A link with one video in it is an
+            // instruction to watch that video now; a link carrying many is a batch being filed. `add` knows which.
+            add(try AddRequest.videoIDs(from: url))
         } catch {
             report(error, title: "Cue could not add that link")
         }
     }
 
-    /// Adds videos at the end of the queue.
-    func add(_ videoIDs: [VideoID], playFirst: Bool) {
+    /// Adds videos at the end of the queue, and plays one when the gesture meant that.
+    ///
+    /// `QueueAddPlayback` owns the rule, so pasting a link, clicking the bookmarklet and dropping a link cannot
+    /// drift apart: one video is an instruction to watch it now, a batch is filing.
+    func add(_ videoIDs: [VideoID]) {
         for videoID in videoIDs {
             if (try? store.add(videoID)) == nil {
                 logger.error("Could not add a video to the queue")
             }
         }
         refreshSidebar()
-        guard playFirst, let first = videoIDs.first else { return }
-        // A video that was already queued is played too: that is what a repeated paste or link means.
+        guard QueueAddPlayback.shouldPlay(
+            addedCount: videoIDs.count, isPlaying: controller.state.stream != nil
+        ), let first = videoIDs.first else { return }
+        // A video already in the queue is played too: asking for one that is already on the list is still asking
+        // for it. `store.add` refused it as a duplicate; that says nothing about whether to watch it.
         coordinator.play(first)
     }
 
