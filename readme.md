@@ -313,11 +313,15 @@ No browser lets an outside app create a bookmark: there is no API for it, and th
 browser's private bookmark store behind its back, with the browser closed, risking your own bookmarks. Cue does
 not do that. One drag is as close as anything can get.
 
-The bookmarklet is one readable line, so you can see what you are installing:
+The bookmarklet is short enough to read before you install it:
 
 ```
-javascript:location.href='cue://add?url='+encodeURIComponent(location.href)
+javascript:(function(){var a=document.createElement('a');a.href='cue://add?url='+encodeURIComponent(location.href);document.body.appendChild(a);a.click();a.remove();})()
 ```
+
+It clicks a synthetic link rather than assigning `location.href`, so the page you are on stays where it is, and it
+is wrapped in a function that returns nothing: a `javascript:` URL that produces a value makes the browser replace
+the page with that value, which is exactly what the simpler version did.
 
 A link may carry many videos (`cue://add?url=…&url=…`), which is how a batch of tabs arrives as one handover
 rather than twenty. Videos Cue cannot read are skipped rather than failing the batch, and a link where nothing is

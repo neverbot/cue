@@ -12,13 +12,24 @@ import Foundation
 /// link — is plain HTML that needs no JavaScript at all. The copy button is an extra that degrades quietly where
 /// the clipboard API is unavailable, which `file://` pages sometimes are.
 public enum BrowserIntegration {
-    /// The bookmarklet itself. Sends whatever page it runs on to Cue.
+    /// The bookmarklet itself. Sends whatever page it runs on to Cue **and leaves you on that page**.
     ///
-    /// Deliberately one short line: a bookmarklet is read by the person installing it, and something they cannot
-    /// read is something they are trusting blindly. `encodeURIComponent` is what keeps a URL with its own query
-    /// (`?v=…&t=…`) from being cut in half when it becomes the value of `url`.
+    /// Two things it has to get right, both learned the hard way:
+    ///
+    /// 1. **It must evaluate to nothing.** A `javascript:` URL whose last expression produces a value makes the
+    ///    browser replace the document with that value — so the obvious `location.href='cue://…'` blanked the
+    ///    YouTube page and printed the link on it, because an assignment evaluates to what was assigned. Wrapping
+    ///    the work in a function that returns nothing is what prevents it.
+    /// 2. **It must not navigate the tab.** Assigning `location.href` sends the page itself to the handler.
+    ///    Clicking a synthetic link hands the URL to the operating system while the page stays exactly where it
+    ///    is, which is what someone clicking a bookmark on a video expects.
+    ///
+    /// `encodeURIComponent` keeps a watch URL's own query (`?v=…&t=…`) from being cut in half when it becomes the
+    /// value of `url`.
     public static let bookmarklet =
-        "javascript:location.href='cue://add?url='+encodeURIComponent(location.href)"
+        "javascript:(function(){var a=document.createElement('a');"
+            + "a.href='cue://add?url='+encodeURIComponent(location.href);"
+            + "document.body.appendChild(a);a.click();a.remove();})()"
 
     /// The file the app writes and opens. Named for what it is, since it appears in a browser's title bar and in
     /// the temporary directory.

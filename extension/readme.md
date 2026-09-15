@@ -57,8 +57,11 @@ bar, and the steps for Chrome, Firefox and Safari. The same buttons are in Setti
 To do it by hand instead, make a new bookmark whose address is this line:
 
 ```
-javascript:location.href='cue://add?url='+encodeURIComponent(location.href)
+javascript:(function(){var a=document.createElement('a');a.href='cue://add?url='+encodeURIComponent(location.href);document.body.appendChild(a);a.click();a.remove();})()
 ```
+
+It clicks a synthetic link instead of assigning `location.href`, so you stay on the page, and it returns nothing —
+a `javascript:` URL that produces a value makes the browser replace the page with it.
 
 Clicking it on a YouTube page adds that video to Cue. It cannot do the batch — a bookmarklet only ever sees the
 page it runs on — and some browsers refuse to run `javascript:` bookmarks typed into the address bar, so it has to

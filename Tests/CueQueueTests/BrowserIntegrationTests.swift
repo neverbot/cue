@@ -10,6 +10,17 @@ import Testing
         #expect(BrowserIntegration.bookmarklet.contains("encodeURIComponent(location.href)"))
     }
 
+    @Test func theBookmarkletLeavesYouOnThePage() {
+        let bookmarklet = BrowserIntegration.bookmarklet
+        // It must evaluate to nothing: a `javascript:` URL that produces a value makes the browser replace the
+        // document with it, which blanked the page and printed the link on it.
+        #expect(bookmarklet.hasPrefix("javascript:(function(){"))
+        #expect(bookmarklet.hasSuffix("})()"))
+        // And it must hand the URL over without navigating the tab, which assigning to location.href does.
+        #expect(bookmarklet.contains("a.click()"))
+        #expect(!bookmarklet.contains("location.href='cue"))
+    }
+
     @Test func thePageCarriesTheBookmarkletAsADraggableLink() {
         let page = BrowserIntegration.page()
         #expect(page.contains("href=\"\(BrowserIntegration.bookmarklet)\""))
