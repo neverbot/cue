@@ -50,8 +50,11 @@ Cue itself must be installed, and macOS has to know which app answers `cue://` l
 
 ## The bookmarklet
 
-If an extension is more than you want, a bookmark does the single-tab case with no install at all. Make a new
-bookmark whose address is this line:
+If an extension is more than you want, a bookmark does the single-tab case with no install at all. The easiest way
+to add it is from the app: **Cue ▸ Browser Integration…** opens a page with a button to drag onto the bookmarks
+bar, and the steps for Chrome, Firefox and Safari. The same buttons are in Settings ▸ Browser Integration.
+
+To do it by hand instead, make a new bookmark whose address is this line:
 
 ```
 javascript:location.href='cue://add?url='+encodeURIComponent(location.href)

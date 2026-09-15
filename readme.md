@@ -304,7 +304,16 @@ tabs were the watch list, and Cue now holds it. It has no content scripts, no ho
 access at all: it reads the address of a tab and opens a `cue://` link, and that is the whole of it. Build it with
 `scripts/make-extension.sh`; [`extension/readme.md`](extension/readme.md) has the install steps for both browsers.
 
-**The bookmarklet** does the single-tab case with nothing installed. Make a bookmark whose address is:
+**The bookmarklet** does the single-tab case with nothing installed at all. Cue ▸ Browser Integration… (also in
+Settings) opens a page in your browser with a button to drag onto the bookmarks bar, and instructions for Chrome,
+Firefox and Safari. That page is a plain file on disk — Cue runs no server and opens no port — and it loads
+nothing from the network, which is why it can honestly say so on itself.
+
+No browser lets an outside app create a bookmark: there is no API for it, and the alternative is writing a
+browser's private bookmark store behind its back, with the browser closed, risking your own bookmarks. Cue does
+not do that. One drag is as close as anything can get.
+
+The bookmarklet is one readable line, so you can see what you are installing:
 
 ```
 javascript:location.href='cue://add?url='+encodeURIComponent(location.href)

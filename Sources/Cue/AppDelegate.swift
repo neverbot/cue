@@ -119,6 +119,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate()
     }
 
+    /// Cue ▸ Browser Integration…: writes the bookmarklet page and opens it in the default browser.
+    @objc func showBrowserIntegration(_ sender: Any?) {
+        BrowserIntegrationPage.open(relativeTo: windowController?.window)
+    }
+
     @objc private func preferencesChanged() {
         applyAppearance()
     }
@@ -163,6 +168,13 @@ enum MainMenu {
             // ⌘, is where macOS keeps settings in every app. Nothing else here claims a comma: every other shortcut
             // in Cue is a letter, plus ⌘0 for fitting the window.
             NSMenuItem(title: "Settings…", action: #selector(AppDelegate.showSettings(_:)), keyEquivalent: ","),
+            // Beside Settings because it is setup, not a queue action: it is done once per browser and then
+            // forgotten. No shortcut for the same reason.
+            NSMenuItem(
+                title: "Browser Integration…",
+                action: #selector(AppDelegate.showBrowserIntegration(_:)),
+                keyEquivalent: ""
+            ),
             .separator(),
             NSMenuItem(title: "Hide Cue", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h"),
             .separator(),

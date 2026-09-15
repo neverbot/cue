@@ -52,6 +52,13 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     private let addButton = NSButton(title: "Add", target: nil, action: nil)
     private let queueStatusLabel = NSTextField(labelWithString: "")
 
+    // MARK: - Browser integration
+
+    private let bookmarkletPageButton = NSButton(title: "Open Setup Page…", target: nil, action: nil)
+    private let copyBookmarkletButton = NSButton(title: "Copy Bookmarklet", target: nil, action: nil)
+    /// Starts as a hint and becomes a report once something is copied, so the row is never blank and never silent.
+    private let browserStatusLabel = NSTextField(labelWithString: "")
+
     init(preferences: Preferences, store: QueueStore, thumbnails: ThumbnailStore) {
         self.preferences = preferences
         self.store = store
@@ -117,6 +124,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
             section("Sidebar", [row([sidebarModeButton, sidebarLayoutButton])]),
             cacheSection(),
             queueSection(),
+            browserSection(),
             row([reset]),
         ])
         form.orientation = .vertical
@@ -190,6 +198,28 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
             row([emptyQueueButton, importButton]),
             row([addField, addButton]),
             statusLabel(queueStatusLabel),
+        ])
+    }
+
+    /// Installing the bookmarklet, which is how a browser hands videos to Cue without anything else installed.
+    ///
+    /// No browser lets an outside app create a bookmark — there is no API, and writing a browser's private
+    /// bookmark store behind its back is not something Cue will do. So the most this can offer is a page with a
+    /// link to drag, and the text to paste for anyone who would rather paste.
+    private func browserSection() -> NSView {
+        bookmarkletPageButton.target = self
+        bookmarkletPageButton.action = #selector(openBookmarkletPage(_:))
+        bookmarkletPageButton.bezelStyle = .rounded
+
+        copyBookmarkletButton.target = self
+        copyBookmarkletButton.action = #selector(copyBookmarklet(_:))
+        copyBookmarkletButton.bezelStyle = .rounded
+
+        browserStatusLabel.stringValue = "Adds a bookmark that sends the page you are on to Cue."
+
+        return section("Browser Integration", [
+            row([bookmarkletPageButton, copyBookmarkletButton]),
+            statusLabel(browserStatusLabel),
         ])
     }
 
@@ -438,6 +468,19 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         guard outcome == .added else { return }
         addField.stringValue = ""
         onQueueChange?()
+    }
+
+    // MARK: - Browser integration
+
+    /// Opens the page in the default browser. It is a file on disk: Cue runs no server and opens no port.
+    @objc private func openBookmarkletPage(_ sender: Any?) {
+        BrowserIntegrationPage.open(relativeTo: window)
+        browserStatusLabel.stringValue = "Opened in your browser. Drag the button onto the bookmarks bar."
+    }
+
+    @objc private func copyBookmarklet(_ sender: Any?) {
+        BrowserIntegrationPage.copyBookmarklet()
+        browserStatusLabel.stringValue = BrowserIntegration.copiedMessage
     }
 
     // MARK: - Reset
