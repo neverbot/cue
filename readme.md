@@ -317,12 +317,17 @@ Issues and pull requests are welcome. A few ground rules keep the project health
 
 When YouTube changes something and extraction breaks, the usual places to look are the client definitions in yt-dlp (`yt_dlp/extractor/youtube/_base.py`) and new releases of [yt-dlp/ejs](https://github.com/yt-dlp/ejs).
 
-The second of those has a script, because the vendored solver scripts are what make playback possible at all:
+Both have a script, because between them they are what makes playback possible at all:
 
 ```sh
 scripts/check-ejs.sh            # compare the vendored EJS scripts with the current upstream release
 scripts/check-ejs.sh --update   # replace them with the upstream ones
+scripts/check-client.sh         # compare Cue's InnerTube client profile with yt-dlp's definition of it
 ```
+
+`check-client.sh` reports only, and never edits the profile: a difference may be a deliberate divergence, which is
+a judgement call rather than something a script should decide. It is loudest in the case that matters most — a
+client YouTube has retired stops resolving videos without producing a single compile error.
 
 It also checks the checksums recorded in `third-party-licenses.md` against the files actually vendored, so the
 notice cannot drift from what ships. Updating the notice itself is deliberately left to you: the script prints the
