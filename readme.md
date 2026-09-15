@@ -42,8 +42,7 @@ tracks — comes from YouTube straight to your Mac, and nothing about what you w
 - **A mini player**: a small always-on-top window that keeps playing, with no reload and no second stream.
 - **A settings window** for appearance, automatic playback, the sidebar, the thumbnail cache and the queue.
 - **An About window** with the version, the author, and the licenses of everything bundled.
-- **A browser extension** for Firefox and Chrome, and a bookmarklet, that send a tab — or every YouTube tab in the
-  window — to Cue.
+- **A bookmarklet** that sends the YouTube page you are on to Cue, installed from the app itself.
 - **`cue-resolve`**, a command-line tool that prints what the extraction core resolves.
 
 ## Requirements
@@ -266,18 +265,13 @@ drift apart.
 
 ## From the browser
 
-Cue registers the `cue://add?url=…` scheme, so anything that can open a link can add a video. Two ways use it.
+Cue registers the `cue://add?url=…` scheme, so anything that can open a link can add a video: a bookmarklet, a
+script, or `open` from a terminal.
 
-**The extension** (Firefox and Chrome) adds a toolbar button for the current tab, a context-menu item for a link,
-and one gesture — ⌘⇧Y — that sends **every YouTube tab in the window** and closes them, which is the point: the
-tabs were the watch list, and Cue now holds it. It has no content scripts, no host permissions and no network
-access at all: it reads the address of a tab and opens a `cue://` link, and that is the whole of it. Build it with
-`scripts/make-extension.sh`; [`extension/readme.md`](extension/readme.md) has the install steps for both browsers.
-
-**The bookmarklet** does the single-tab case with nothing installed at all. Cue ▸ Browser Integration… (also in
-Settings) opens a page in your browser with a button to drag onto the bookmarks bar, and instructions for Chrome,
-Firefox and Safari. That page is a plain file on disk — Cue runs no server and opens no port — and it loads
-nothing from the network, which is why it can honestly say so on itself.
+**The bookmarklet** needs nothing installed. Cue ▸ Browser Integration… (also in Settings) opens a page in your
+browser with a button to drag onto the bookmarks bar, and instructions for Chrome, Firefox and Safari. That page is
+a plain file on disk — Cue runs no server and opens no port — and it loads nothing from the network, which is why
+it can honestly say so on itself.
 
 No browser lets an outside app create a bookmark: there is no API for it, and the alternative is writing a
 browser's private bookmark store behind its back, with the browser closed, risking your own bookmarks. Cue does
@@ -293,9 +287,9 @@ It clicks a synthetic link rather than assigning `location.href`, so the page yo
 is wrapped in a function that returns nothing: a `javascript:` URL that produces a value makes the browser replace
 the page with that value, which is exactly what the simpler version did.
 
-A link may carry many videos (`cue://add?url=…&url=…`), which is how a batch of tabs arrives as one handover
-rather than twenty. Videos Cue cannot read are skipped rather than failing the batch, and a link where nothing is
-readable says so instead of doing nothing quietly.
+One link may carry several videos (`cue://add?url=…&url=…`), so a script handing over a list costs one trip
+through the system rather than one per video. Videos Cue cannot read are skipped rather than failing the whole
+link, and a link where nothing is readable says so instead of doing nothing quietly.
 
 ## Settings
 
