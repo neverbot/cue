@@ -265,17 +265,8 @@ import Testing
         #expect(try store.resumeEntry(for: TestQueue.first) == nil)
     }
 
-    @Test func storesAndReadsMetadataValues() throws {
-        let store = try TestQueue.store()
-        #expect(try store.metadata("key") == nil)
-        try store.setMetadata("key", to: "first")
-        try store.setMetadata("key", to: "second")
-
-        #expect(try store.metadata("key") == "second")
-    }
-
     @Test func pinsTheRegisteredMigrations() {
-        #expect(QueueDatabase.migrationNames == ["v1-queue", "v2-unknown-title"])
+        #expect(QueueDatabase.migrationNames == ["v1-queue"])
     }
 
     @Test func keepsTheQueueBetweenOpensOfTheSameFile() throws {

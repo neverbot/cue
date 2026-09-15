@@ -1,6 +1,5 @@
 import CueCore
 import Foundation
-import os
 
 public struct ResumeEntry: Codable, Equatable, Sendable {
     public var position: Double
@@ -14,8 +13,8 @@ public struct ResumeEntry: Codable, Equatable, Sendable {
     }
 }
 
-/// Where resume positions live. `JSONResumeStore` is a stopgap: the queue's database can implement this protocol
-/// later without touching the player.
+/// Where resume positions live. The player knows this protocol and nothing else: the queue's database implements it
+/// (`DatabaseResumeStore`), so how a position is stored is not the player's business.
 @MainActor
 public protocol ResumeStore: AnyObject {
     func entry(for videoID: VideoID) -> ResumeEntry?
@@ -44,80 +43,5 @@ public struct ResumePolicy: Equatable, Sendable {
     public func startPosition(for entry: ResumeEntry?) -> Double? {
         guard let entry, isWorthKeeping(position: entry.position, duration: entry.duration) else { return nil }
         return entry.position
-    }
-}
-
-/// Resume positions in one small JSON file, rewritten atomically on every change.
-@MainActor
-public final class JSONResumeStore: ResumeStore {
-    private struct Contents: Codable {
-        var version: Int
-        var entries: [String: ResumeEntry]
-    }
-
-    public static let formatVersion = 1
-
-    public let fileURL: URL
-    private let limit: Int
-    private var entries: [String: ResumeEntry]
-    private let logger = Logger(subsystem: "com.neverbot.cue", category: "resume")
-
-    /// `~/Library/Application Support/Cue/resume-positions.json`.
-    public static var defaultFileURL: URL {
-        URL.applicationSupportDirectory
-            .appending(path: "Cue", directoryHint: .isDirectory)
-            .appending(path: "resume-positions.json", directoryHint: .notDirectory)
-    }
-
-    /// Only the app target should point this at the real profile; use `JSONResumeStore.default()` for that, so a
-    /// future zero-argument call from a test cannot silently write into the user's real Application Support.
-    public init(fileURL: URL, limit: Int = 1000) {
-        self.fileURL = fileURL
-        self.limit = limit
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        if let data = try? Data(contentsOf: fileURL),
-           let contents = try? decoder.decode(Contents.self, from: data),
-           contents.version == Self.formatVersion {
-            entries = contents.entries
-        } else {
-            entries = [:]
-        }
-    }
-
-    public func entry(for videoID: VideoID) -> ResumeEntry? {
-        entries[videoID.rawValue]
-    }
-
-    public func save(_ entry: ResumeEntry, for videoID: VideoID) {
-        entries[videoID.rawValue] = entry
-        if entries.count > limit {
-            let newest = entries.sorted { $0.value.updatedAt > $1.value.updatedAt }.prefix(limit)
-            entries = Dictionary(uniqueKeysWithValues: newest.map { ($0.key, $0.value) })
-        }
-        write()
-    }
-
-    public func remove(_ videoID: VideoID) {
-        guard entries.removeValue(forKey: videoID.rawValue) != nil else { return }
-        write()
-    }
-
-    /// The store backed by the real `~/Library/Application Support/Cue/resume-positions.json`. Only the app target
-    /// should call this; tests must pass an explicit `fileURL` instead.
-    public static func `default`() -> JSONResumeStore {
-        JSONResumeStore(fileURL: defaultFileURL)
-    }
-
-    private func write() {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        encoder.dateEncodingStrategy = .iso8601
-        do {
-            try FileManager.default.createDirectory(at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-            try encoder.encode(Contents(version: Self.formatVersion, entries: entries)).write(to: fileURL, options: .atomic)
-        } catch {
-            logger.error("Could not save resume positions: \(String(describing: error), privacy: .private)")
-        }
     }
 }

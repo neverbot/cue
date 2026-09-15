@@ -194,8 +194,7 @@ the same need without reaching for a private one.
 ## The queue
 
 Cue keeps its queue in SQLite at `~/Library/Application Support/Cue/queue.sqlite`, with schema migrations, beside the
-player's own data. The file is created readable only by you. Resume positions live in the same database; a
-`resume-positions.json` left by an earlier version is imported once at launch and then left alone.
+player's own data. The file is created readable only by you. Resume positions live in the same database.
 
 The sidebar (⌃⌘S to show or hide it, ⌃⌘M to cycle its density, ⌃⌘O to float it over the video instead of pushing it
 aside) lists what is left to watch with a counter of the videos still pending. Each row shows its own length once that

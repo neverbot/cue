@@ -43,13 +43,22 @@ public struct QueueDatabase: Sendable {
         return QueueDatabase(writer: writer)
     }
 
-    /// Applied in order, every release. Never edit a registered migration: add another one.
+    /// The schema, created in one step.
+    ///
+    /// There is one migration because there has never been a released version to upgrade from: the second one this
+    /// once carried existed only to convert databases written by a build that lived for a day. Once the app ships to
+    /// anyone, this rule returns and matters: **never edit a registered migration, add another one** — an installed
+    /// copy has already recorded the ones it ran, and editing one in place changes what new databases get while
+    /// leaving existing ones behind.
     public static var migrator: DatabaseMigrator {
         var migrator = DatabaseMigrator()
         migrator.registerMigration("v1-queue") { db in
             try db.create(table: "queueItem") { table in
                 table.primaryKey("videoID", .text).notNull()
-                table.column("title", .text).notNull()
+                // Null while the title is not known yet, rather than the video id standing in for one: a placeholder
+                // and a genuine title would be indistinguishable, and the sidebar could not tell what it knows from
+                // what it merely filled in.
+                table.column("title", .text)
                 table.column("author", .text)
                 table.column("duration", .double)
                 table.column("addedAt", .datetime).notNull()
@@ -63,37 +72,6 @@ public struct QueueDatabase: Sendable {
                 table.column("duration", .double)
                 table.column("updatedAt", .datetime).notNull()
             }
-            try db.create(table: "metadata") { table in
-                table.primaryKey("key", .text).notNull()
-                table.column("value", .text).notNull()
-            }
-        }
-        // A title that is not known yet is now null, rather than the video id standing in for one. The old
-        // placeholder and a genuine title were indistinguishable, so nothing could tell what was known from what was
-        // merely filled in. SQLite cannot drop a NOT NULL constraint, so the table is rebuilt: every row is carried
-        // over, and only the rows whose title was exactly their own id - the placeholder `add` used to write - become
-        // null. A real title survives untouched, including the perverse one that happens to read like an id, which is
-        // now simply a title like any other.
-        migrator.registerMigration("v2-unknown-title") { db in
-            try db.create(table: "newQueueItem") { table in
-                table.primaryKey("videoID", .text).notNull()
-                table.column("title", .text)
-                table.column("author", .text)
-                table.column("duration", .double)
-                table.column("addedAt", .datetime).notNull()
-                table.column("sortIndex", .integer).notNull()
-                table.column("watchedAt", .datetime)
-            }
-            try db.execute(sql: """
-            INSERT INTO newQueueItem (videoID, title, author, duration, addedAt, sortIndex, watchedAt)
-            SELECT videoID, CASE WHEN title = videoID THEN NULL ELSE title END,
-                   author, duration, addedAt, sortIndex, watchedAt
-            FROM queueItem
-            """)
-            try db.drop(table: "queueItem")
-            try db.rename(table: "newQueueItem", to: "queueItem")
-            // The index went with the old table.
-            try db.create(indexOn: "queueItem", columns: ["sortIndex"])
         }
         return migrator
     }

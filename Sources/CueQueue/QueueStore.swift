@@ -204,34 +204,6 @@ public struct QueueStore: Sendable {
         }
     }
 
-    /// Inserts a resume position only when the video has none, for importing the player's old JSON file.
-    /// Returns whether it was inserted.
-    @discardableResult
-    public func addResumeEntryIfMissing(_ entry: ResumeEntry, for videoID: VideoID) throws -> Bool {
-        try database.writer.write { db in
-            guard try ResumePosition.filter(key: videoID.rawValue).fetchCount(db) == 0 else { return false }
-            try ResumePosition(
-                videoID: videoID.rawValue, position: entry.position, duration: entry.duration, updatedAt: entry.updatedAt
-            ).insert(db)
-            return true
-        }
-    }
-
-    // MARK: - Metadata
-
-    public func metadata(_ key: String) throws -> String? {
-        try database.writer.read { db in
-            try String.fetchOne(db, sql: "SELECT value FROM metadata WHERE key = ?", arguments: [key])
-        }
-    }
-
-    public func setMetadata(_ key: String, to value: String) throws {
-        try database.writer.write { db in
-            try db.execute(sql: "INSERT INTO metadata (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = ?",
-                           arguments: [key, value, value])
-        }
-    }
-
     private static func sortIndex(for position: QueuePosition, in db: Database) throws -> Int {
         switch position {
         case .end:

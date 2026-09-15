@@ -56,9 +56,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // failures, not at two that happen to point at the same path.
             let thumbnails = ThumbnailStore(directory: ThumbnailStore.defaultDirectory)
             self.thumbnails = thumbnails
-            // One-time move of the player's JSON positions into the database. The file is left where it is.
-            try JSONResumeImport(store: store).runIfNeeded(from: JSONResumeStore.defaultFileURL)
-
             let controller = PlayerWindowController(
                 engine: try MPVPlaybackEngine(),
                 store: store,
