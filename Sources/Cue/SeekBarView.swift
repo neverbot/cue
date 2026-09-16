@@ -28,6 +28,12 @@ final class SeekBarView: NSView {
     override var intrinsicContentSize: NSSize { NSSize(width: NSView.noIntrinsicMetric, height: Self.height) }
     override var acceptsFirstResponder: Bool { false }
 
+    /// The window is movable by its background, which is what lets the video be dragged to move the window. AppKit
+    /// decides which views count as background by asking them this, and a plain `NSView` says yes — so dragging
+    /// the seek bar scrubbed *and* moved the window at the same time. AppKit's own controls answer no already,
+    /// which is why the volume slider and the buttons never had the problem.
+    override var mouseDownCanMoveWindow: Bool { false }
+
     /// The knob has to fit at both ends, so the track is inset by its radius.
     private var trackWidth: CGFloat { max(bounds.width - Self.knobRadius * 2, 1) }
     private var shownPosition: Double { isScrubbing ? scrubPosition : position }

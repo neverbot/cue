@@ -5,6 +5,11 @@ import CuePlayer
 /// The on-screen controls: play/pause, elapsed time, the seek bar, duration, chapters, subtitles, the mini player,
 /// mute and volume — on one translucent bar.
 final class ControlsView: NSView {
+    /// The bar is something to aim at, not somewhere to grab the window by. Without this, a drag that missed a
+    /// button by a few points moved the whole window — the same fault the seek bar had, and the picture behind
+    /// this bar is still there to drag when moving the window is what was meant.
+    override var mouseDownCanMoveWindow: Bool { false }
+
     var onCommand: ((PlayerCommand) -> Void)?
     /// Forwarded from the seek bar, in this view's coordinates.
     var onHover: ((Double?, CGFloat) -> Void)?

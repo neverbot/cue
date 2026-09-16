@@ -8,6 +8,10 @@ import CuePlayer
 final class PreviewPopover: NSView {
     static let imageWidth: CGFloat = 168
 
+    /// Chrome, not background: it hangs directly over the seek bar, so a click that lands on the bubble instead of
+    /// the bar must not start dragging the window. Same reason as `ControlsView` and `SeekBarView`.
+    override var mouseDownCanMoveWindow: Bool { false }
+
     private let imageView = NSImageView()
     private let timeLabel = NSTextField(labelWithString: "0:00")
     private let chapterLabel = NSTextField(labelWithString: "")
