@@ -19,7 +19,12 @@ dylib="$repo/vendor/cache/libmpv/lib/libmpv.2.dylib"
 
 # 1. Release build. The prefix maps keep absolute source paths out of the binary; mapping only Sources (not the
 #    repository root) avoids breaking Clang's module cache, which lives under .build.
-flags=(-c release
+#    The engine is pinned for two reasons. One: SwiftPM's default engine keeps its own object tree at
+#    `.build/out`, so bundling with it while `scripts/test.sh` and `scripts/build.sh` use the classic one means
+#    compiling everything twice, into two trees of roughly 800 MB each. Two, and worse: the `--show-bin-path`
+#    below must come from the same engine that just compiled, or this script copies a binary out of the other
+#    tree — stale, or missing entirely.
+flags=(-c release --build-system native
   -Xswiftc -file-prefix-map -Xswiftc "$repo/Sources=Sources"
   -Xcc -ffile-prefix-map="$repo/Sources=Sources")
 swift build "${flags[@]}" --product Cue
