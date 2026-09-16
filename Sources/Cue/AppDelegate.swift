@@ -22,6 +22,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// same two objects rather than opening its own, which is what lets a change made there reach the sidebar now.
     private var store: QueueStore?
     private var thumbnails: ThumbnailStore?
+    /// `cue://` links that reached the app before it had a window to give them to. See `PendingLinks`.
+    private var pendingLinks = PendingLinks()
 
     init(arguments: [String]) {
         self.arguments = arguments
@@ -74,6 +76,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             if let input = LaunchInput.parse(arguments: arguments) {
                 controller.open(input)
+            }
+            // Whatever arrived while this was still starting up. A bookmarklet click on a closed Cue lands here:
+            // the launch and the link are one gesture, and the link reaches the app before the window does.
+            for url in pendingLinks.takeAll() {
+                controller.handleAddLink(url)
             }
         } catch {
             let alert = NSAlert()
@@ -137,8 +144,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// `cue://add?url=…`, from a browser, a bookmarklet or `open`.
     func application(_ application: NSApplication, open urls: [URL]) {
+        guard let windowController else {
+            // Cold launch. macOS delivers the URL as soon as it has launched the app, which is while the database
+            // is still opening and libmpv is still starting — there is no window yet. This used to be
+            // `windowController?.handleAddLink(url)`, and the optional-chain threw the video away without a
+            // sound: Cue opened, looked fine, and had added nothing.
+            for url in urls { pendingLinks.hold(url) }
+            return
+        }
         for url in urls {
-            windowController?.handleAddLink(url)
+            windowController.handleAddLink(url)
         }
     }
 
