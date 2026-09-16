@@ -90,8 +90,17 @@ git clone https://github.com/neverbot/cue.git
 cd cue
 scripts/fetch-libmpv.sh   # downloads MPVKit's LGPL libmpv archives (about 330 MB, cached in vendor/cache) and links libmpv
                           # unpacked intermediates are pruned automatically after linking; pass --keep-intermediates to keep them
-swift build
+scripts/build.sh          # builds with the build engine pinned; forwards any `swift build` arguments
 ```
+
+**The first build needs network twice**: once for libmpv above, and once for GRDB, which SwiftPM clones itself at
+the exact revision pinned in `Package.resolved`. Every later build is offline, and nothing is downloaded when the
+app runs.
+
+**Use `scripts/build.sh` rather than `swift build`.** SwiftPM ships two build engines that keep separate object
+trees, and `scripts/test.sh` pins the classic one (see [Running the tests](#running-the-tests)). A bare
+`swift build` beside it compiles everything a second time into `.build/out` — measured at 826 MB next to the other
+tree's 795 MB. The script pins the same engine the tests use, so there is only ever one tree.
 
 ### Building and running the app
 
@@ -127,6 +136,31 @@ Use `scripts/test.sh` rather than `swift test`. On a machine with only the Comma
 It also pins `--build-system native`. SwiftPM's default engine fails here at random with `external macro implementation type 'TestingMacros.…Macro' could not be found`, always blamed on whichever test file the compiler reached first; the same sources build and pass under the classic engine, and a warm full run takes about a second instead of tens of seconds plus retries. One consequence worth knowing: the classic engine links every test target into a single bundle, so a full run prints **one** summary line for the whole suite rather than one per target. That is the complete run, not a partial one.
 
 The default suite runs offline against sanitized fixtures. The live tests resolve two public videos and check that their streams answer. They depend on YouTube's current behaviour and are opt-in for that reason.
+
+### What is disposable, and how to rebuild from nothing
+
+Four directories hold nothing that cannot be recreated. None is in git, and deleting any of them costs only time —
+but some of that time is a download, so it is worth knowing which:
+
+| Directory | What it is | Deleting it costs |
+|---|---|---|
+| `.build/` | SwiftPM's object trees, including `repositories/` and `checkouts/` (GRDB's clone) | A full recompile, and a re-clone of GRDB over the network |
+| `vendor/cache/downloads/` | The MPVKit archives `fetch-libmpv.sh` downloaded | Nothing now — it exists so a *relink* needs no network. Re-running the fetch script downloads about 330 MB again |
+| `vendor/cache/libmpv/` | The linked `libmpv.2.dylib` and its headers, which the build and the app bundle both use | A re-run of `scripts/fetch-libmpv.sh`, which needs the archives above or downloads them again |
+| `dist/` | The assembled `Cue.app` | A run of `scripts/make-app.sh` |
+
+So a machine with nothing but the repository rebuilds with exactly this:
+
+```sh
+scripts/fetch-libmpv.sh   # network: about 330 MB
+scripts/build.sh          # network on the first run only, for GRDB
+scripts/test.sh           # proves the result
+scripts/make-app.sh       # assembles and ad-hoc signs dist/Cue.app
+```
+
+Nothing else is needed, and nothing outside the repository is written except those directories. The versions that
+matter are pinned rather than floating: GRDB's revision in `Package.resolved`, and libmpv's archives with their
+SHA-256 checksums in `scripts/libmpv-artifacts.tsv`.
 
 ## How it works
 
