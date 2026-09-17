@@ -177,8 +177,42 @@ final class QueueSidebarViewController: NSViewController, NSTableViewDataSource,
     /// a row whose image is already in hand, or already requested, is skipped.
     override func viewDidLayout() {
         super.viewDidLayout()
+        applyPendingScrollOffset()
         loadVisibleThumbnails()
         loadVisibleTitles()
+    }
+
+    // MARK: - Scroll position across launches
+
+    /// Where the list was scrolled last session, waiting for the list to have rows and a height to scroll within.
+    private var pendingScrollOffset: Double?
+
+    /// How far down the list is scrolled, in points from the top. The table is flipped, so this is `origin.y`.
+    var scrollOffset: CGFloat {
+        scrollView.contentView.bounds.origin.y
+    }
+
+    /// Scrolls to where the list was last session, as soon as there is a list to scroll.
+    func restoreScrollOffset(_ stored: Double?) {
+        pendingScrollOffset = stored
+        applyPendingScrollOffset()
+    }
+
+    /// Applied once, the first time the list has rows and a visible height — both needed to clamp it — and then
+    /// forgotten, so a later layout can never yank the list back to where it was at launch.
+    private func applyPendingScrollOffset() {
+        guard let stored = pendingScrollOffset, tableView.numberOfRows > 0 else { return }
+        let visibleHeight = Double(scrollView.contentView.bounds.height)
+        guard visibleHeight > 0,
+              let offset = SidebarRestore.scrollOffset(
+                  stored: stored,
+                  contentHeight: Double(tableView.bounds.height),
+                  visibleHeight: visibleHeight
+              )
+        else { return }
+        pendingScrollOffset = nil
+        scrollView.contentView.scroll(to: NSPoint(x: 0, y: offset))
+        scrollView.reflectScrolledClipView(scrollView.contentView)
     }
 
     @objc private func visibleRowsChanged() {
@@ -211,6 +245,9 @@ final class QueueSidebarViewController: NSViewController, NSTableViewDataSource,
         guard changed, let videoID,
               let index = rows.firstIndex(where: { $0.videoID == videoID.rawValue })
         else { return }
+        // A video starting is a newer intent than where the list sat last session: a bookmarklet click that launched
+        // the app should land on that video's row, not on yesterday's scroll position.
+        pendingScrollOffset = nil
         tableView.scrollRowToVisible(index)
     }
 

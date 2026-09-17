@@ -206,7 +206,8 @@ Cue keeps its queue in SQLite at `~/Library/Application Support/Cue/queue.sqlite
 player's own data. The file is created readable only by you. Resume positions live in the same database.
 
 The sidebar (⌃⌘S to show or hide it, ⌃⌘M to cycle its density, ⌃⌘O to float it over the video instead of pushing it
-aside) lists what is left to watch with a counter of the videos still pending. Each row shows its own length once that
+aside) lists what is left to watch with a counter of the videos still pending. It comes back as you left it: open or
+closed, as wide as you dragged it, and scrolled to the same place. Each row shows its own length once that
 is known. The video playing right now is marked with a tinted row and a speaker glyph; a video already watched keeps
 a check mark. Titles are fetched for the rows that are on screen, so a long import does not become a long wait, and a
 row shows the video's id until its title arrives. Right-clicking a row offers copying its link or opening it in your

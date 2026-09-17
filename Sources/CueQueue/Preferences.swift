@@ -20,6 +20,8 @@ public enum PreferenceKey: String, CaseIterable, Sendable {
     case sidebarMode = "sidebar.mode"
     case sidebarLayout = "sidebar.layout"
     case sidebarVisible = "sidebar.visible"
+    case sidebarWidth = "sidebar.width"
+    case sidebarScrollOffset = "sidebar.scroll-offset"
     case inspectorTab = "inspector.tab"
 }
 
@@ -115,6 +117,39 @@ public final class Preferences {
             store.set(newValue.isVisible, forKey: PreferenceKey.sidebarVisible.rawValue)
             announceChange()
         }
+    }
+
+    /// How wide the sidebar was when it last pushed the video aside. Nil until it has been measured once.
+    ///
+    /// Kept apart from `SidebarSettings` on purpose: those three are read and written as one on every toggle, while
+    /// this is written only when the sidebar is about to fold away or the app is quitting — a collapsed column
+    /// measures zero, and writing on every point of a divider drag would hit the defaults store dozens of times a second.
+    public var sidebarWidth: Double? {
+        get { Self.positiveNumber(store.object(forKey: PreferenceKey.sidebarWidth.rawValue)) }
+        set {
+            // Deliberately silent. Nothing on screen shows this value live, and announcing it would loop: hiding the
+            // sidebar records its width, the window hears the change and re-applies the stored settings, finds the
+            // sidebar still visible mid-hide, and hides it again — which records the width again, forever.
+            store.set(newValue, forKey: PreferenceKey.sidebarWidth.rawValue)
+        }
+    }
+
+    /// How far down the sidebar's list was scrolled when the app quit, in points from the top.
+    public var sidebarScrollOffset: Double? {
+        get {
+            guard let value = store.object(forKey: PreferenceKey.sidebarScrollOffset.rawValue) as? Double,
+                  value.isFinite, value >= 0 else { return nil }
+            return value
+        }
+        set {
+            // Silent for the same reason as `sidebarWidth`: no view shows it, so there is no one to tell.
+            store.set(newValue, forKey: PreferenceKey.sidebarScrollOffset.rawValue)
+        }
+    }
+
+    private static func positiveNumber(_ object: Any?) -> Double? {
+        guard let value = object as? Double, value.isFinite, value > 0 else { return nil }
+        return value
     }
 
     /// Which of the inspector's two pages was last in front. Read once at startup; written whenever it changes.

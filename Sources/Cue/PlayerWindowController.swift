@@ -155,6 +155,11 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
         window.contentViewController = splitViewController
         window.center()
         super.init(window: window)
+        // The split view needs a layout before a divider can be placed, and the sidebar's stored scroll position can
+        // only be applied once its list has rows — so both are handed over now and applied when each can be.
+        splitViewController.view.layoutSubtreeIfNeeded()
+        applyStoredSidebarWidth()
+        sidebar.restoreScrollOffset(preferences.sidebarScrollOffset)
 
         window.delegate = self
         window.makeFirstResponder(playerView)
@@ -579,10 +584,38 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
             return
         }
         let videoWidth = playerContainer.frame.width
+        // Measured while the column still has a width: collapsed, it reads zero.
+        if !visible { saveSidebarWidth() }
         sidebarHost.setVisible(visible)
         updateSidebarButton()
         splitViewController.view.layoutSubtreeIfNeeded()
+        // Before the picture is measured again, or the window would compensate for the default width and then the
+        // column would change under it. A split view uncollapsing on its own gives back its default, not yours.
+        if visible { applyStoredSidebarWidth() }
         restoreVideoWidth(to: videoWidth)
+    }
+
+    /// Gives the sidebar the width it had last session, clamped to what the column allows. Push layout only: a
+    /// floating sidebar has a fixed width and nothing to drag.
+    private func applyStoredSidebarWidth() {
+        guard sidebarHost.layout == .push, sidebarHost.isVisible,
+              let width = SidebarRestore.width(
+                  stored: preferences.sidebarWidth,
+                  minimum: Double(sidebarItem.minimumThickness),
+                  maximum: Double(sidebarItem.maximumThickness)
+              )
+        else { return }
+        // The sidebar is the first split item, so the divider after it is divider zero.
+        splitViewController.splitView.setPosition(CGFloat(width), ofDividerAt: 0)
+        splitViewController.view.layoutSubtreeIfNeeded()
+    }
+
+    /// Records the sidebar's current width, if it has one to record.
+    private func saveSidebarWidth() {
+        guard sidebarHost.layout == .push, sidebarHost.isVisible else { return }
+        let width = sidebarItem.viewController.view.frame.width
+        guard width > 0 else { return }
+        preferences.sidebarWidth = Double(width)
     }
 
     /// Writes the sidebar's appearance the moment it changes, assembled from the live objects rather than from
@@ -831,6 +864,9 @@ final class PlayerWindowController: NSWindowController, NSWindowDelegate {
     func shutdown() {
         guard !isShutDown else { return }
         isShutDown = true
+        // First, while every view still has its geometry: after teardown there is nothing left to measure.
+        saveSidebarWidth()
+        preferences.sidebarScrollOffset = Double(sidebar.scrollOffset)
         // Before anything else: a monitor outliving its window would keep swallowing keys for the whole application.
         if let keyMonitor {
             NSEvent.removeMonitor(keyMonitor)

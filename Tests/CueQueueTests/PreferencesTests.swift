@@ -87,6 +87,44 @@ private final class MemoryPreferenceStore: PreferenceStore {
         #expect(store.values.isEmpty)
     }
 
+    @Test func remembersTheSidebarsWidthAndScrollPosition() {
+        let store = MemoryPreferenceStore()
+        let preferences = Preferences(store: store)
+        #expect(preferences.sidebarWidth == nil)
+        #expect(preferences.sidebarScrollOffset == nil)
+
+        preferences.sidebarWidth = 312
+        preferences.sidebarScrollOffset = 1_280
+        // A second instance, as if the app had quit and come back.
+        #expect(Preferences(store: store).sidebarWidth == 312)
+        #expect(Preferences(store: store).sidebarScrollOffset == 1_280)
+    }
+
+    @Test func remembersTheListScrolledToTheTop() {
+        // Zero is a real position, unlike a zero width.
+        let store = MemoryPreferenceStore()
+        Preferences(store: store).sidebarScrollOffset = 0
+        #expect(Preferences(store: store).sidebarScrollOffset == 0)
+    }
+
+    @Test func ignoresAStoredWidthOrOffsetThatIsNotANumberItCanUse() {
+        let store = MemoryPreferenceStore()
+        store.values[PreferenceKey.sidebarWidth.rawValue] = "wide"
+        store.values[PreferenceKey.sidebarScrollOffset.rawValue] = -5.0
+        #expect(Preferences(store: store).sidebarWidth == nil)
+        #expect(Preferences(store: store).sidebarScrollOffset == nil)
+    }
+
+    @Test func resetForgetsTheSidebarsWidthAndScrollPosition() {
+        let store = MemoryPreferenceStore()
+        let preferences = Preferences(store: store)
+        preferences.sidebarWidth = 312
+        preferences.sidebarScrollOffset = 1_280
+        preferences.reset()
+        #expect(preferences.sidebarWidth == nil)
+        #expect(preferences.sidebarScrollOffset == nil)
+    }
+
     @Test func keepsTheInspectorClosedUntilItIsAskedFor() {
         let preferences = Preferences(store: MemoryPreferenceStore())
         #expect(preferences.inspector == InspectorSettings.standard)
