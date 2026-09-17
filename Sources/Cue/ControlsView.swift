@@ -117,6 +117,7 @@ final class ControlsView: NSView {
         durationLabel.stringValue = PlaybackTime.format(playerState.duration ?? 0)
         seekBar.duration = playerState.duration
         seekBar.position = playerState.position
+        seekBar.bufferedUntil = playerState.bufferedUntil
         seekBar.chapterFractions = timeline.tickFractions
         chapterLabel.stringValue = timeline.chapter(at: playerState.position)?.title ?? ""
         chapterLabel.isHidden = timeline.isEmpty

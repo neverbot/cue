@@ -13,6 +13,9 @@ final class SeekBarView: NSView {
 
     var duration: Double? { didSet { needsDisplay = true } }
     var position = 0.0 { didSet { if !isScrubbing { needsDisplay = true } } }
+    /// How far ahead the stream has loaded, in media time. Drawn as a lighter band behind the elapsed fill, so on a
+    /// slow connection it is visible how much a pause has banked.
+    var bufferedUntil: Double? { didSet { if bufferedUntil != oldValue { needsDisplay = true } } }
     /// Where chapters begin, as fractions of the duration.
     var chapterFractions: [Double] = [] { didSet { needsDisplay = true } }
     var isEnabled = true { didSet { needsDisplay = true } }
@@ -59,6 +62,16 @@ final class SeekBarView: NSView {
             xRadius: radius,
             yRadius: radius
         ).fill()
+
+        if let bufferedUntil {
+            let buffered = SeekBarGeometry.x(forSeconds: bufferedUntil, width: trackWidth, duration: duration)
+            NSColor.white.withAlphaComponent(0.45).setFill()
+            NSBezierPath(
+                roundedRect: NSRect(x: inset, y: y, width: buffered, height: Self.trackHeight),
+                xRadius: radius,
+                yRadius: radius
+            ).fill()
+        }
 
         let progress = SeekBarGeometry.x(forSeconds: shownPosition, width: trackWidth, duration: duration)
         (isEnabled ? NSColor.controlAccentColor : NSColor.disabledControlTextColor).setFill()

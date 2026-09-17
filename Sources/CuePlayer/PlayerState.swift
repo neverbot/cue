@@ -15,6 +15,8 @@ public enum EngineEvent: Equatable, Sendable {
     case duration(Double?)
     case paused(Bool)
     case buffering(Bool)
+    /// The media time the stream has loaded up to, or nil when nothing is cached.
+    case bufferedUntil(Double?)
     case volume(Double)
     case muted(Bool)
     case videoSize(VideoSize)
@@ -38,6 +40,8 @@ public struct PlayerState: Equatable, Sendable {
     public var duration: Double?
     public var isPaused = false
     public var isBuffering = false
+    /// How far ahead the stream has loaded, in media time. A fresh `PlayerState` per video resets it.
+    public var bufferedUntil: Double?
     public var volume = 100.0
     public var isMuted = false
     /// The source's announced size before playback, then mpv's reported display size.
@@ -69,6 +73,8 @@ public struct PlayerState: Equatable, Sendable {
             isPaused = paused
         case let .buffering(buffering):
             isBuffering = buffering
+        case let .bufferedUntil(seconds):
+            bufferedUntil = seconds
         case let .volume(level):
             volume = level
         case let .muted(muted):
@@ -144,6 +150,8 @@ public struct EngineEventMapper: Sendable {
         case ("duration", .none): return [.duration(nil)]
         case let ("pause", .flag(paused)): return [.paused(paused)]
         case let ("paused-for-cache", .flag(buffering)): return [.buffering(buffering)]
+        case let ("demuxer-cache-time", .double(seconds)): return [.bufferedUntil(seconds)]
+        case ("demuxer-cache-time", .none): return [.bufferedUntil(nil)]
         case ("eof-reached", .flag(true)): return [.ended(.finished)]
         case let ("volume", .double(level)): return [.volume(level)]
         case let ("mute", .flag(muted)): return [.muted(muted)]

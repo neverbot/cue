@@ -16,6 +16,34 @@ public enum PlayerOptions {
     ///
     /// Scripts stay off: under the hardened runtime, mpv's built-in Lua scripts get the process killed by code-signing
     /// enforcement, and Cue draws its own controls. Never add an option that loads a script.
+    /// Where streams are cached while they play: `~/Library/Caches/Cue/stream-cache`. mpv unlinks each file as soon
+    /// as it creates it, so nothing is left here once playback stops, even after a crash.
+    public static var defaultStreamCacheDirectory: URL {
+        URL.cachesDirectory
+            .appending(path: "Cue", directoryHint: .isDirectory)
+            .appending(path: "stream-cache", directoryHint: .isDirectory)
+    }
+
+    /// The stream cache, for when a connection cannot keep up.
+    ///
+    /// Measured against Cue's own libmpv on a real stream: mpv keeps filling its cache while paused, and its default
+    /// cap (150 MiB) stops it at roughly six minutes of 1080p. Pausing to let a slow connection catch up therefore
+    /// only ever banked a few minutes. These raise the cap to 512 MiB — about twenty minutes — and put it **on disk**
+    /// rather than in memory, because two demuxers (video and the separate audio stream) each hold their own cache and
+    /// the app is meant to stay light. That the disk cache spares memory is mpv's documented behaviour; the probe that
+    /// tried to measure it drowned in the test process's own allocation noise.
+    ///
+    /// `cache-pause-wait` goes from 1 s to 3 s: when the cache runs dry mpv pauses, and resuming after only one second
+    /// of data on a poor connection is what made playback stutter in short, repeated stops.
+    public static func streamCache(directory: String) -> [MPVOption] {
+        [
+            MPVOption("cache-on-disk", "yes"),
+            MPVOption("demuxer-cache-dir", directory),
+            MPVOption("demuxer-max-bytes", "512MiB"),
+            MPVOption("cache-pause-wait", "3"),
+        ]
+    }
+
     public static func baseline(videoOutput: String = "libmpv", audioOutput: String? = nil) -> [MPVOption] {
         var options = [
             MPVOption("vo", videoOutput),
@@ -49,6 +77,8 @@ public enum PlayerOptions {
         ("duration", .double),
         ("pause", .flag),
         ("paused-for-cache", .flag),
+        // How far ahead the stream has loaded, in media time — drawn on the seek bar.
+        ("demuxer-cache-time", .double),
         ("eof-reached", .flag),
         ("volume", .double),
         ("mute", .flag),

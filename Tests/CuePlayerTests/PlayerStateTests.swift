@@ -25,6 +25,21 @@ import Testing
         #expect(state.videoSize == VideoSize(width: 1280, height: 720))
     }
 
+    @Test func tracksHowFarTheStreamHasLoaded() {
+        var state = PlayerState()
+        #expect(state.bufferedUntil == nil)
+        state.apply(.bufferedUntil(58.4))
+        #expect(state.bufferedUntil == 58.4)
+        state.apply(.bufferedUntil(nil))
+        #expect(state.bufferedUntil == nil)
+    }
+
+    @Test func mapsTheCacheTimeToHowFarTheStreamHasLoaded() {
+        var mapper = EngineEventMapper()
+        #expect(mapper.map([.propertyChange(id: 0, name: "demuxer-cache-time", value: .double(58.4))]) == [.bufferedUntil(58.4)])
+        #expect(mapper.map([.propertyChange(id: 0, name: "demuxer-cache-time", value: .none)]) == [.bufferedUntil(nil)])
+    }
+
     @Test func namesTheWindowAndFlagsSoftwareDecoding() {
         var state = PlayerState()
         #expect(state.windowTitle == "Cue")

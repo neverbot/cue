@@ -59,7 +59,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let thumbnails = ThumbnailStore(directory: ThumbnailStore.defaultDirectory)
             self.thumbnails = thumbnails
             let controller = PlayerWindowController(
-                engine: try MPVPlaybackEngine(),
+                engine: try MPVPlaybackEngine(streamCacheDirectory: PlayerOptions.defaultStreamCacheDirectory),
                 store: store,
                 thumbnails: thumbnails,
                 // One extractor, so one URLSession and one shared solver cache for the whole app. Wrapped so the

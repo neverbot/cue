@@ -11,9 +11,18 @@ public final class MPVPlaybackEngine: PlaybackEngine {
     private let logger = Logger(subsystem: "com.neverbot.cue", category: "mpv")
 
     /// `videoOutput` stays `libmpv` in the app (render API); tests pass `null`.
-    public init(videoOutput: String = "libmpv", audioOutput: String? = nil) throws {
+    /// `streamCacheDirectory` puts the stream cache on disk there with a larger cap; the app passes
+    /// `PlayerOptions.defaultStreamCacheDirectory`, tests leave it nil and get mpv's in-memory default.
+    public init(videoOutput: String = "libmpv", audioOutput: String? = nil, streamCacheDirectory: URL? = nil) throws {
         handle = try MPVHandle()
-        for option in PlayerOptions.baseline(videoOutput: videoOutput, audioOutput: audioOutput) {
+        var options = PlayerOptions.baseline(videoOutput: videoOutput, audioOutput: audioOutput)
+        if let streamCacheDirectory,
+           (try? FileManager.default.createDirectory(at: streamCacheDirectory, withIntermediateDirectories: true)) != nil {
+            // Only when the directory exists: an unwritable cache dir would fail every stream, while mpv's in-memory
+            // default at least plays.
+            options += PlayerOptions.streamCache(directory: streamCacheDirectory.path)
+        }
+        for option in options {
             try handle.setOption(option.name, option.value)
         }
         // The handler holds the engine until `shutdown()` clears it; events hop to the main queue in order.

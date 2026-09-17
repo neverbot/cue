@@ -41,6 +41,26 @@ import Testing
         #expect(!options.contains { $0.name == "script" || $0.name == "scripts" })
     }
 
+    /// Pinned exactly, like the baseline: every name here was validated against Cue's libmpv on a real stream, and a
+    /// renamed option (`cache-dir` is not one) fails the whole stream at load time rather than at compile time.
+    @Test func putsTheStreamCacheOnDiskWithALargerCap() {
+        #expect(PlayerOptions.streamCache(directory: "/tmp/cache") == [
+            MPVOption("cache-on-disk", "yes"),
+            MPVOption("demuxer-cache-dir", "/tmp/cache"),
+            MPVOption("demuxer-max-bytes", "512MiB"),
+            MPVOption("cache-pause-wait", "3"),
+        ])
+    }
+
+    @Test func keepsTheStreamCacheOutOfTheBaseline() {
+        // Tests build engines from the baseline and must not write a cache anywhere.
+        #expect(!PlayerOptions.baseline().contains { $0.name == "cache-on-disk" || $0.name == "demuxer-cache-dir" })
+    }
+
+    @Test func observesHowFarTheStreamHasLoaded() {
+        #expect(PlayerOptions.observedProperties.contains { $0.name == "demuxer-cache-time" && $0.format == .double })
+    }
+
     @Test func addsAudioOutputOnlyWhenGiven() {
         #expect(!PlayerOptions.baseline().contains { $0.name == "ao" })
         #expect(PlayerOptions.baseline(videoOutput: "null", audioOutput: "null").contains(MPVOption("ao", "null")))

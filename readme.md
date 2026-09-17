@@ -29,6 +29,9 @@ tracks — comes from YouTube straight to your Mac, and nothing about what you w
   when a video offers nothing better.
 - **A native player** on libmpv, with keyboard control, resume positions, and a spinner whenever it is finding,
   opening or buffering a stream rather than a black window.
+- **Made for slow connections**: the seek bar shows how far the video has loaded, and a paused video keeps loading —
+  up to about twenty minutes of 1080p, cached on disk in `~/Library/Caches/Cue/stream-cache` rather than in memory,
+  and deleted as it is written so nothing is left behind.
 - **A queue sidebar** in three densities, beside the video or floating over it, with a counter, watched marks and a
   tinted row for the video playing now.
 - **Adding videos** by paste, drag and drop, or a `cue://add` link — and playing one the moment it is added.
