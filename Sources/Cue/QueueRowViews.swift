@@ -20,6 +20,11 @@ final class QueueRowView: NSTableCellView {
     private let watchedMark = NSImageView()
     private let titleLabel = NSTextField(labelWithString: "")
     private let secondaryLabel = NSTextField(labelWithString: "")
+    /// Title and second line as one block, so they are placed together rather than each finding its own height.
+    /// A stack rather than two pinned labels because it drops a hidden arranged view out of the layout entirely:
+    /// in compact mode the second line is hidden, and a plain subview would still claim its height and pull the
+    /// block off centre.
+    private let textStack = NSStackView()
     private let progressBar = NSView()
     private let progressFill = NSView()
     private var thumbnailWidthConstraint: NSLayoutConstraint!
@@ -52,15 +57,21 @@ final class QueueRowView: NSTableCellView {
         progressFill.layer?.backgroundColor = NSColor.controlAccentColor.cgColor
         progressBar.addSubview(progressFill)
 
-        for view in [nowPlayingFill, thumbnail, watchedMark, titleLabel, secondaryLabel, progressBar, progressFill] {
+        textStack.orientation = .vertical
+        // The two lines belong to each other: tight between them, and the row's own insets do the separating.
+        textStack.alignment = .width
+        textStack.spacing = 2
+        textStack.setHuggingPriority(.required, for: .vertical)
+        textStack.setViews([titleLabel, secondaryLabel], in: .top)
+
+        for view in [nowPlayingFill, thumbnail, watchedMark, textStack, progressBar, progressFill] {
             view.translatesAutoresizingMaskIntoConstraints = false
         }
         // First, so the whole row draws on top of it.
         addSubview(nowPlayingFill)
         addSubview(thumbnail)
         addSubview(watchedMark)
-        addSubview(titleLabel)
-        addSubview(secondaryLabel)
+        addSubview(textStack)
         addSubview(progressBar)
 
         thumbnailWidthConstraint = thumbnail.widthAnchor.constraint(equalToConstant: Self.thumbnailWidth)
@@ -85,16 +96,18 @@ final class QueueRowView: NSTableCellView {
             watchedMark.firstBaselineAnchor.constraint(equalTo: titleLabel.firstBaselineAnchor),
             watchedMarkWidthConstraint,
 
-            titleLabel.leadingAnchor.constraint(equalTo: watchedMark.trailingAnchor, constant: 0),
-            titleLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
-            titleLabel.topAnchor.constraint(equalTo: topAnchor, constant: 4),
+            textStack.leadingAnchor.constraint(equalTo: watchedMark.trailingAnchor, constant: 0),
+            textStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
+            // Centred on the same line the thumbnail is centred on, so the two read as one object. The top inset
+            // is the floor: a two-line title in a short row stops there and grows downwards rather than climbing
+            // out of the row. Centring yields to it, and the bottom is only a preference, so nothing is ever
+            // unsatisfiable.
+            textStack.topAnchor.constraint(greaterThanOrEqualTo: topAnchor, constant: 4),
+            centring(textStack),
+            preferring(textStack.bottomAnchor.constraint(lessThanOrEqualTo: progressBar.topAnchor, constant: -3)),
 
-            secondaryLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
-            secondaryLabel.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor),
-            secondaryLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 1),
-
-            progressBar.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
-            progressBar.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor),
+            progressBar.leadingAnchor.constraint(equalTo: textStack.leadingAnchor),
+            progressBar.trailingAnchor.constraint(equalTo: textStack.trailingAnchor),
             progressBar.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -3),
             progressBar.heightAnchor.constraint(equalToConstant: 2),
 
@@ -104,6 +117,20 @@ final class QueueRowView: NSTableCellView {
             progressWidthConstraint,
         ])
         textField = titleLabel
+    }
+
+    /// Centres the text block on the row, below the top inset's priority so a block too tall to centre sits under
+    /// the inset instead of breaking the layout.
+    private func centring(_ view: NSView) -> NSLayoutConstraint {
+        let constraint = view.centerYAnchor.constraint(equalTo: centerYAnchor)
+        constraint.priority = .defaultHigh
+        return constraint
+    }
+
+    /// A constraint the layout honours when it can and drops when it cannot.
+    private func preferring(_ constraint: NSLayoutConstraint) -> NSLayoutConstraint {
+        constraint.priority = .defaultLow
+        return constraint
     }
 
     required init?(coder: NSCoder) {
