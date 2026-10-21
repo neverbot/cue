@@ -8,8 +8,8 @@
 
 Cue keeps a personal queue of the YouTube videos you want to watch and plays them in a fast, native player built for the Mac. It aims for the polish of the best Mac media players: a clean window that stays out of the way, a sidebar with everything still pending, and playback that uses the hardware decoder in your Mac instead of a browser tab.
 
-> **Cue is built from source**, with Apple's Command Line Tools and two commands. See
-> [Building from source](#building-from-source).
+> **Download the latest release**, or build it from source with Apple's Command Line Tools and two commands. See
+> [Install](#install) and [Building from source](#building-from-source).
 
 ## Why Cue
 
@@ -55,10 +55,24 @@ tracks — comes from YouTube straight to your Mac, and nothing about what you w
 
 ## Requirements
 
-- macOS 14 Sonoma or later.
+- macOS 14 Sonoma or later, on Apple silicon.
 - To build from source: Apple Command Line Tools with Swift 6 (`xcode-select --install`). Xcode is not needed.
 
-The app you build is signed ad-hoc, for your own machine.
+## Install
+
+Download `Cue-<version>.dmg` from the [releases page](https://github.com/neverbot/cue/releases), open it and drag
+Cue to Applications. `SHA256SUMS` in the same release holds the checksums of both archives, if you want to check
+what you downloaded.
+
+Cue is signed ad-hoc rather than with an Apple Developer ID, so macOS puts it in quarantine and refuses the first
+launch with a message about not being able to verify the developer. That is Gatekeeper reporting the absence of a
+paid signature, not a verdict about the app. Clear it either way:
+
+- Open **System Settings ▸ Privacy & Security** and press **Open Anyway**, or
+- run `xattr -dr com.apple.quarantine /Applications/Cue.app`.
+
+An app you build yourself never goes through this: quarantine is attached by whatever downloads a file, so a bundle
+produced by `scripts/make-app.sh` on your own machine launches straight away.
 
 ## Try it: `cue-resolve`
 
