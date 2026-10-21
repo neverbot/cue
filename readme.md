@@ -1,4 +1,8 @@
-# Cue
+<p align="center">
+  <img src="docs/cue-icon.png" width="128" alt="Cue">
+</p>
+
+<h1 align="center">Cue</h1>
 
 **Your YouTube "watch later" queue, in a native macOS player. No ads, no browser tabs, no fans spinning up.**
 
@@ -32,8 +36,9 @@ tracks — comes from YouTube straight to your Mac, and nothing about what you w
 - **Made for slow connections**: the seek bar shows how far the video has loaded, and a paused video keeps loading —
   up to about twenty minutes of 1080p, cached on disk in `~/Library/Caches/Cue/stream-cache` rather than in memory,
   and deleted as it is written so nothing is left behind.
-- **A queue sidebar** in three densities, beside the video or floating over it, with a counter, watched marks and a
-  tinted row for the video playing now.
+- **A queue sidebar** listing what is still pending, in whichever shape suits the moment: a list with the title and
+  channel of each video, a column of thumbnails, or one line per video when the queue is long. It sits beside the
+  picture or floats over it, counts what is left, marks what you have already watched, and tints the row playing now.
 - **Adding videos** by paste, drag and drop, or a `cue://add` link — and playing one the moment it is added.
 - **Import and export** of the queue as a URL list, JSON or Takeout-style CSV.
 - **Drawn on-screen controls** with chapter marks on the seek bar and a title bar that fades with them.
@@ -205,8 +210,8 @@ scripts/                   test runner, libmpv fetch, app bundle and fixture scr
 Cue keeps its queue in SQLite at `~/Library/Application Support/Cue/queue.sqlite`, with schema migrations, beside the
 player's own data. The file is created readable only by you. Resume positions live in the same database.
 
-The sidebar (⌃⌘S to show or hide it, ⌃⌘M to cycle its density, ⌃⌘O to float it over the video instead of pushing it
-aside) lists what is left to watch with a counter of the videos still pending. It comes back as you left it: open or
+The sidebar (⌃⌘S to show or hide it, ⌃⌘M to switch between list, thumbnails and one line per video, ⌃⌘O to float
+it over the video instead of pushing it aside) lists what is left to watch with a counter of the videos still pending. It comes back as you left it: open or
 closed, as wide as you dragged it, and scrolled to the same place. Each row shows its own length once that
 is known. The video playing right now is marked with a tinted row and a speaker glyph; a video already watched keeps
 a check mark. Titles are fetched for the rows that are on screen, so a long import does not become a long wait, and a
@@ -338,8 +343,8 @@ reached for by accident.
 
 - **Appearance.** Follow the system, or force light or dark.
 - **Playback.** Whether finishing a video starts the next one.
-- **Sidebar.** Its density and whether it floats over the video or pushes it aside. The choice you make with ⌃⌘M or
-  ⌃⌘O is the same setting, and survives a restart.
+- **Sidebar.** Whether rows are a list, thumbnails or one line each, and whether the column floats over the video or
+  pushes it aside. The choice you make with ⌃⌘M or ⌃⌘O is the same setting, and survives a restart.
 - **Cache.** What the thumbnail cache currently weighs, a button to empty it and one to fetch the missing images.
   Emptying it costs nothing: the images come back from YouTube as rows appear.
 - **Queue.** Import a file of links, add a single video, or empty the queue. Emptying asks first and cannot be undone.
