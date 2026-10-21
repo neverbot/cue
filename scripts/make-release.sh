@@ -43,9 +43,13 @@ bundle_version=$((major * 10000 + minor * 100 + patch))
 branch=$(git rev-parse --abbrev-ref HEAD)
 [ "$branch" = master ] || die "releases are cut from master, not from '$branch'"
 
-git fetch --quiet origin master
-[ "$(git rev-parse HEAD)" = "$(git rev-parse origin/master)" ] \
-  || die "master and origin/master differ; push or pull first so the only new commit is the version bump"
+# A dry run pushes nothing, so it has no business insisting the branch is already in sync. For a real release the
+# rule matters: the push in step 8 must carry the version commit and nothing the owner has not already seen.
+if [ "$dry_run" = no ]; then
+  git fetch --quiet origin master
+  [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/master)" ] \
+    || die "master and origin/master differ; push or pull first so the only new commit is the version bump"
+fi
 
 git fetch --quiet --tags origin
 git rev-parse -q --verify "refs/tags/v$version" >/dev/null && die "tag v$version already exists"
