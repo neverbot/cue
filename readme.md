@@ -29,7 +29,8 @@ tracks — comes from YouTube straight to your Mac, and nothing about what you w
 ## Features
 
 - **Native stream resolution.** No embed player, no external tools: Cue asks YouTube for the streams itself.
-- **Hardware-first format selection.** AV1, H.264 or VP9 decoded in silicon, with AAC audio; software decoding only
+- **Hardware-first format selection.** AV1, H.264 or VP9 decoded in silicon, with AAC audio where there is any and
+  Opus otherwise; software decoding only
   when a video offers nothing better.
 - **A native player** on libmpv, with keyboard control, resume positions, and a spinner whenever it is finding,
   opening or buffering a stream rather than a black window.
@@ -83,7 +84,9 @@ $ swift run -q cue-resolve "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
 title:      Rick Astley - Never Gonna Give You Up (Official Video) (4K Remaster)
 author:     Rick Astley
 duration:   213 s
-formats:    27, hls: true, captions: 6
+formats:    27, hls: true
+captions:   en, es, fr
+chapters:   -
 expires:    in 358 min
 selected:   video itag 137 avc1 1080p | audio itag 140 mp4a
 user-agent: Mozilla/5.0 (…)
@@ -142,7 +145,9 @@ You can also start Cue without arguments and paste a YouTube link with ⌘V.
 | M | Mute |
 | ⌘W | Close |
 
-Cue remembers where you stopped each video and resumes there next time.
+Cue remembers where you stopped each video and resumes there next time. It keeps a position only past the first
+ten seconds and more than twenty from the end, so a video you barely started, or all but finished, begins again
+at the beginning.
 
 ### Running the tests
 
@@ -191,7 +196,7 @@ YouTube does not offer a public API for playable streams. Cue follows the same p
 1. **Parse the input.** `VideoID` accepts video ids and the common URL forms (`watch`, `youtu.be`, `shorts`, `embed`, `live`).
 2. **Ask YouTube for the player response.** `WatchPage` reads a visitor token from the watch page. `InnerTube` then requests `/youtubei/v1/player` with a client profile that currently returns directly playable formats.
 3. **Solve playback challenges when needed.** Some stream URLs carry obfuscated parameters (`n` and signature) that must be transformed by YouTube's own player JavaScript. `PlayerScript` locates the current player. `ChallengeSolver` runs yt-dlp's EJS solver scripts in macOS's JavaScriptCore and caches the preprocessed player.
-4. **Pick the streams.** `FormatSelector` chooses the best video your Mac decodes in hardware (up to 1080p by default) and the best AAC audio, in the language YouTube marks as the video's original when it offers dubs. Only when a video offers no hardware-friendly stream does it fall back to software decoding (VP9 up to 1080p, then AV1 up to 720p), and it reports which way it went.
+4. **Pick the streams.** `FormatSelector` chooses the best video your Mac decodes in hardware (up to 1080p by default) and the best audio — AAC by preference, Opus when a video offers no AAC — in the language YouTube marks as the video's original when it offers dubs. Only when a video offers no hardware-friendly stream does it fall back to software decoding (VP9 up to 1080p, then AV1 up to 720p), and it reports which way it went.
 
 The result is a `Resolution`: title, author, duration, the selected video and audio streams, and the user agent the streams must be requested with.
 
@@ -229,13 +234,14 @@ it over the video instead of pushing it aside) lists what is left to watch with 
 closed, as wide as you dragged it, and scrolled to the same place. Each row shows its own length once that
 is known. The video playing right now is marked with a tinted row and a speaker glyph; a video already watched keeps
 a check mark. Titles are fetched for the rows that are on screen, so a long import does not become a long wait, and a
-row shows the video's id until its title arrives. Right-clicking a row offers copying its link or opening it in your
-browser.
+row shows the video's id until its title arrives. Right-clicking a row plays it, marks it watched or unwatched, copies its link, opens it in
+your browser, or removes it from the queue — which is the only way to drop a single video.
 
 Add videos by pasting links (⌘V takes as many as the clipboard holds), by dropping links onto the sidebar, or with a
 `cue://add?url=<video URL>` link from a browser or a script. Adding the same video twice never duplicates it. ⇧⌘N
 plays the next pending video and ⇧⌘D marks the current one watched; Queue ▸ Play Next Automatically decides whether
-finishing a video starts the next one. A video is marked watched on its own when playback reaches the last 20 seconds.
+finishing a video starts the next one. A video marks itself watched when it plays through to the end, counting anything within
+twenty seconds of the duration as the end; scrubbing into those last seconds and stopping does not.
 
 Thumbnails are YouTube's public still images, cached in `~/Library/Caches/Cue/thumbnails` by video id and capped at
 32 MB. Deleting that folder costs nothing.
@@ -350,7 +356,7 @@ link, and a link where nothing is readable says so instead of doing nothing quie
 
 ## Settings
 
-⌘, opens a window with five sections. Everything in it is remembered across launches, in macOS's own preferences
+⌘, opens a window with six sections. Everything in it is remembered across launches, in macOS's own preferences
 store — there is no configuration file to edit and nothing is sent anywhere. A Reset button at the foot puts every
 setting back to its default, and stands further from the form than the sections stand from each other, so it is not
 reached for by accident.
@@ -362,6 +368,7 @@ reached for by accident.
 - **Cache.** What the thumbnail cache currently weighs, a button to empty it and one to fetch the missing images.
   Emptying it costs nothing: the images come back from YouTube as rows appear.
 - **Queue.** Import a file of links, add a single video, or empty the queue. Emptying asks first and cannot be undone.
+- **Browser Integration.** Opens the page that carries the bookmarklet, the same one as Cue ▸ Browser Integration….
 
 ## Contributing
 
@@ -386,8 +393,8 @@ scripts/check-client.sh         # compare Cue's InnerTube client profile with yt
 a judgement call rather than something a script should decide. It is loudest in the case that matters most — a
 client YouTube has retired stops resolving videos without producing a single compile error.
 
-It also checks the checksums recorded in `third-party-licenses.md` against the files actually vendored, so the
-notice cannot drift from what ships. Updating the notice itself is deliberately left to you: the script prints the
+`check-ejs.sh`, for its part, also checks the checksums recorded in `third-party-licenses.md` against the files
+actually vendored, so the notice cannot drift from what ships. Updating the notice itself is deliberately left to you: the script prints the
 version and checksums to paste in, and the change belongs in the same commit as the new scripts. Always confirm with
 `CUE_LIVE_TESTS=1 scripts/test.sh` before committing an update — the live tests resolve real videos, which is the
 only thing that proves a new solver still works.
