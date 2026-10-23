@@ -8,8 +8,29 @@
 
 Cue keeps a personal queue of the YouTube videos you want to watch and plays them in a fast, native player built for the Mac. It aims for the polish of the best Mac media players: a clean window that stays out of the way, a sidebar with everything still pending, and playback that uses the hardware decoder in your Mac instead of a browser tab.
 
-> **Download the latest release**, or build it from source with Apple's Command Line Tools and two commands. See
-> [Install](#install) and [Building from source](#building-from-source).
+> **[Download the latest release](https://github.com/neverbot/cue/releases/latest)**, or build it from source with
+> Apple's Command Line Tools and two commands. See [Install](#install) and [building.md](building.md).
+
+## Requirements
+
+- macOS 14 Sonoma or later, on Apple silicon.
+- To build from source: Apple Command Line Tools with Swift 6 (`xcode-select --install`). Xcode is not needed.
+
+## Install
+
+Download `Cue-<version>.dmg` from the [releases page](https://github.com/neverbot/cue/releases), open it and drag
+Cue to Applications. `SHA256SUMS` in the same release holds the checksums of both archives, if you want to check
+what you downloaded.
+
+Cue is signed ad-hoc rather than with an Apple Developer ID, so macOS puts it in quarantine and refuses the first
+launch with a message about not being able to verify the developer. That is Gatekeeper reporting the absence of a
+paid signature, not a verdict about the app. Clear it either way:
+
+- Open **System Settings ▸ Privacy & Security** and press **Open Anyway**, or
+- run `xattr -dr com.apple.quarantine /Applications/Cue.app`.
+
+An app you build yourself never goes through this: quarantine is attached by whatever downloads a file, so a bundle
+produced by `scripts/make-app.sh` on your own machine launches straight away.
 
 ## Why Cue
 
@@ -54,175 +75,30 @@ tracks — comes from YouTube straight to your Mac, and nothing about what you w
 - **A bookmarklet** that sends the YouTube page you are on to Cue, installed from the app itself.
 - **`cue-resolve`**, a command-line tool that prints what the extraction core resolves.
 
-## Requirements
-
-- macOS 14 Sonoma or later, on Apple silicon.
-- To build from source: Apple Command Line Tools with Swift 6 (`xcode-select --install`). Xcode is not needed.
-
-## Install
-
-Download `Cue-<version>.dmg` from the [releases page](https://github.com/neverbot/cue/releases), open it and drag
-Cue to Applications. `SHA256SUMS` in the same release holds the checksums of both archives, if you want to check
-what you downloaded.
-
-Cue is signed ad-hoc rather than with an Apple Developer ID, so macOS puts it in quarantine and refuses the first
-launch with a message about not being able to verify the developer. That is Gatekeeper reporting the absence of a
-paid signature, not a verdict about the app. Clear it either way:
-
-- Open **System Settings ▸ Privacy & Security** and press **Open Anyway**, or
-- run `xattr -dr com.apple.quarantine /Applications/Cue.app`.
-
-An app you build yourself never goes through this: quarantine is attached by whatever downloads a file, so a bundle
-produced by `scripts/make-app.sh` on your own machine launches straight away.
-
-## Try it: `cue-resolve`
-
-`cue-resolve` shows what Cue's extraction core does. Give it a YouTube URL or video id, and it prints the video details and the stream URLs it would play.
-
-```console
-$ swift run -q cue-resolve "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-title:      Rick Astley - Never Gonna Give You Up (Official Video) (4K Remaster)
-author:     Rick Astley
-duration:   213 s
-formats:    27, hls: true
-captions:   en, es, fr
-chapters:   -
-expires:    in 358 min
-selected:   video itag 137 avc1 1080p | audio itag 140 mp4a
-user-agent: Mozilla/5.0 (…)
-video:      https://…googlevideo.com/videoplayback?…
-audio:      https://…googlevideo.com/videoplayback?…
-resolved in 0.92 s
-```
-
-Stream URLs are tied to your IP address and expire after a few hours. To check that they play, pass the printed user agent to `ffprobe` or `mpv`:
-
-```sh
-OUT=$(swift run -q cue-resolve dQw4w9WgXcQ)
-UA=$(printf '%s\n' "$OUT" | sed -n 's/^user-agent: *//p')
-URL=$(printf '%s\n' "$OUT" | sed -n 's/^video: *//p')
-ffprobe -v error -user_agent "$UA" -show_entries stream=codec_name,width,height "$URL"
-```
-
-Exit codes: `0` on success, `1` when the video cannot be resolved (the reason is printed to stderr), and `2` on invalid usage.
-
-## Building from source
-
-Everything builds with the Swift toolchain from Apple's Command Line Tools. There is no Xcode project.
-
-```sh
-git clone https://github.com/neverbot/cue.git
-cd cue
-scripts/fetch-libmpv.sh   # downloads MPVKit's LGPL libmpv archives (about 330 MB, cached in vendor/cache) and links libmpv
-                          # unpacked intermediates are pruned automatically after linking; pass --keep-intermediates to keep them
-scripts/build.sh          # builds with the build engine pinned; forwards any `swift build` arguments
-```
-
-**The first build needs network twice**: once for libmpv above, and once for GRDB, which SwiftPM clones itself at
-the exact revision pinned in `Package.resolved`. Every later build is offline, and nothing is downloaded when the
-app runs.
-
-**Use `scripts/build.sh` rather than `swift build`.** SwiftPM ships two build engines that keep separate object
-trees, and `scripts/test.sh` pins the classic one (see [Running the tests](#running-the-tests)). A bare
-`swift build` beside it compiles everything a second time into `.build/out` — measured at 826 MB next to the other
-tree's 795 MB. The script pins the same engine the tests use, so there is only ever one tree.
-
-### Building and running the app
-
-```sh
-scripts/make-app.sh                                                     # builds and signs dist/Cue.app (ad-hoc)
-open dist/Cue.app --args "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-```
-
-You can also start Cue without arguments and paste a YouTube link with ⌘V.
+## Keyboard
 
 | Key | Action |
 |---|---|
 | Space | Play or pause |
 | ← / → | Seek 5 seconds |
 | ↑ / ↓ | Volume |
-| F | Full screen |
+| F / ⌃⌘F | Full screen |
 | M | Mute |
 | ⌘W | Close |
-
-Cue remembers where you stopped each video and resumes there next time. It keeps a position only past the first
-ten seconds and more than twenty from the end, so a video you barely started, or all but finished, begins again
-at the beginning.
-
-### Running the tests
-
-```sh
-scripts/test.sh                            # offline test suite
-scripts/test.sh --filter ExtractorTests    # a subset
-CUE_LIVE_TESTS=1 scripts/test.sh           # also run tests that contact YouTube
-CUE_MPV_TESTS=1 scripts/test.sh            # also play a synthetic clip through libmpv
-```
-
-Use `scripts/test.sh` rather than `swift test`. On a machine with only the Command Line Tools installed, SwiftPM does not find the Swift Testing framework on its own. The script adds the missing framework search paths and forwards any arguments to `swift test`.
-
-It also pins `--build-system native`. SwiftPM's default engine fails here at random with `external macro implementation type 'TestingMacros.…Macro' could not be found`, always blamed on whichever test file the compiler reached first; the same sources build and pass under the classic engine, and a warm full run takes about a second instead of tens of seconds plus retries. One consequence worth knowing: the classic engine links every test target into a single bundle, so a full run prints **one** summary line for the whole suite rather than one per target. That is the complete run, not a partial one.
-
-The default suite runs offline against sanitized fixtures. The live tests resolve two public videos and check that their streams answer. They depend on YouTube's current behaviour and are opt-in for that reason.
-
-### What is disposable, and how to rebuild from nothing
-
-Four directories hold nothing that cannot be recreated. None is in git, and deleting any of them costs only time —
-but some of that time is a download, so it is worth knowing which:
-
-| Directory | What it is | Deleting it costs |
-|---|---|---|
-| `.build/` | SwiftPM's object trees, including `repositories/` and `checkouts/` (GRDB's clone) | A full recompile, and a re-clone of GRDB over the network |
-| `vendor/cache/downloads/` | The MPVKit archives `fetch-libmpv.sh` downloaded | Nothing now — it exists so a *relink* needs no network. Re-running the fetch script downloads about 330 MB again |
-| `vendor/cache/libmpv/` | The linked `libmpv.2.dylib` and its headers, which the build and the app bundle both use | A re-run of `scripts/fetch-libmpv.sh`, which needs the archives above or downloads them again |
-| `dist/` | The assembled `Cue.app` | A run of `scripts/make-app.sh` |
-
-So a machine with nothing but the repository rebuilds with exactly this:
-
-```sh
-scripts/fetch-libmpv.sh   # network: about 330 MB
-scripts/build.sh          # network on the first run only, for GRDB
-scripts/test.sh           # proves the result
-scripts/make-app.sh       # assembles and ad-hoc signs dist/Cue.app
-```
-
-Nothing else is needed, and nothing outside the repository is written except those directories. The versions that
-matter are pinned rather than floating: GRDB's revision in `Package.resolved`, and libmpv's archives with their
-SHA-256 checksums in `scripts/libmpv-artifacts.tsv`.
-
-## How it works
-
-YouTube does not offer a public API for playable streams. Cue follows the same path a YouTube client does:
-
-1. **Parse the input.** `VideoID` accepts video ids and the common URL forms (`watch`, `youtu.be`, `shorts`, `embed`, `live`).
-2. **Ask YouTube for the player response.** `WatchPage` reads a visitor token from the watch page. `InnerTube` then requests `/youtubei/v1/player` with a client profile that currently returns directly playable formats.
-3. **Solve playback challenges when needed.** Some stream URLs carry obfuscated parameters (`n` and signature) that must be transformed by YouTube's own player JavaScript. `PlayerScript` locates the current player. `ChallengeSolver` runs yt-dlp's EJS solver scripts in macOS's JavaScriptCore and caches the preprocessed player.
-4. **Pick the streams.** `FormatSelector` chooses the best video your Mac decodes in hardware (up to 1080p by default) and the best audio — AAC by preference, Opus when a video offers no AAC — in the language YouTube marks as the video's original when it offers dubs. Only when a video offers no hardware-friendly stream does it fall back to software decoding (VP9 up to 1080p, then AV1 up to 720p), and it reports which way it went.
-
-The result is a `Resolution`: title, author, duration, the selected video and audio streams, and the user agent the streams must be requested with.
-
-### Project layout
-
-```text
-Package.swift
-Sources/
-  CueCore/                 extraction library
-    YouTube/               VideoID, WatchPage, InnerTube, PlayerResponse,
-                           StreamFormat, FormatSelector, Extractor
-    Challenges/            PlayerScript, ChallengeSolver
-    Networking/            HTTPClient abstraction over URLSession
-    Resources/ejs/         vendored yt-dlp EJS solver scripts
-  cue-resolve/             command-line tool
-  CMpv/                    system module for libmpv's C API
-  CueMPV/                  Swift wrapper around libmpv (core and render API)
-  CuePlayer/               player logic: state, commands, resume positions, window sizing,
-                           subtitle and audio-track sessions
-  CueQueue/                the queue itself: SQLite store and migrations, import and export,
-                           thumbnails, preferences, and what each list should show
-  Cue/                     the macOS app (AppKit, OpenGL video layer)
-Tests/                     Swift Testing suites, sanitized fixtures and synthetic media
-packaging/                 Info.plist, entitlements and license texts for the app bundle
-scripts/                   test runner, libmpv fetch, app bundle and fixture scripts
-```
+| ⌘V | Paste links into the queue |
+| ⇧⌘N | Play the next pending video |
+| ⇧⌘D | Mark the current video watched |
+| ⌃⌘S | Show or hide the sidebar |
+| ⌃⌘M | Switch between list, thumbnails and one line per video |
+| ⌃⌘O | Float the sidebar over the video, or push the video aside |
+| `c` / `⌃⌘C` | Chapters page |
+| `s` / `⌃⌘U` | Subtitles page |
+| `a` / `⌃⌘A` | Audio languages page |
+| ⌥→ / ⌥← | Next / previous chapter |
+| `z` / `x` | Subtitle delay −0.1 s / +0.1 s |
+| ⌘⇧M | Mini player |
+| ⌘0 | Fit the window to the video |
+| ⌘, | Settings |
 
 ## The queue
 
@@ -242,6 +118,10 @@ Add videos by pasting links (⌘V takes as many as the clipboard holds), by drop
 plays the next pending video and ⇧⌘D marks the current one watched; Queue ▸ Play Next Automatically decides whether
 finishing a video starts the next one. A video marks itself watched when it plays through to the end, counting anything within
 twenty seconds of the duration as the end; scrubbing into those last seconds and stopping does not.
+
+Cue remembers where you stopped each video and resumes there next time. It keeps a position only past the first
+ten seconds and more than twenty from the end, so a video you barely started, or all but finished, begins again
+at the beginning.
 
 Thumbnails are YouTube's public still images, cached in `~/Library/Caches/Cue/thumbnails` by video id and capped at
 32 MB. Deleting that folder costs nothing.
@@ -305,26 +185,21 @@ there is otherwise no way back to an exact fit. It keeps the width you gave the 
 that would run off the screen, and it measures the video area rather than the whole window, so an open sidebar does not
 bring the bars back.
 
-| Key | Does |
-|---|---|
-| `c` | Chapters page |
-| `s` | Subtitles page |
-| `a` | Audio languages page |
-| `⌃⌘C` | Chapters page (menu) |
-| `⌃⌘U` | Subtitles page (menu) |
-| `⌃⌘A` | Audio languages page (menu) |
-| `⌥→` / `⌥←` | Next / previous chapter |
-| `z` / `x` | Subtitle delay −0.1 s / +0.1 s |
-| `⌘⇧M` | Mini player |
-| `⌘0` | Fit the window to the video |
+## Settings
 
-## About
+⌘, opens a window with six sections. Everything in it is remembered across launches, in macOS's own preferences
+store — there is no configuration file to edit and nothing is sent anywhere. A Reset button at the foot puts every
+setting back to its default, and stands further from the form than the sections stand from each other, so it is not
+reached for by accident.
 
-Cue ▸ About Cue shows the icon, the version and build, the author and Cue's own MIT license, and below them the full
-text of the licenses of everything bundled — libmpv and FFmpeg under the LGPL, GRDB under MIT, the yt-dlp EJS solver
-under the Unlicense, and the rest. That text is not written into the app: it is read from
-`Cue.app/Contents/Resources/licenses/`, so what ships and what the window shows are the same document and cannot
-drift apart.
+- **Appearance.** Follow the system, or force light or dark.
+- **Playback.** Whether finishing a video starts the next one.
+- **Sidebar.** Whether rows are a list, thumbnails or one line each, and whether the column floats over the video or
+  pushes it aside. The choice you make with ⌃⌘M or ⌃⌘O is the same setting, and survives a restart.
+- **Cache.** What the thumbnail cache currently weighs, a button to empty it and one to fetch the missing images.
+  Emptying it costs nothing: the images come back from YouTube as rows appear.
+- **Queue.** Import a file of links, add a single video, or empty the queue. Emptying asks first and cannot be undone.
+- **Browser Integration.** Opens the page that carries the bookmarklet, the same one as Cue ▸ Browser Integration….
 
 ## From the browser
 
@@ -354,50 +229,75 @@ One link may carry several videos (`cue://add?url=…&url=…`), so a script han
 through the system rather than one per video. Videos Cue cannot read are skipped rather than failing the whole
 link, and a link where nothing is readable says so instead of doing nothing quietly.
 
-## Settings
+## About
 
-⌘, opens a window with six sections. Everything in it is remembered across launches, in macOS's own preferences
-store — there is no configuration file to edit and nothing is sent anywhere. A Reset button at the foot puts every
-setting back to its default, and stands further from the form than the sections stand from each other, so it is not
-reached for by accident.
+Cue ▸ About Cue shows the icon, the version and build, the author and Cue's own MIT license, and below them the full
+text of the licenses of everything bundled — libmpv and FFmpeg under the LGPL, GRDB under MIT, the yt-dlp EJS solver
+under the Unlicense, and the rest. That text is not written into the app: it is read from
+`Cue.app/Contents/Resources/licenses/`, so what ships and what the window shows are the same document and cannot
+drift apart.
 
-- **Appearance.** Follow the system, or force light or dark.
-- **Playback.** Whether finishing a video starts the next one.
-- **Sidebar.** Whether rows are a list, thumbnails or one line each, and whether the column floats over the video or
-  pushes it aside. The choice you make with ⌃⌘M or ⌃⌘O is the same setting, and survives a restart.
-- **Cache.** What the thumbnail cache currently weighs, a button to empty it and one to fetch the missing images.
-  Emptying it costs nothing: the images come back from YouTube as rows appear.
-- **Queue.** Import a file of links, add a single video, or empty the queue. Emptying asks first and cannot be undone.
-- **Browser Integration.** Opens the page that carries the bookmarklet, the same one as Cue ▸ Browser Integration….
+## Try it: `cue-resolve`
+
+`cue-resolve` shows what Cue's extraction core does. Give it a YouTube URL or video id, and it prints the video details and the stream URLs it would play.
+
+```console
+$ swift run --build-system native -q cue-resolve "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+title:      Rick Astley - Never Gonna Give You Up (Official Video) (4K Remaster)
+author:     Rick Astley
+duration:   213 s
+formats:    27, hls: true
+captions:   en, es, fr
+chapters:   -
+expires:    in 358 min
+selected:   video itag 137 avc1 1080p | audio itag 140 mp4a
+user-agent: Mozilla/5.0 (…)
+video:      https://…googlevideo.com/videoplayback?…
+audio:      https://…googlevideo.com/videoplayback?…
+resolved in 0.92 s
+```
+
+The `--build-system native` flag pins the same build engine as `scripts/build.sh` and `scripts/test.sh`; a bare
+`swift run` compiles the whole package a second time into its own tree. See [building.md](building.md).
+
+Stream URLs are tied to your IP address and expire after a few hours. To check that they play, pass the printed user agent to `ffprobe` or `mpv`:
+
+```sh
+OUT=$(swift run --build-system native -q cue-resolve dQw4w9WgXcQ)
+UA=$(printf '%s\n' "$OUT" | sed -n 's/^user-agent: *//p')
+URL=$(printf '%s\n' "$OUT" | sed -n 's/^video: *//p')
+ffprobe -v error -user_agent "$UA" -show_entries stream=codec_name,width,height "$URL"
+```
+
+Exit codes: `0` on success, `1` when the video cannot be resolved (the reason is printed to stderr), and `2` on invalid usage.
+
+## How it works
+
+YouTube does not offer a public API for playable streams. Cue follows the same path a YouTube client does:
+
+1. **Parse the input.** `VideoID` accepts video ids and the common URL forms (`watch`, `youtu.be`, `shorts`, `embed`, `live`).
+2. **Ask YouTube for the player response.** `WatchPage` reads a visitor token from the watch page. `InnerTube` then requests `/youtubei/v1/player` with a client profile that currently returns directly playable formats.
+3. **Solve playback challenges when needed.** Some stream URLs carry obfuscated parameters (`n` and signature) that must be transformed by YouTube's own player JavaScript. `PlayerScript` locates the current player. `ChallengeSolver` runs yt-dlp's EJS solver scripts in macOS's JavaScriptCore and caches the preprocessed player.
+4. **Pick the streams.** `FormatSelector` chooses the best video your Mac decodes in hardware (up to 1080p by default) and the best audio — AAC by preference, Opus when a video offers no AAC — in the language YouTube marks as the video's original when it offers dubs. Only when a video offers no hardware-friendly stream does it fall back to software decoding (VP9 up to 1080p, then AV1 up to 720p), and it reports which way it went.
+
+The result is a `Resolution`: title, author, duration, the selected video and audio streams, and the user agent the streams must be requested with.
+
+## Building from source
+
+Apple's Command Line Tools and two commands, with no Xcode project:
+
+```sh
+scripts/fetch-libmpv.sh   # once: downloads and links libmpv
+scripts/build.sh          # builds with the build engine pinned
+```
+
+[building.md](building.md) has the rest: running the app, the test runner, what is safe to delete and how to rebuild
+from nothing, and the project layout.
 
 ## Contributing
 
-Issues and pull requests are welcome. A few ground rules keep the project healthy:
-
-- **Keep it native and self-contained.** No Xcode-only artefacts, no runtime downloads, no bundled interpreters.
-- **Licensing.** Dependencies must be MIT-compatible or LGPL. Do not copy code from GPL projects.
-- **Tests stay offline by default.** Fixtures must be sanitized: no IP addresses, session tokens or personal data. Use only the public test videos already in the suite (`dQw4w9WgXcQ`, `jNQXAC9IVRw`). For invalid ids, use obviously synthetic values such as `123456789_`.
-- **Commits.** Conventional Commits, one line each.
-
-When YouTube changes something and extraction breaks, the usual places to look are the client definitions in yt-dlp (`yt_dlp/extractor/youtube/_base.py`) and new releases of [yt-dlp/ejs](https://github.com/yt-dlp/ejs).
-
-Both have a script, because between them they are what makes playback possible at all:
-
-```sh
-scripts/check-ejs.sh            # compare the vendored EJS scripts with the current upstream release
-scripts/check-ejs.sh --update   # replace them with the upstream ones
-scripts/check-client.sh         # compare Cue's InnerTube client profile with yt-dlp's definition of it
-```
-
-`check-client.sh` reports only, and never edits the profile: a difference may be a deliberate divergence, which is
-a judgement call rather than something a script should decide. It is loudest in the case that matters most — a
-client YouTube has retired stops resolving videos without producing a single compile error.
-
-`check-ejs.sh`, for its part, also checks the checksums recorded in `third-party-licenses.md` against the files
-actually vendored, so the notice cannot drift from what ships. Updating the notice itself is deliberately left to you: the script prints the
-version and checksums to paste in, and the change belongs in the same commit as the new scripts. Always confirm with
-`CUE_LIVE_TESTS=1 scripts/test.sh` before committing an update — the live tests resolve real videos, which is the
-only thing that proves a new solver still works.
+Issues and pull requests are welcome. [contributing.md](contributing.md) has the ground rules and what to check
+first when YouTube changes something and extraction breaks.
 
 ## License
 
