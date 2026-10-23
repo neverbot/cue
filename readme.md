@@ -8,6 +8,10 @@
 
 Cue keeps a personal queue of the YouTube videos you want to watch and plays them in a fast, native player built for the Mac. It aims for the polish of the best Mac media players: a clean window that stays out of the way, a sidebar with everything still pending, and playback that uses the hardware decoder in your Mac instead of a browser tab.
 
+<p align="center">
+  <img src="docs/screenshot-player.webp" width="900" alt="Cue playing a video, with the queue sidebar showing thumbnails beside it">
+</p>
+
 > **[Download the latest release](https://github.com/neverbot/cue/releases/latest)**, or build it from source with
 > Apple's Command Line Tools and two commands. See [Install](#install) and [building.md](building.md).
 
@@ -164,11 +168,15 @@ page regardless.
 Chapters come from the video itself — the markers YouTube serves with the watch page, or, when there are none, the
 timestamps in the description. Nothing is fetched from anywhere else, and nothing is guessed.
 
+![The Chapters page of the inspector, listing the video's chapters with the current one in bold](docs/screenshot-chapters.webp)
+
 Subtitles are the caption tracks the video offers. Choosing one downloads it, writes it as WebVTT into a private
 temporary directory and hands that file to the player, so a subtitle cannot expire in the middle of a video the way a
 stream URL can. Size, colour, an optional background box and the timing offset (`z` and `x`, or the page's slider)
 apply immediately, and the subtitles lift clear of the controls bar while it is on screen rather than sitting behind
 it. Export writes SubRip (`.srt`) or WebVTT (`.vtt`) from the same text that is on screen.
+
+![The Subtitles page of the inspector, with the track list, size, colour and delay controls, and a thumbnail preview above the seek bar](docs/screenshot-subtitles.webp)
 
 Audio tracks are the languages a dubbed video offers. Cue plays the one YouTube marks as the video's original, rather
 than whichever dub happens to be encoded at the highest bitrate, and the inspector's Audio page (`a`, or ⌃⌘A) lists the
