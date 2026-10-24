@@ -4,80 +4,66 @@
 
 <h1 align="center">Cue</h1>
 
-**Your YouTube "watch later" queue, in a native macOS player. No ads, no browser tabs, no fans spinning up.**
+**Your YouTube watch-later queue, in a native macOS player.**
 
-Cue keeps a personal queue of the YouTube videos you want to watch and plays them in a fast, native player built for the Mac. It aims for the polish of the best Mac media players: a clean window that stays out of the way, a sidebar with everything still pending, and playback that uses the hardware decoder in your Mac instead of a browser tab.
+Cue keeps a queue of the YouTube videos you mean to watch and plays them in a native Mac player. It resolves the
+video streams itself and hands them to libmpv, which decodes them on your Mac's hardware decoder. There is no
+embedded YouTube player, and no ads.
 
 <p align="center">
   <img src="docs/screenshot-player.webp" width="900" alt="Cue playing a video, with the queue sidebar showing thumbnails beside it">
 </p>
 
-> **[Download the latest release](https://github.com/neverbot/cue/releases/latest)**, or build it from source with
-> Apple's Command Line Tools and two commands. See [Install](#install) and [building.md](building.md).
+**[Download the latest release](https://github.com/neverbot/cue/releases/latest)** · [Build from source](building.md)
 
 ## Requirements
 
 - macOS 14 Sonoma or later, on Apple silicon.
-- To build from source: Apple Command Line Tools with Swift 6 (`xcode-select --install`). Xcode is not needed.
+- To build it yourself: Apple Command Line Tools with Swift 6 (`xcode-select --install`). Xcode is not required.
 
 ## Install
 
 Download `Cue-<version>.dmg` from the [releases page](https://github.com/neverbot/cue/releases), open it and drag
-Cue to Applications. `SHA256SUMS` in the same release holds the checksums of both archives, if you want to check
-what you downloaded.
+Cue to Applications. `SHA256SUMS` in the same release holds the checksums of both archives.
 
-Cue is signed ad-hoc rather than with an Apple Developer ID, so macOS puts it in quarantine and refuses the first
-launch with a message about not being able to verify the developer. That is Gatekeeper reporting the absence of a
-paid signature, not a verdict about the app. Clear it either way:
+Cue is signed ad-hoc, so macOS quarantines it and blocks the first launch with a message about not being able to
+verify the developer. Clear the quarantine:
 
-- Open **System Settings ▸ Privacy & Security** and press **Open Anyway**, or
-- run `xattr -dr com.apple.quarantine /Applications/Cue.app`.
+```sh
+xattr -dr com.apple.quarantine /Applications/Cue.app
+```
 
-An app you build yourself never goes through this: quarantine is attached by whatever downloads a file, so a bundle
-produced by `scripts/make-app.sh` on your own machine launches straight away.
+Or open **System Settings ▸ Privacy & Security** and press **Open Anyway**.
 
-## Why Cue
-
-- **No ads, ever.** Cue does not use the embedded YouTube player. It resolves the video streams itself and plays them natively.
-- **Light on your Mac.** Hardware decoding is the default. Cue picks a stream your chip decodes in silicon: AV1 on Macs that support it, H.264, or VP9 where VideoToolbox decodes it. Software decoding is only a last resort for videos that offer nothing else.
-- **Native and self-contained.** One app with everything inside. There is nothing to install at first launch, and no bundled Python or JavaScript runtime. The little JavaScript YouTube requires runs in macOS's own JavaScriptCore.
-- **Your queue, your data.** No account and no sign-in. Your list lives on your Mac and can be imported and exported.
-- **Open source.** MIT licensed, and built entirely from the command line.
-
-## Privacy
-
-Cue talks to YouTube, and to nothing else. No analytics, no crash reporting, no third-party metadata or segment
-service, no account, no sync. A feature that would need an outside service is left out of the app rather than added
-behind an opt-in switch. Everything Cue fetches — the watch page, the player response, storyboard tiles, caption
-tracks — comes from YouTube straight to your Mac, and nothing about what you watch goes anywhere else.
+A build you make yourself is never quarantined.
 
 ## Features
 
-- **Native stream resolution.** No embed player, no external tools: Cue asks YouTube for the streams itself.
-- **Hardware-first format selection.** AV1, H.264 or VP9 decoded in silicon, with AAC audio where there is any and
-  Opus otherwise; software decoding only
-  when a video offers nothing better.
-- **A native player** on libmpv, with keyboard control, resume positions, and a spinner whenever it is finding,
-  opening or buffering a stream rather than a black window.
-- **Made for slow connections**: the seek bar shows how far the video has loaded, and a paused video keeps loading —
-  up to about twenty minutes of 1080p, cached on disk in `~/Library/Caches/Cue/stream-cache` rather than in memory,
-  and deleted as it is written so nothing is left behind.
-- **A queue sidebar** listing what is still pending, in whichever shape suits the moment: a list with the title and
-  channel of each video, a column of thumbnails, or one line per video when the queue is long. It sits beside the
-  picture or floats over it, counts what is left, marks what you have already watched, and tints the row playing now.
-- **Adding videos** by paste, drag and drop, or a `cue://add` link — and playing one the moment it is added.
-- **Import and export** of the queue as a URL list, JSON or Takeout-style CSV.
-- **Drawn on-screen controls** with chapter marks on the seek bar and a title bar that fades with them.
-- **Thumbnail previews while scrubbing**, from YouTube's own storyboard sheets.
-- **A trailing inspector** with chapters, subtitles and audio languages, each on its own page.
-- **Chapters** from the video's own markers, or from the timestamps in its description.
-- **Subtitles**: pick a track, size and colour it, shift its timing, export it as SRT or WebVTT.
-- **Audio languages**: the original soundtrack of a dubbed video by default, switchable without reloading.
-- **A mini player**: a small always-on-top window that keeps playing, with no reload and no second stream.
-- **A settings window** for appearance, automatic playback, the sidebar, the thumbnail cache and the queue.
-- **An About window** with the version, the author, and the licenses of everything bundled.
-- **A bookmarklet** that sends the YouTube page you are on to Cue, installed from the app itself.
-- **`cue-resolve`**, a command-line tool that prints what the extraction core resolves.
+- **Native stream resolution.** Cue asks YouTube for the streams and plays them with libmpv.
+- **Hardware decoding.** AV1, H.264 or VP9 in silicon, up to 1080p. Software decoding covers VP9 up to 1080p and
+  AV1 up to 720p for videos that offer nothing hardware-friendly.
+- **AAC audio**, or Opus for videos that carry no AAC.
+- **A queue sidebar** with three row shapes: title and channel, thumbnails, or one line per video.
+- **Adding videos** by paste, drag and drop, or `cue://add` links, with the option to play one as it arrives.
+- **Import and export** as a URL list, JSON or Takeout-style CSV.
+- **Resume positions**, watched state and a count of what is left.
+- **On-screen controls** with chapter marks on the seek bar and thumbnail previews while you scrub.
+- **An inspector** with chapters, subtitles and audio languages.
+- **Subtitles** with size, colour, timing offset and SRT or WebVTT export.
+- **Audio language switching** that does not reload the stream.
+- **A mini player**: a small window that stays above other apps.
+- **A disk-backed stream cache**, so a paused video keeps buffering: about twenty minutes of 1080p in
+  `~/Library/Caches/Cue/stream-cache`, deleted as it is written.
+- **A bookmarklet** that sends the YouTube page you are on to Cue.
+- **`cue-resolve`**, a command-line tool that prints the streams the extraction core picks.
+
+Cue ships as one self-contained app. It downloads nothing at first launch and bundles no Python or JavaScript
+runtime; the JavaScript YouTube requires runs in macOS's own JavaScriptCore.
+
+## Privacy
+
+Cue contacts two hosts: `www.youtube.com` and `i.ytimg.com`. No analytics, no crash reporting, no account, no sync,
+no third-party metadata or segment service. Your queue lives on your Mac, and nothing about what you watch leaves it.
 
 ## Keyboard
 
@@ -93,7 +79,7 @@ tracks — comes from YouTube straight to your Mac, and nothing about what you w
 | ⇧⌘N | Play the next pending video |
 | ⇧⌘D | Mark the current video watched |
 | ⌃⌘S | Show or hide the sidebar |
-| ⌃⌘M | Switch between list, thumbnails and one line per video |
+| ⌃⌘M | Cycle the sidebar between list, thumbnails and one line per video |
 | ⌃⌘O | Float the sidebar over the video, or push the video aside |
 | `c` / `⌃⌘C` | Chapters page |
 | `s` / `⌃⌘U` | Subtitles page |
@@ -106,41 +92,46 @@ tracks — comes from YouTube straight to your Mac, and nothing about what you w
 
 ## The queue
 
-Cue keeps its queue in SQLite at `~/Library/Application Support/Cue/queue.sqlite`, with schema migrations, beside the
-player's own data. The file is created readable only by you. Resume positions live in the same database.
+Cue stores the queue in SQLite at `~/Library/Application Support/Cue/queue.sqlite`, created readable only by you.
+Resume positions live in the same database.
 
-The sidebar (⌃⌘S to show or hide it, ⌃⌘M to switch between list, thumbnails and one line per video, ⌃⌘O to float
-it over the video instead of pushing it aside) lists what is left to watch with a counter of the videos still pending. It comes back as you left it: open or
-closed, as wide as you dragged it, and scrolled to the same place. Each row shows its own length once that
-is known. The video playing right now is marked with a tinted row and a speaker glyph; a video already watched keeps
-a check mark. Titles are fetched for the rows that are on screen, so a long import does not become a long wait, and a
-row shows the video's id until its title arrives. Right-clicking a row plays it, marks it watched or unwatched, copies its link, opens it in
-your browser, or removes it from the queue — which is the only way to drop a single video.
+The sidebar (⌃⌘S) lists what is left to watch and counts it. It restores its width, scroll position and open state
+between launches. Each row carries the video's title, channel and length; a row whose title has not arrived yet
+shows the video id. Titles are fetched for the rows on screen, so importing a long list does not block on them.
+The video playing now has a tinted row and a speaker glyph, and watched videos keep a check mark.
 
-Add videos by pasting links (⌘V takes as many as the clipboard holds), by dropping links onto the sidebar, or with a
-`cue://add?url=<video URL>` link from a browser or a script. Adding the same video twice never duplicates it. ⇧⌘N
-plays the next pending video and ⇧⌘D marks the current one watched; Queue ▸ Play Next Automatically decides whether
-finishing a video starts the next one. A video marks itself watched when it plays through to the end, counting anything within
-twenty seconds of the duration as the end; scrubbing into those last seconds and stopping does not.
+Right-clicking a row plays it, marks it watched or unwatched, copies its link, opens it in your browser, or removes
+it from the queue. Remove from Queue is the only way to drop a single video.
 
-Cue remembers where you stopped each video and resumes there next time. It keeps a position only past the first
-ten seconds and more than twenty from the end, so a video you barely started, or all but finished, begins again
-at the beginning.
+There are three ways to add videos:
 
-Thumbnails are YouTube's public still images, cached in `~/Library/Caches/Cue/thumbnails` by video id and capped at
-32 MB. Deleting that folder costs nothing.
+- ⌘V pastes every link on the clipboard.
+- Drop links onto the sidebar.
+- Open a `cue://add?url=<video URL>` link from a browser or a script.
+
+Adding a video that is already queued does nothing.
+
+**Watched state.** A video is marked watched when it plays through to the end; anything within twenty seconds of
+the duration counts as the end. ⇧⌘D marks the current video by hand, and ⇧⌘N plays the next pending one.
+Queue ▸ Play Next Automatically decides whether finishing a video starts the next.
+
+**Resume.** Cue stores a position once a video is past its first ten seconds and more than twenty seconds from the
+end. Videos outside that window start from the beginning.
+
+**Thumbnails** are YouTube's public still images, cached in `~/Library/Caches/Cue/thumbnails` by video id and
+capped at 32 MB. Deleting that folder costs nothing.
 
 ### Import and export
 
-File ▸ Import Queue… reads three formats, and File ▸ Export Queue… writes them; the file extension decides which
-(`.txt`, `.json`, `.csv`), and an imported file is sniffed if its extension says nothing. Importing is idempotent:
-videos already queued are left as they are, and the summary says how many were added, skipped and unreadable.
+File ▸ Import Queue… reads three formats and File ▸ Export Queue… writes them. The file extension picks the format
+(`.txt`, `.json`, `.csv`); an imported file whose extension says nothing is sniffed. Importing is idempotent, and
+the summary reports how many videos were added, skipped and unreadable.
 
 - **URL list** (`.txt`): one video URL or id per line. Lines starting with `#` are comments.
 - **Cue JSON** (`.json`): `{"version": 1, "items": [{"videoID", "title", "author", "duration", "addedAt",
-  "watchedAt"}]}`. This is the format that round-trips everything, watched state included.
+  "watchedAt"}]}`. This format round-trips everything, watched state included.
 - **CSV** (`.csv`): comma separated, `"` quoted. A Google Takeout playlist export
-  (`Video ID,Playlist Video Creation Timestamp`) imports as it is. Column names are matched case-insensitively:
+  (`Video ID,Playlist Video Creation Timestamp`) imports as it is. Column names match case-insensitively:
 
   | Field | Accepted column names |
   |---|---|
@@ -151,103 +142,75 @@ videos already queued are left as they are, and the summary says how many were a
   | added | `playlist video creation timestamp`, `video creation timestamp`, `timestamp`, `added`, `added timestamp` |
   | watched | `watched`, `watched timestamp` |
 
-  A CSV whose header names none of the video columns is read as a URL list instead, and a file without a header is read
-  as ids in the first column. A quoted field keeps its spaces; an unquoted one is trimmed.
+  A CSV whose header names none of the video columns is read as a URL list, and a file with no header is read as
+  ids in the first column. Quoted fields keep their spaces; unquoted ones are trimmed.
 
-## Chapters, subtitles, audio tracks and the mini player
+## Chapters, subtitles and audio
 
-These three live in a column at the trailing edge of the window, not in floating panels: a panel takes focus away
-from the video, drifts behind the window and is easy to lose. One segmented control at its top switches pages, and
-every page keeps its scroll position while the others are in front. The inspector always opens closed.
+The inspector is a column at the trailing edge of the window with three pages. A segmented control at its top
+switches between them, and each page keeps its scroll position. It starts closed.
 
-The buttons in the controls bar follow what the video actually offers: no chapters, no chapters button; no captions,
-no subtitles button; a single soundtrack, no audio button. Most videos have no chapters and many have no captions,
-so a bar that always showed all three mostly advertised empty pages. The keyboard and the menu still reach every
-page regardless.
+The controls bar shows a button for each page that has something in it: no chapters button on a video without
+chapters, no subtitles button without captions, no audio button on a video with one soundtrack. The keyboard and
+the menu reach every page regardless.
 
-Chapters come from the video itself — the markers YouTube serves with the watch page, or, when there are none, the
-timestamps in the description. Nothing is fetched from anywhere else, and nothing is guessed.
+**Chapters** come from YouTube's own markers, or from the timestamps in the description when a video has no markers.
+⌥→ and ⌥← jump between them, and they appear as marks on the seek bar.
 
 ![The Chapters page of the inspector, listing the video's chapters with the current one in bold](docs/screenshot-chapters.webp)
 
-Subtitles are the caption tracks the video offers. Choosing one downloads it, writes it as WebVTT into a private
-temporary directory and hands that file to the player, so a subtitle cannot expire in the middle of a video the way a
-stream URL can. Size, colour, an optional background box and the timing offset (`z` and `x`, or the page's slider)
-apply immediately, and the subtitles lift clear of the controls bar while it is on screen rather than sitting behind
-it. Export writes SubRip (`.srt`) or WebVTT (`.vtt`) from the same text that is on screen.
+**Subtitles** are the caption tracks the video offers. Choosing one downloads it, writes it as WebVTT into a private
+temporary directory and loads that file, so it cannot expire part-way through a video. Size, colour, an optional
+background box and the timing offset (`z` and `x`, or the page's slider) apply immediately. Export writes SubRip
+(`.srt`) or WebVTT (`.vtt`).
 
 ![The Subtitles page of the inspector, with the track list, size, colour and delay controls, and a thumbnail preview above the seek bar](docs/screenshot-subtitles.webp)
 
-Audio tracks are the languages a dubbed video offers. Cue plays the one YouTube marks as the video's original, rather
-than whichever dub happens to be encoded at the highest bitrate, and the inspector's Audio page (`a`, or ⌃⌘A) lists the
-rest. Switching is immediate: every language arrives in the same response as the video, so nothing is downloaded or
-resolved again, and the picture keeps playing from exactly where it was. A video with a single soundtrack says so
-instead of showing a list of one.
+**Audio languages.** Cue plays the soundtrack YouTube marks as the video's original. The Audio page (`a`, or ⌃⌘A)
+lists the rest of the languages a dubbed video offers. Switching is immediate: every language arrives in the same
+player response, so nothing is resolved or downloaded again and playback continues from where it was.
 
-The mini player (⌘⇧M) moves the video into a small floating window that stays above other apps. It is the same player:
-the stream is not re-resolved, playback does not pause, and closing the small window brings the video back.
+**The mini player** (⌘⇧M) moves the video into a small window that stays above other apps. The stream is not
+re-resolved and playback does not pause; closing the small window brings the video back.
 
-Fit the window to the video (⌘0, or the button in the controls) resizes the window until the picture fills it exactly,
-with no black bars on any side. Dragging a corner cannot land on that shape by hand, so once a window has been resized
-there is otherwise no way back to an exact fit. It keeps the width you gave the window and moves the height, unless
-that would run off the screen, and it measures the video area rather than the whole window, so an open sidebar does not
-bring the bars back.
+**Fit the window to the video** (⌘0, or the button in the controls) resizes the window until the picture fills it
+with no black bars. It keeps the width you gave the window and moves the height, clamped to the screen, and it
+measures the video area, so an open sidebar does not bring the bars back.
 
 ## Settings
 
-⌘, opens a window with six sections. Everything in it is remembered across launches, in macOS's own preferences
-store — there is no configuration file to edit and nothing is sent anywhere. A Reset button at the foot puts every
-setting back to its default, and stands further from the form than the sections stand from each other, so it is not
-reached for by accident.
+⌘, opens a window with six sections. Everything in it persists in macOS's preferences store; there is no
+configuration file to edit. A Reset button at the foot restores every default.
 
-- **Appearance.** Follow the system, or force light or dark.
+- **Appearance.** Follow the system, light, or dark.
 - **Playback.** Whether finishing a video starts the next one.
-- **Sidebar.** Whether rows are a list, thumbnails or one line each, and whether the column floats over the video or
-  pushes it aside. The choice you make with ⌃⌘M or ⌃⌘O is the same setting, and survives a restart.
-- **Cache.** What the thumbnail cache currently weighs, a button to empty it and one to fetch the missing images.
-  Emptying it costs nothing: the images come back from YouTube as rows appear.
-- **Queue.** Import a file of links, add a single video, or empty the queue. Emptying asks first and cannot be undone.
-- **Browser Integration.** Opens the page that carries the bookmarklet, the same one as Cue ▸ Browser Integration….
+- **Sidebar.** The row shape, and whether the sidebar floats over the video or pushes it aside. This is the same
+  setting as ⌃⌘M and ⌃⌘O.
+- **Cache.** What the thumbnail cache weighs, with buttons to empty it and to fetch the missing images.
+- **Queue.** Import a file of links, add a single video, or empty the queue. Emptying asks first.
+- **Browser Integration.** Opens the bookmarklet page, the same one as Cue ▸ Browser Integration….
 
 ## From the browser
 
-Cue registers the `cue://add?url=…` scheme, so anything that can open a link can add a video: a bookmarklet, a
-script, or `open` from a terminal.
+Cue registers the `cue://add?url=…` scheme, so anything that opens a link can add a video: a bookmarklet, a script,
+or `open` from a terminal.
 
-**The bookmarklet** needs nothing installed. Cue ▸ Browser Integration… (also in Settings) opens a page in your
-browser with a button to drag onto the bookmarks bar, and instructions for Chrome, Firefox and Safari. That page is
-a plain file on disk — Cue runs no server and opens no port — and it loads nothing from the network, which is why
-it can honestly say so on itself.
+Cue ▸ Browser Integration… (also in Settings) writes a page to disk and opens it in your browser. The page holds a
+button to drag onto the bookmarks bar and instructions for Chrome, Firefox and Safari. It loads nothing from the
+network, and Cue runs no server and opens no port.
 
-No browser lets an outside app create a bookmark: there is no API for it, and the alternative is writing a
-browser's private bookmark store behind its back, with the browser closed, risking your own bookmarks. Cue does
-not do that. One drag is as close as anything can get.
-
-The bookmarklet is short enough to read before you install it:
+The bookmarklet sends the URL of the page you are on and leaves the page where it is:
 
 ```
 javascript:(function(){var a=document.createElement('a');a.href='cue://add?url='+encodeURIComponent(location.href);document.body.appendChild(a);a.click();a.remove();})()
 ```
 
-It clicks a synthetic link rather than assigning `location.href`, so the page you are on stays where it is, and it
-is wrapped in a function that returns nothing: a `javascript:` URL that produces a value makes the browser replace
-the page with that value, which is exactly what the simpler version did.
+One link may carry several videos (`cue://add?url=…&url=…`), so a script handing over a list makes one trip through
+the system. Videos Cue cannot read are skipped, and a link with nothing readable in it says so.
 
-One link may carry several videos (`cue://add?url=…&url=…`), so a script handing over a list costs one trip
-through the system rather than one per video. Videos Cue cannot read are skipped rather than failing the whole
-link, and a link where nothing is readable says so instead of doing nothing quietly.
+## `cue-resolve`
 
-## About
-
-Cue ▸ About Cue shows the icon, the version and build, the author and Cue's own MIT license, and below them the full
-text of the licenses of everything bundled — libmpv and FFmpeg under the LGPL, GRDB under MIT, the yt-dlp EJS solver
-under the Unlicense, and the rest. That text is not written into the app: it is read from
-`Cue.app/Contents/Resources/licenses/`, so what ships and what the window shows are the same document and cannot
-drift apart.
-
-## Try it: `cue-resolve`
-
-`cue-resolve` shows what Cue's extraction core does. Give it a YouTube URL or video id, and it prints the video details and the stream URLs it would play.
+`cue-resolve` prints what Cue's extraction core does with a YouTube URL or video id:
 
 ```console
 $ swift run --build-system native -q cue-resolve "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
@@ -265,10 +228,10 @@ audio:      https://…googlevideo.com/videoplayback?…
 resolved in 0.92 s
 ```
 
-The `--build-system native` flag pins the same build engine as `scripts/build.sh` and `scripts/test.sh`; a bare
-`swift run` compiles the whole package a second time into its own tree. See [building.md](building.md).
+Exit codes: `0` on success, `1` when the video cannot be resolved (the reason goes to stderr), `2` on invalid usage.
 
-Stream URLs are tied to your IP address and expire after a few hours. To check that they play, pass the printed user agent to `ffprobe` or `mpv`:
+Stream URLs are tied to your IP address and expire after a few hours. To check that they play, pass the printed
+user agent to `ffprobe` or `mpv`:
 
 ```sh
 OUT=$(swift run --build-system native -q cue-resolve dQw4w9WgXcQ)
@@ -277,42 +240,55 @@ URL=$(printf '%s\n' "$OUT" | sed -n 's/^video: *//p')
 ffprobe -v error -user_agent "$UA" -show_entries stream=codec_name,width,height "$URL"
 ```
 
-Exit codes: `0` on success, `1` when the video cannot be resolved (the reason is printed to stderr), and `2` on invalid usage.
+`--build-system native` pins the same build engine as `scripts/build.sh` and `scripts/test.sh`. See
+[building.md](building.md).
 
 ## How it works
 
-YouTube does not offer a public API for playable streams. Cue follows the same path a YouTube client does:
+YouTube publishes no API for playable streams, so Cue follows the path a YouTube client takes:
 
-1. **Parse the input.** `VideoID` accepts video ids and the common URL forms (`watch`, `youtu.be`, `shorts`, `embed`, `live`).
-2. **Ask YouTube for the player response.** `WatchPage` reads a visitor token from the watch page. `InnerTube` then requests `/youtubei/v1/player` with a client profile that currently returns directly playable formats.
-3. **Solve playback challenges when needed.** Some stream URLs carry obfuscated parameters (`n` and signature) that must be transformed by YouTube's own player JavaScript. `PlayerScript` locates the current player. `ChallengeSolver` runs yt-dlp's EJS solver scripts in macOS's JavaScriptCore and caches the preprocessed player.
-4. **Pick the streams.** `FormatSelector` chooses the best video your Mac decodes in hardware (up to 1080p by default) and the best audio — AAC by preference, Opus when a video offers no AAC — in the language YouTube marks as the video's original when it offers dubs. Only when a video offers no hardware-friendly stream does it fall back to software decoding (VP9 up to 1080p, then AV1 up to 720p), and it reports which way it went.
+1. **Parse the input.** `VideoID` accepts video ids and the common URL forms (`watch`, `youtu.be`, `shorts`,
+   `embed`, `live`).
+2. **Fetch the player response.** `WatchPage` reads a visitor token from the watch page, and `InnerTube` requests
+   `/youtubei/v1/player` with a client profile that returns directly playable formats.
+3. **Solve the playback challenges.** Some stream URLs carry obfuscated `n` and signature parameters that YouTube's
+   own player JavaScript has to transform. `PlayerScript` locates the current player; `ChallengeSolver` runs
+   yt-dlp's EJS solver scripts in macOS's JavaScriptCore and caches the preprocessed player.
+4. **Pick the streams.** `FormatSelector` takes the best video the Mac decodes in hardware, up to 1080p, and the
+   best audio in the video's original language. It falls back to software decoding (VP9 up to 1080p, then AV1 up
+   to 720p) for videos with no hardware-friendly stream, and reports which way it went.
 
-The result is a `Resolution`: title, author, duration, the selected video and audio streams, and the user agent the streams must be requested with.
+The result is a `Resolution`: title, author, duration, the selected streams, and the user agent they must be
+requested with.
 
 ## Building from source
 
-Apple's Command Line Tools and two commands, with no Xcode project:
+Apple's Command Line Tools and two commands:
 
 ```sh
 scripts/fetch-libmpv.sh   # once: downloads and links libmpv
 scripts/build.sh          # builds with the build engine pinned
 ```
 
-[building.md](building.md) has the rest: running the app, the test runner, what is safe to delete and how to rebuild
-from nothing, and the project layout.
+[building.md](building.md) covers running the app, the test runner, what is safe to delete and how to rebuild from
+nothing, and the project layout.
 
 ## Contributing
 
-Issues and pull requests are welcome. [contributing.md](contributing.md) has the ground rules and what to check
+Issues and pull requests are welcome. [contributing.md](contributing.md) has the ground rules, and what to check
 first when YouTube changes something and extraction breaks.
 
 ## License
 
-Cue is released under the [MIT License](license.md).
+Cue is released under the [MIT License](license.md). Cue ▸ About Cue shows the version and build, the author,
+and the full text of the licenses of everything bundled, read from `Cue.app/Contents/Resources/licenses/`.
 
-It bundles third-party code under its own licenses, notably the yt-dlp EJS solver scripts (The Unlicense), which include meriyah (ISC) and astring (MIT), and libmpv with FFmpeg as a replaceable LGPL shared library. See [third-party-licenses.md](third-party-licenses.md).
+It bundles third-party code under its own licenses, notably the yt-dlp EJS solver scripts (The Unlicense), which
+include meriyah (ISC) and astring (MIT), and libmpv with FFmpeg as a replaceable LGPL shared library. See
+[third-party-licenses.md](third-party-licenses.md).
 
 ## Disclaimer
 
-Cue is an independent project. It is not affiliated with, endorsed by or sponsored by YouTube or Google. It is meant for personal viewing of content you are allowed to watch. You are responsible for complying with YouTube's Terms of Service and with the rights of content creators.
+Cue is an independent project, not affiliated with, endorsed by or sponsored by YouTube or Google. It is meant for
+personal viewing of content you are allowed to watch. You are responsible for complying with YouTube's Terms of
+Service and with the rights of content creators.
